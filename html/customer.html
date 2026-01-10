@@ -6,25 +6,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <link rel="stylesheet" href="../css/style.css">
-
-<!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 
-<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-
-<!-- Firebase Config -->
 <script src="../js/firebase-config.js"></script>
-
-<!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <style>
-  #map { height: 400px; width: 100%; margin-bottom: 10px; }
-  .order-card { margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 6px; }
-  .order-card input, .order-card button { width: 100%; margin: 5px 0; padding: 8px; border-radius: 4px; }
+#map { height: 500px; width: 100%; margin-top: 20px; }
 </style>
 
 </head>
@@ -32,73 +23,63 @@
 
 <div class="app">
   <h2>Customer Dashboard</h2>
-
   <div id="map"></div>
-
-  <div class="order-card">
-    <h3>Place New Order</h3>
-    <input type="text" id="destination" placeholder="Destination Address">
-    <button onclick="placeOrder()">Place Order</button>
-    <p id="order-status"></p>
-  </div>
 </div>
 
 <script>
-// ---------------- Leaflet Map Setup ----------------
 let map = L.map('map').setView([16.82, 96.15], 12);
+
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
 
-// Customer location marker
-let customerMarker;
+const riderIcon = L.icon({
+  iconUrl: '../assets/bike.png',
+  iconSize: [40,40],
+  iconAnchor: [20,40],
+  popupAnchor: [0,-40]
+});
 
-// ---------------- Firebase Auth ----------------
-auth.signInAnonymously()
-.then(res => {
-  const uid = res.user.uid;
+let markers = {};
+let routes = {};
+let colors = {};
 
-  // Get user's current location
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(pos => {
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
-
-      customerMarker = L.marker([lat, lng]).addTo(map).bindPopup("You are here").openPopup();
-      map.setView([lat, lng], 15);
-
-      // Optional: Save customer location to Firestore
-      db.collection("locations").doc(uid).set({
-        lat: lat,
-        lng: lng,
-        role: "customer",
-        name: localStorage.getItem("name") || "Customer",
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-
-    }, err => alert("GPS Error: " + err.message));
-  }
-
-}).catch(err => alert("Auth Error: " + err.message));
-
-// ---------------- Place Order ----------------
-function placeOrder() {
-  const destination = document.getElementById("destination").value.trim();
-  if (!destination) return alert("Enter destination");
-
-  const uid = auth.currentUser.uid;
-  db.collection("orders").add({
-    customerId: uid,
-    destination: destination,
-    status: "pending",
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  }).then(() => {
-    document.getElementById("order-status").innerText = "Order placed successfully!";
-    document.getElementById("destination").value = "";
-  }).catch(err => {
-    document.getElementById("order-status").innerText = "Error: " + err.message;
-  });
+function getRandomColor(uid){
+  if(colors[uid]) return colors[uid];
+  const color = '#' + Math.floor(Math.random()*16777215).toString(16);
+  colors[uid] = color;
+  return color;
 }
+
+db.collection("locations").onSnapshot(snapshot=>{
+  snapshot.docs.forEach(doc=>{
+    const data = doc.data();
+    const uid = doc.id;
+    if(!data.lat || !data.lng) return;
+
+    const position = [data.lat, data.lng];
+    const updated = data.updatedAt ? data.updatedAt.toDate().toLocaleTimeString() : '';
+
+    const popupContent = `<b>${data.name||uid}</b><br>Role: ${data.role}<br>Updated: ${updated}`;
+
+    if(markers[uid]){
+      markers[uid].setLatLng(position).setPopupContent(popupContent);
+    } else {
+      markers[uid] = L.marker(position, {icon: riderIcon}).addTo(map).bindPopup(popupContent);
+    }
+
+    if(!routes[uid]){
+      routes[uid] = L.polyline([position], {color:getRandomColor(uid), weight:4}).addTo(map);
+    } else {
+      const latlngs = routes[uid].getLatLngs();
+      latlngs.push(position);
+      routes[uid].setLatLngs(latlngs);
+    }
+  });
+
+  const uids = snapshot.docs.map(d=>d.id);
+  if(uids.length && markers[uids[0]]) map.setView(markers[uids[0]].getLatLng(), map.getZoom());
+});
 </script>
 
 </body>
