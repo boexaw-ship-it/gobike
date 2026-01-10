@@ -23,7 +23,7 @@
 
 <style>
   #map {
-    height: 400px;
+    height: 500px;
     width: 100%;
   }
 </style>
@@ -37,7 +37,7 @@
 </div>
 
 <script>
-// ==================== Leaflet Map Setup ====================
+// ---------------- Leaflet Map Setup ----------------
 let map = L.map('map').setView([16.82, 96.15], 12); // Myanmar center
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -46,16 +46,17 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 
 // Custom Rider / Bike icon
 const riderIcon = L.icon({
-  iconUrl: '../assets/bike.png',
+  iconUrl: '../assets/bike.png', // Rider avatar
   iconSize: [40, 40],
   iconAnchor: [20, 40],
   popupAnchor: [0, -40]
 });
 
-// Object to store markers
+// Store markers & polylines by UID
 let markers = {};
+let routes = {};
 
-// ==================== Firestore Real-Time Listener ====================
+// ---------------- Firestore Real-Time Listener ----------------
 db.collection("locations").onSnapshot(snapshot => {
   snapshot.docs.forEach(doc => {
     const data = doc.data();
@@ -65,26 +66,30 @@ db.collection("locations").onSnapshot(snapshot => {
 
     const position = [data.lat, data.lng];
 
-    // Format last updated
-    const updated = data.updatedAt ? data.updatedAt.toDate().toLocaleTimeString() : '';
-
-    // Popup content
+    // ---------------- Marker ----------------
+    const updatedTime = data.updatedAt ? data.updatedAt.toDate().toLocaleTimeString() : '';
     const popupContent = `
       <b>${data.name || uid}</b><br>
       Role: ${data.role}<br>
-      Updated: ${updated}
+      Updated: ${updatedTime}
     `;
 
     if (markers[uid]) {
-      // Update marker position and popup
       markers[uid].setLatLng(position);
       markers[uid].setPopupContent(popupContent);
     } else {
-      // Create new marker
-      const marker = L.marker(position, { icon: riderIcon })
+      markers[uid] = L.marker(position, { icon: riderIcon })
         .addTo(map)
         .bindPopup(popupContent);
-      markers[uid] = marker;
+    }
+
+    // ---------------- Polyline Route ----------------
+    if (!routes[uid]) {
+      routes[uid] = L.polyline([position], { color: 'red', weight: 4 }).addTo(map);
+    } else {
+      const latlngs = routes[uid].getLatLngs();
+      latlngs.push(position);
+      routes[uid].setLatLngs(latlngs);
     }
   });
 });
