@@ -2,35 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Login</title>
+<title>Customer - GoBike</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <link rel="stylesheet" href="../css/style.css">
-</head>
 
-<body>
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 
-<div class="app">
-  <h2 id="title"></h2>
-
-  <input
-    id="name"
-    class="input"
-    placeholder="Your Name"
-  >
-
-  <input
-    id="phone"
-    class="input"
-    placeholder="Phone Number"
-  >
-
-  <button class="btn" onclick="startLogin()">Continue</button>
-
-  <p id="status"></p>
-</div>
-
-<!-- Firebase SDK (COMPAT) -->
+<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -38,46 +18,76 @@
 <!-- Firebase Config -->
 <script src="../js/firebase-config.js"></script>
 
-<script>
-// ===== ROLE TITLE =====
-const role = localStorage.getItem("role") || "customer";
-document.getElementById("title").innerText =
-  role === "rider" ? "Rider Login" : "Customer Login";
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-// ===== LOGIN + SAVE USER =====
-function startLogin() {
-  const name = document.getElementById("name").value.trim();
-  const phone = document.getElementById("phone").value.trim();
-  const status = document.getElementById("status");
-
-  if (!name || !phone) {
-    status.innerText = "Please fill all fields";
-    return;
+<style>
+  #map {
+    height: 400px;
+    width: 100%;
   }
+</style>
 
-  auth.signInAnonymously()
-    .then(res => {
-      const uid = res.user.uid;
+</head>
+<body>
 
-      return db.collection("users").doc(uid).set({
-        name: name,
-        phone: phone,
-        role: role,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      }).then(() => {
-        status.innerText = "Login & Save OK ✅";
-        console.log("USER UID:", uid);
+<div class="app">
+  <h2>Customer Dashboard</h2>
+  <div id="map"></div>
+</div>
 
-        // optional redirect
-        // window.location.href = role === "rider"
-        //   ? "delivery.html"
-        //   : "customer.html";
-      });
-    })
-    .catch(err => {
-      status.innerText = err.message;
-    });
-}
+<script>
+// ==================== Leaflet Map Setup ====================
+let map = L.map('map').setView([16.82, 96.15], 12); // Myanmar center
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+// Custom Rider / Bike icon
+const riderIcon = L.icon({
+  iconUrl: '../assets/bike.png',
+  iconSize: [40, 40],
+  iconAnchor: [20, 40],
+  popupAnchor: [0, -40]
+});
+
+// Object to store markers
+let markers = {};
+
+// ==================== Firestore Real-Time Listener ====================
+db.collection("locations").onSnapshot(snapshot => {
+  snapshot.docs.forEach(doc => {
+    const data = doc.data();
+    const uid = doc.id;
+
+    if (!data.lat || !data.lng) return;
+
+    const position = [data.lat, data.lng];
+
+    // Format last updated
+    const updated = data.updatedAt ? data.updatedAt.toDate().toLocaleTimeString() : '';
+
+    // Popup content
+    const popupContent = `
+      <b>${data.name || uid}</b><br>
+      Role: ${data.role}<br>
+      Updated: ${updated}
+    `;
+
+    if (markers[uid]) {
+      // Update marker position and popup
+      markers[uid].setLatLng(position);
+      markers[uid].setPopupContent(popupContent);
+    } else {
+      // Create new marker
+      const marker = L.marker(position, { icon: riderIcon })
+        .addTo(map)
+        .bindPopup(popupContent);
+      markers[uid] = marker;
+    }
+  });
+});
 </script>
 
 </body>
