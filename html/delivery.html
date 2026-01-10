@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Rider - GoBike</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet" href="../css/style.css">
+</head>
+
+<body>
+
+<div class="app">
+
+  <h2>Rider Dashboard</h2>
+  <p>GPS Test</p>
+
+  <button class="btn" onclick="testGPS()">Test GPS</button>
+
+  <p id="result"></p>
+
+</div>
+
+<script>
+function testGPS() {
+  if (!navigator.geolocation) {
+    document.getElementById("result").innerText =
+      "GPS not supported";
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      document.getElementById("result").innerText =
+        "GPS OK\nLat: " + pos.coords.latitude +
+        "\nLng: " + pos.coords.longitude;
+    },
+    err => {
+      document.getElementById("result").innerText =
+        "GPS Error: " + err.message;
+    }
+  );
+}
+</script>
+
+</body>
+</html>
