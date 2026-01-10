@@ -6,6 +6,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <link rel="stylesheet" href="../css/style.css">
+
+<!-- Firebase SDK (COMPAT) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<!-- Firebase Config -->
+<script src="../js/firebase-config.js"></script>
+
 </head>
 
 <body>
@@ -15,29 +24,69 @@
   <h2>Rider Dashboard</h2>
   <p>GPS Test</p>
 
-  <button class="btn" onclick="testGPS()">Test GPS</button>
+  <button class="btn" onclick="testGPS()">Test GPS & Save</button>
 
   <p id="result"></p>
 
 </div>
 
 <script>
+// ✅ Anonymous login
+auth.signInAnonymously()
+  .catch(err => alert("Auth Error: " + err.message));
+
+// ✅ Function to save location to Firestore
+function saveLocation(lat, lng) {
+  const user = auth.currentUser;
+  if (!user) {
+    alert("Not logged in");
+    return;
+  }
+
+  const uid = user.uid;
+  const role = localStorage.getItem("role") || "rider";
+
+  db.collection("locations")
+    .doc(uid)
+    .set({
+      lat: lat,
+      lng: lng,
+      role: role,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    })
+    .then(() => {
+      console.log("Location saved to Firestore");
+    })
+    .catch(err => {
+      alert("Firestore error: " + err.message);
+    });
+}
+
+// ✅ Test GPS and save
 function testGPS() {
   if (!navigator.geolocation) {
-    document.getElementById("result").innerText =
-      "GPS not supported";
+    document.getElementById("result").innerText = "GPS not supported";
     return;
   }
 
   navigator.geolocation.getCurrentPosition(
     pos => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+
       document.getElementById("result").innerText =
-        "GPS OK\nLat: " + pos.coords.latitude +
-        "\nLng: " + pos.coords.longitude;
+        "GPS OK\nLat: " + lat + "\nLng: " + lng;
+
+      // Firestore save
+      saveLocation(lat, lng);
+
     },
     err => {
       document.getElementById("result").innerText =
         "GPS Error: " + err.message;
+    },
+    {
+      enableHighAccuracy: true
     }
   );
 }
