@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>Login</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <link rel="stylesheet" href="../css/style.css">
 </head>
 
@@ -12,17 +13,48 @@
 <div class="app">
   <h2 id="title"></h2>
 
-  <input class="input" placeholder="Your Name">
-  <input class="input" placeholder="Phone Number">
+  <input
+    id="name"
+    class="input"
+    placeholder="Your Name"
+  >
 
-  <button class="btn">Continue</button>
+  <input
+    id="phone"
+    class="input"
+    placeholder="Phone Number"
+  >
+
+  <button class="btn" onclick="startLogin()">Continue</button>
+
+  <p id="status"></p>
 </div>
 
-<script>
-const role = localStorage.getItem("role");
+<!-- Firebase SDK (COMPAT) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
+<!-- Firebase Config -->
+<script src="../js/firebase-config.js"></script>
+
+<script>
+/* Role title */
+const role = localStorage.getItem("role");
 document.getElementById("title").innerText =
   role === "rider" ? "Rider Login" : "Customer Login";
+
+/* Anonymous Login */
+function startLogin() {
+  auth.signInAnonymously()
+    .then(res => {
+      document.getElementById("status").innerText =
+        "Login OK : " + res.user.uid;
+    })
+    .catch(err => {
+      document.getElementById("status").innerText = err.message;
+    });
+}
 </script>
 
 </body>
