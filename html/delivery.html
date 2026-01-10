@@ -31,8 +31,11 @@
 </div>
 
 <script>
-// ✅ Anonymous login
+// ✅ Anonymous login for Rider (run on page load)
 auth.signInAnonymously()
+  .then(() => {
+    console.log("Anonymous login OK");
+  })
   .catch(err => alert("Auth Error: " + err.message));
 
 // ✅ Function to save location to Firestore
@@ -77,7 +80,7 @@ function testGPS() {
       document.getElementById("result").innerText =
         "GPS OK\nLat: " + lat + "\nLng: " + lng;
 
-      // Firestore save
+      // Save to Firestore
       saveLocation(lat, lng);
 
     },
@@ -85,9 +88,7 @@ function testGPS() {
       document.getElementById("result").innerText =
         "GPS Error: " + err.message;
     },
-    {
-      enableHighAccuracy: true
-    }
+    { enableHighAccuracy: true }
   );
 }
 </script>
