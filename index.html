@@ -22,7 +22,12 @@
 <script>
 function selectRole(role) {
   localStorage.setItem("role", role);
-  window.location.href = "html/customer.html";
+
+  if (role === "customer") {
+    window.location.href = "html/customer.html";
+  } else {
+    window.location.href = "html/delivery.html";
+  }
 }
 </script>
 
