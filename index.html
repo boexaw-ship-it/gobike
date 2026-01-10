@@ -2,130 +2,111 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>GoBike Delivery</title>
+<title>Customer - GoBike</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- CSS -->
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+<!-- Firebase SDK (COMPAT) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<!-- Firebase Config -->
+<script src="../js/firebase-config.js"></script>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <style>
-  /* ---------------- Body & Gradient Background ---------------- */
-  body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    margin: 0;
-    padding: 0;
-    height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background: linear-gradient(135deg, #1e90ff, #00c6ff);
-    color: #fff;
-  }
-
-  /* ---------------- App Card ---------------- */
-  .app {
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    border-radius: 20px;
-    padding: 40px 30px;
-    text-align: center;
-    width: 90%;
-    max-width: 400px;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-    transition: transform 0.3s ease;
-  }
-
-  .app:hover {
-    transform: translateY(-5px);
-  }
-
-  /* ---------------- Logo ---------------- */
-  .logo {
-    width: 120px;
-    margin-bottom: 20px;
-    border-radius: 50%;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-  }
-
-  h1 {
-    margin: 10px 0;
-    font-size: 28px;
-    font-weight: 700;
-    letter-spacing: 1px;
-  }
-
-  p {
-    margin: 5px 0 25px;
-    font-size: 16px;
-    color: #f0f0f0;
-  }
-
-  /* ---------------- Buttons ---------------- */
-  button {
-    padding: 12px 28px;
-    margin: 10px;
-    font-size: 16px;
-    font-weight: bold;
-    color: #fff;
-    background: linear-gradient(45deg, #ff6a00, #ff8e00);
-    border: none;
-    border-radius: 50px;
-    cursor: pointer;
-    transition: 0.3s;
-    box-shadow: 0 6px 15px rgba(0,0,0,0.2);
-  }
-
-  button:hover {
-    background: linear-gradient(45deg, #ff8e00, #ff6a00);
-    transform: scale(1.05);
-  }
-
-  /* ---------------- Responsive Adjustments ---------------- */
-  @media (max-width: 480px) {
-    h1 {
-      font-size: 24px;
-    }
-
-    p {
-      font-size: 14px;
-    }
-
-    button {
-      padding: 10px 20px;
-      font-size: 14px;
-    }
-
-    .logo {
-      width: 100px;
-    }
+  #map {
+    height: 500px;
+    width: 100%;
   }
 </style>
-
 </head>
 <body>
 
 <div class="app">
-  <img src="assets/logo.png" class="logo" alt="GoBike Logo">
-
-  <h1>GoBike</h1>
-  <p>Freelance Delivery Service</p>
-
-  <button onclick="selectRole('customer')">Customer</button>
-  <button onclick="selectRole('rider')">Rider</button>
+  <h2>Customer Dashboard</h2>
+  <div id="map"></div>
 </div>
 
 <script>
-function selectRole(role) {
-  localStorage.setItem("role", role);
-  const defaultName = role === "rider" ? "Rider" : "Customer";
-  localStorage.setItem("name", defaultName);
+// ---------------- Leaflet Map Setup ----------------
+let map = L.map('map').setView([16.82, 96.15], 12); // Myanmar center
 
-  if(role === "customer"){
-    window.location.href = "html/customer.html";
-  } else {
-    window.location.href = "html/delivery.html";
-  }
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+// Custom Rider / Bike icon
+const riderIcon = L.icon({
+  iconUrl: '../assets/bike.png', // Rider avatar
+  iconSize: [40, 40],
+  iconAnchor: [20, 40],
+  popupAnchor: [0, -40]
+});
+
+// Store markers & polylines by UID
+let markers = {};
+let routes = {};
+let colors = {}; // UID-specific color
+
+// Helper: random color generator
+function getRandomColor(uid) {
+  if (colors[uid]) return colors[uid];
+  const color = '#' + Math.floor(Math.random()*16777215).toString(16);
+  colors[uid] = color;
+  return color;
 }
+
+// ---------------- Firestore Real-Time Listener ----------------
+db.collection("locations").onSnapshot(snapshot => {
+  snapshot.docs.forEach(doc => {
+    const data = doc.data();
+    const uid = doc.id;
+
+    if (!data.lat || !data.lng) return;
+    const position = [data.lat, data.lng];
+
+    // ---------------- Marker ----------------
+    const updatedTime = data.updatedAt ? data.updatedAt.toDate().toLocaleTimeString() : '';
+    const popupContent = `
+      <b>${data.name || uid}</b><br>
+      Role: ${data.role}<br>
+      Updated: ${updatedTime}
+    `;
+
+    if (markers[uid]) {
+      // Smooth move marker
+      markers[uid].setLatLng(position);
+      markers[uid].setPopupContent(popupContent);
+    } else {
+      markers[uid] = L.marker(position, { icon: riderIcon })
+        .addTo(map)
+        .bindPopup(popupContent);
+    }
+
+    // ---------------- Polyline Route ----------------
+    if (!routes[uid]) {
+      routes[uid] = L.polyline([position], { color: getRandomColor(uid), weight: 4 }).addTo(map);
+    } else {
+      const latlngs = routes[uid].getLatLngs();
+      latlngs.push(position);
+      routes[uid].setLatLngs(latlngs);
+    }
+  });
+
+  // ---------------- Auto map follow: center on first rider ----------------
+  const uids = snapshot.docs.map(d => d.id);
+  if (uids.length && markers[uids[0]]) {
+    map.setView(markers[uids[0]].getLatLng(), map.getZoom());
+  }
+});
 </script>
 
 </body>
