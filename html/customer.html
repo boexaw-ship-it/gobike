@@ -1,13 +1,36 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Customer</title>
+<title>GoBike Customer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <link rel="stylesheet" href="../css/style.css">
+
+<!-- Firebase SDK (compat) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="../js/firebase-config.js"></script>
 </head>
 
 <body>
-<h2>Customer Page OK</h2>
-<a href="../index.html">Back</a>
+<div class="app">
+
+  <header class="header">
+    <img src="../assets/logo.png" class="logo">
+    <h1>GoBike</h1>
+    <p class="subtitle">Freelance Delivery Service</p>
+  </header>
+
+  <main class="card">
+    <h2>Customer Page</h2>
+    <p id="locationStatus" class="location-status">Detecting your location...</p>
+    <button class="btn" id="placeOrderBtn">Place Order</button>
+  </main>
+
+</div>
+
+<script src="../js/customer.js"></script>
 </body>
 </html>
