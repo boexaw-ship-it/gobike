@@ -39,20 +39,43 @@
 <script src="../js/firebase-config.js"></script>
 
 <script>
-/* Role title */
-const role = localStorage.getItem("role");
+// ===== ROLE TITLE =====
+const role = localStorage.getItem("role") || "customer";
 document.getElementById("title").innerText =
   role === "rider" ? "Rider Login" : "Customer Login";
 
-/* Anonymous Login */
+// ===== LOGIN + SAVE USER =====
 function startLogin() {
+  const name = document.getElementById("name").value.trim();
+  const phone = document.getElementById("phone").value.trim();
+  const status = document.getElementById("status");
+
+  if (!name || !phone) {
+    status.innerText = "Please fill all fields";
+    return;
+  }
+
   auth.signInAnonymously()
     .then(res => {
-      document.getElementById("status").innerText =
-        "Login OK : " + res.user.uid;
+      const uid = res.user.uid;
+
+      return db.collection("users").doc(uid).set({
+        name: name,
+        phone: phone,
+        role: role,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      }).then(() => {
+        status.innerText = "Login & Save OK ✅";
+        console.log("USER UID:", uid);
+
+        // optional redirect
+        // window.location.href = role === "rider"
+        //   ? "delivery.html"
+        //   : "customer.html";
+      });
     })
     .catch(err => {
-      document.getElementById("status").innerText = err.message;
+      status.innerText = err.message;
     });
 }
 </script>
