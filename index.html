@@ -2,28 +2,64 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>GoBike</title>
+<title>GoBike Delivery</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<!-- CSS -->
 <link rel="stylesheet" href="css/style.css">
+
+<!-- Firebase SDK (COMPAT – HTML/JS only) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<!-- Firebase config -->
+<script src="js/firebase-config.js"></script>
 </head>
 
 <body>
 
 <div class="app">
-  <img src="assets/logo.png" class="logo">
 
-  <h1>GoBike</h1>
-  <p>Freelance Delivery Service</p>
+  <!-- HEADER -->
+  <header class="header">
+    <img src="assets/logo.png" class="logo">
+    <h1>GoBike</h1>
+    <p class="subtitle">Freelance Delivery Service</p>
+  </header>
 
-  <a href="html/customer.html">
-    <button>Customer</button>
-  </a>
+  <!-- LOGIN CARD -->
+  <main class="card">
+    <h2>Login</h2>
 
-  <a href="html/delivery.html">
-    <button>Rider</button>
-  </a>
+    <input
+      type="text"
+      id="name"
+      class="input"
+      placeholder="Your Name"
+    >
+
+    <input
+      type="tel"
+      id="phone"
+      class="input"
+      placeholder="Phone Number"
+    >
+
+    <select id="role" class="input">
+      <option value="customer">Customer</option>
+      <option value="rider">Rider</option>
+    </select>
+
+    <button class="btn" onclick="login()">Continue</button>
+
+    <p id="status" class="status"></p>
+  </main>
+
 </div>
+
+<!-- Auth logic -->
+<script src="js/auth.js"></script>
 
 </body>
 </html>
