@@ -22,10 +22,7 @@
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <style>
-  #map {
-    height: 500px;
-    width: 100%;
-  }
+  #map { height: 500px; width: 100%; }
 </style>
 
 </head>
@@ -46,7 +43,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 
 // Custom Rider / Bike icon
 const riderIcon = L.icon({
-  iconUrl: '../assets/bike.png', // Rider avatar
+  iconUrl: '../assets/bike.png', 
   iconSize: [40, 40],
   iconAnchor: [20, 40],
   popupAnchor: [0, -40]
@@ -56,6 +53,23 @@ const riderIcon = L.icon({
 let markers = {};
 let routes = {};
 
+// ---------------- Smooth Move Function ----------------
+function moveMarkerSmooth(marker, newLatLng, steps = 10, delay = 50) {
+  if (!marker) return;
+  const start = marker.getLatLng();
+  const latStep = (newLatLng[0] - start.lat) / steps;
+  const lngStep = (newLatLng[1] - start.lng) / steps;
+
+  let i = 0;
+  const interval = setInterval(() => {
+    if (i >= steps) { clearInterval(interval); return; }
+    const lat = start.lat + latStep * i;
+    const lng = start.lng + lngStep * i;
+    marker.setLatLng([lat, lng]);
+    i++;
+  }, delay);
+}
+
 // ---------------- Firestore Real-Time Listener ----------------
 db.collection("locations").onSnapshot(snapshot => {
   snapshot.docs.forEach(doc => {
@@ -63,24 +77,21 @@ db.collection("locations").onSnapshot(snapshot => {
     const uid = doc.id;
 
     if (!data.lat || !data.lng) return;
-
     const position = [data.lat, data.lng];
 
-    // ---------------- Marker ----------------
+    // Popup content
     const updatedTime = data.updatedAt ? data.updatedAt.toDate().toLocaleTimeString() : '';
-    const popupContent = `
-      <b>${data.name || uid}</b><br>
-      Role: ${data.role}<br>
-      Updated: ${updatedTime}
-    `;
+    const popupContent = `<b>${data.name || uid}</b><br>Role: ${data.role}<br>Updated: ${updatedTime}`;
 
+    // ---------------- Marker ----------------
     if (markers[uid]) {
-      markers[uid].setLatLng(position);
+      moveMarkerSmooth(markers[uid], position);
       markers[uid].setPopupContent(popupContent);
     } else {
       markers[uid] = L.marker(position, { icon: riderIcon })
         .addTo(map)
-        .bindPopup(popupContent);
+        .bindPopup(popupContent)
+        .openPopup();
     }
 
     // ---------------- Polyline Route ----------------
@@ -91,6 +102,9 @@ db.collection("locations").onSnapshot(snapshot => {
       latlngs.push(position);
       routes[uid].setLatLngs(latlngs);
     }
+
+    // ---------------- Auto Follow ----------------
+    map.panTo(position, { animate: true });
   });
 });
 </script>
