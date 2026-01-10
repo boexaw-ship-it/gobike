@@ -2,64 +2,29 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>GoBike Delivery</title>
+<title>GoBike</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<!-- CSS -->
 <link rel="stylesheet" href="css/style.css">
-
-<!-- Firebase SDK (COMPAT – HTML/JS only) -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-
-<!-- Firebase config -->
-<script src="js/firebase-config.js"></script>
 </head>
 
 <body>
 
 <div class="app">
+  <img src="assets/logo.png" class="logo">
 
-  <!-- HEADER -->
-  <header class="header">
-    <img src="assets/logo.png" class="logo">
-    <h1>GoBike</h1>
-    <p class="subtitle">Freelance Delivery Service</p>
-  </header>
+  <h1>GoBike</h1>
+  <p>Freelance Delivery Service</p>
 
-  <!-- LOGIN CARD -->
-  <main class="card">
-    <h2>Login</h2>
-
-    <input
-      type="text"
-      id="name"
-      class="input"
-      placeholder="Your Name"
-    >
-
-    <input
-      type="tel"
-      id="phone"
-      class="input"
-      placeholder="Phone Number"
-    >
-
-    <select id="role" class="input">
-      <option value="customer">Customer</option>
-      <option value="rider">Rider</option>
-    </select>
-
-    <button class="btn" onclick="login()">Continue</button>
-
-    <p id="status" class="status"></p>
-  </main>
-
+  <button onclick="selectRole('customer')">Customer</button>
+  <button onclick="selectRole('rider')">Rider</button>
 </div>
 
-<!-- Auth logic -->
-<script src="js/auth.js"></script>
+<script>
+function selectRole(role) {
+  localStorage.setItem("role", role);
+  window.location.href = "html/customer.html";
+}
+</script>
 
 </body>
 </html>
