@@ -2,15 +2,67 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>GoBike</title>
+<title>GoBike Delivery</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="css/style.css">
-</head>
 
+<!-- CSS -->
+<link rel="stylesheet" href="css/style.css">
+
+<style>
+  /* Basic App Styles */
+  body {
+    font-family: Arial, sans-serif;
+    background: #f5f5f5;
+    margin: 0;
+    padding: 0;
+  }
+
+  .app {
+    max-width: 400px;
+    margin: 80px auto;
+    background: #fff;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    text-align: center;
+  }
+
+  .logo {
+    width: 100px;
+    margin-bottom: 20px;
+  }
+
+  h1 {
+    margin: 10px 0;
+  }
+
+  p {
+    margin: 5px 0 20px;
+    color: #555;
+  }
+
+  button {
+    padding: 12px 25px;
+    margin: 10px;
+    border: none;
+    border-radius: 8px;
+    background-color: #1e90ff;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+
+  button:hover {
+    background-color: #0077cc;
+  }
+</style>
+
+</head>
 <body>
 
 <div class="app">
-  <img src="assets/logo.png" class="logo">
+  <img src="assets/logo.png" class="logo" alt="GoBike Logo">
 
   <h1>GoBike</h1>
   <p>Freelance Delivery Service</p>
@@ -21,9 +73,15 @@
 
 <script>
 function selectRole(role) {
+  // Save role to localStorage
   localStorage.setItem("role", role);
 
-  if (role === "customer") {
+  // Optional: save default name
+  const defaultName = role === "rider" ? "Rider" : "Customer";
+  localStorage.setItem("name", defaultName);
+
+  // Redirect to respective page
+  if(role === "customer"){
     window.location.href = "html/customer.html";
   } else {
     window.location.href = "html/delivery.html";
