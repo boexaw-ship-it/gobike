@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Admin - GoBike</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+<!-- Firebase SDK (COMPAT) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<!-- Firebase Config -->
+<script src="../js/firebase-config.js"></script>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<style>
+  body { font-family: Arial, sans-serif; margin:0; padding:0; }
+  #map { height: 500px; width: 100%; margin-bottom: 20px; }
+  .app { padding: 20px; max-width: 900px; margin:auto; }
+  h2 { text-align: center; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+  th { background: #f2f2f2; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <h2>Admin Dashboard</h2>
+  <div id="map"></div>
+
+  <h3>User List</h3>
+  <table id="userTable">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Role</th>
+        <th>Phone</th>
+        <th>Last Update</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Users will populate here -->
+    </tbody>
+  </table>
+</div>
+
+<script>
+// ---------------- Leaflet Map Setup ----------------
+let map = L.map('map').setView([16.82, 96.15], 12); // Myanmar center
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+// Rider / Bike icon
+const riderIcon = L.icon({
+  iconUrl: '../assets/bike.png',
+  iconSize: [40, 40],
+  iconAnchor: [20, 40],
+  popupAnchor: [0, -40]
+});
+
+// Markers & Routes
+let markers = {};
+let routes = {};
+let colors = {}; // UID color
+
+function getRandomColor(uid){
+  if(colors[uid]) return colors[uid];
+  const color = '#' + Math.floor(Math.random()*16777215).toString(16);
+  colors[uid] = color;
+  return color;
+}
+
+// ---------------- Firestore Real-Time Listener ----------------
+db.collection("locations").onSnapshot(snapshot => {
+  snapshot.docs.forEach(doc => {
+    const data = doc.data();
+    const uid = doc.id;
+
+    if(!data.lat || !data.lng) return;
+    const position = [data.lat, data.lng];
+
+    // ---------------- Marker ----------------
+    const updatedTime = data.updatedAt ? data.updatedAt.toDate().toLocaleTimeString() : '';
+    const popupContent = `<b>${data.name || uid}</b><br>Role: ${data.role}<br>Updated: ${updatedTime}`;
+
+    if(markers[uid]){
+      markers[uid].setLatLng(position);
+      markers[uid].setPopupContent(popupContent);
+    } else {
+      markers[uid] = L.marker(position, { icon: riderIcon })
+        .addTo(map)
+        .bindPopup(popupContent);
+    }
+
+    // ---------------- Polyline ----------------
+    if(!routes[uid]){
+      routes[uid] = L.polyline([position], { color: getRandomColor(uid), weight:4 }).addTo(map);
+    } else {
+      const latlngs = routes[uid].getLatLngs();
+      latlngs.push(position);
+      routes[uid].setLatLngs(latlngs);
+    }
+  });
+
+  // Auto map follow first rider
+  const uids = snapshot.docs.map(d => d.id);
+  if(uids.length && markers[uids[0]]) {
+    map.setView(markers[uids[0]].getLatLng(), map.getZoom());
+  }
+});
+
+// ---------------- Populate User Table ----------------
+db.collection("users").onSnapshot(snapshot => {
+  const tbody = document.querySelector("#userTable tbody");
+  tbody.innerHTML = ""; // clear
+  snapshot.docs.forEach(doc => {
+    const data = doc.data();
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${data.name || ""}</td>
+      <td>${data.role || ""}</td>
+      <td>${data.phone || ""}</td>
+      <td>${data.createdAt ? data.createdAt.toDate().toLocaleString() : ""}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+});
+</script>
+
+</body>
+</html>
