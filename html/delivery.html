@@ -16,81 +16,59 @@
 <script src="../js/firebase-config.js"></script>
 
 </head>
-
 <body>
 
 <div class="app">
-
   <h2>Rider Dashboard</h2>
-  <p>GPS Test</p>
+  <p>GPS tracking is active.</p>
 
-  <button class="btn" onclick="testGPS()">Test GPS & Save</button>
-
-  <p id="result"></p>
-
+  <p id="status"></p>
 </div>
 
 <script>
-// ✅ Anonymous login for Rider (run on page load)
+// ---------------- Anonymous login ----------------
 auth.signInAnonymously()
-  .then(() => {
-    console.log("Anonymous login OK");
+  .then(res => {
+    const uid = res.user.uid;
+    document.getElementById("status").innerText = "Logged in as UID: " + uid;
+
+    // Start GPS watch
+    if (navigator.geolocation) {
+      navigator.geolocation.watchPosition(
+        pos => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const name = localStorage.getItem("name") || "Rider";
+
+          // Save location to Firestore
+          db.collection("locations").doc(uid).set({
+            lat: lat,
+            lng: lng,
+            name: name,
+            role: "rider",
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+
+          document.getElementById("status").innerText =
+            `GPS OK: Lat ${lat.toFixed(5)}, Lng ${lng.toFixed(5)}`;
+        },
+        err => {
+          document.getElementById("status").innerText = "GPS Error: " + err.message;
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 5000
+        }
+      );
+    } else {
+      document.getElementById("status").innerText = "Geolocation not supported.";
+    }
+
   })
-  .catch(err => alert("Auth Error: " + err.message));
-
-// ✅ Function to save location to Firestore
-function saveLocation(lat, lng) {
-  const user = auth.currentUser;
-  if (!user) {
-    alert("Not logged in");
-    return;
-  }
-
-  const uid = user.uid;
-  const role = localStorage.getItem("role") || "rider";
-
-  db.collection("locations")
-    .doc(uid)
-    .set({
-      lat: lat,
-      lng: lng,
-      role: role,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    })
-    .then(() => {
-      console.log("Location saved to Firestore");
-    })
-    .catch(err => {
-      alert("Firestore error: " + err.message);
-    });
-}
-
-// ✅ Test GPS and save
-function testGPS() {
-  if (!navigator.geolocation) {
-    document.getElementById("result").innerText = "GPS not supported";
-    return;
-  }
-
-  navigator.geolocation.getCurrentPosition(
-    pos => {
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
-
-      document.getElementById("result").innerText =
-        "GPS OK\nLat: " + lat + "\nLng: " + lng;
-
-      // Save to Firestore
-      saveLocation(lat, lng);
-
-    },
-    err => {
-      document.getElementById("result").innerText =
-        "GPS Error: " + err.message;
-    },
-    { enableHighAccuracy: true }
-  );
-}
+  .catch(err => {
+    document.getElementById("status").innerText = "Auth Error: " + err.message;
+  });
 </script>
 
 </body>
