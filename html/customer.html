@@ -6,116 +6,109 @@
     <title>GoBike - Place Order</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
-    
     <link rel="stylesheet" href="../css/style.css">
     <style>
-        body { background: #f4f7f6; display: block; padding: 0; margin: 0; font-family: sans-serif; }
-        .header { background: #ffcc00; padding: 15px; text-align: center; font-weight: bold; font-size: 1.2rem; }
+        body { background: #f4f7f6; font-family: sans-serif; margin: 0; padding-bottom: 30px; }
+        .header { background: #ffcc00; padding: 15px; text-align: center; font-weight: bold; font-size: 1.2rem; position: sticky; top: 0; z-index: 1000; }
         
-        #map { 
-            height: 300px; 
-            width: 100%; 
-            border-bottom: 5px solid #ffcc00;
-        }
+        #map { height: 250px; width: 100%; border-bottom: 5px solid #ffcc00; }
 
-        .order-container {
-            padding: 20px;
-            max-width: 500px;
-            margin: auto;
-        }
-
-        .info-text {
-            font-size: 0.9rem;
-            color: #666;
-            margin-bottom: 10px;
-            text-align: center;
-        }
-
-        .input-group { margin-bottom: 10px; }
-        
-        .input-group input {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            box-sizing: border-box;
-            outline: none;
-        }
+        .order-container { padding: 15px; max-width: 500px; margin: auto; }
+        .info-text { font-size: 0.85rem; color: #666; margin-bottom: 15px; text-align: center; }
 
         .loc-box {
-            background: #fff;
-            padding: 10px;
-            border-radius: 10px;
-            border-left: 5px solid #ffcc00;
-            margin-bottom: 15px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            background: #fff; padding: 12px; border-radius: 10px; border-left: 5px solid #ffcc00;
+            margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
         }
+        .loc-box b { font-size: 0.8rem; color: #333; display: block; margin-bottom: 5px; }
 
-        .loc-box b { display: block; font-size: 0.8rem; color: #333; margin-bottom: 5px; }
-        
-        .loc-input {
-            width: 100%;
-            border: none;
-            outline: none;
-            font-size: 0.9rem;
-            color: #555;
-            background: transparent;
+        .loc-select, .manual-input, .standard-input {
+            width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;
+            font-size: 0.9rem; outline: none; box-sizing: border-box;
         }
+        .manual-input { margin-top: 8px; background: #fafafa; border-style: dashed; }
+
+        .input-row { display: flex; gap: 10px; margin-bottom: 10px; }
+        .standard-input { margin-bottom: 10px; }
 
         .btn-confirm {
-            background: #000;
-            color: #ffcc00;
-            width: 100%;
-            padding: 15px;
-            border: none;
-            border-radius: 12px;
-            font-weight: bold;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: 0.3s;
-            margin-top: 10px;
+            background: #000; color: #ffcc00; width: 100%; padding: 15px; border: none;
+            border-radius: 12px; font-weight: bold; font-size: 1rem; cursor: pointer;
+            margin-top: 10px; transition: 0.3s;
         }
+        .btn-confirm:active { transform: scale(0.98); }
     </style>
 </head>
 <body>
 
     <div class="header">GoBike Order</div>
-
     <div id="map"></div>
     
     <div class="order-container">
-        <p class="info-text">📍 မြေပုံပေါ်တွင်နှိပ်၍ဖြစ်စေ၊ စာရိုက်ရှာ၍ဖြစ်စေ နေရာရွေးပါ</p>
+        <p class="info-text">📍 မြို့နယ်ရွေးပါ၊ လိပ်စာအသေးစိတ်ကို Manual ရိုက်ထည့်ပါ</p>
 
         <div class="loc-box">
-            <b>Pick-up Location:</b> 
-            <input type="text" id="pickup-text" class="loc-input" placeholder="နေရာရိုက်ရှာပါ သို့မဟုတ် မြေပုံတွင်ထောက်ပါ">
+            <b>Pick-up (ယူမည့်နေရာ):</b>
+            <select id="pickup-township" class="loc-select">
+                <option value="">မြို့နယ်ရွေးပါ</option>
+                <option value="Ahlone" data-lat="16.7875" data-lng="96.1261">အလုံ</option>
+                <option value="Bahan" data-lat="16.8115" data-lng="96.1518">ဗဟန်း</option>
+                <option value="Botahtaung" data-lat="16.7818" data-lng="96.1706">ဗိုလ်တထောင်</option>
+                <option value="Dagon" data-lat="16.7971" data-lng="96.1475">ဒဂုံ</option>
+                <option value="Dagon_East" data-lat="16.9061" data-lng="96.2239">ဒဂုံမြို့သစ်(အရှေ့ပိုင်း)</option>
+                <option value="Dagon_North" data-lat="16.9042" data-lng="96.1917">ဒဂုံမြို့သစ်(မြောက်ပိုင်း)</option>
+                <option value="Dagon_South" data-lat="16.8572" data-lng="96.2161">ဒဂုံမြို့သစ်(တောင်ပိုင်း)</option>
+                <option value="Dagon_Seikkan" data-lat="16.8517" data-lng="96.2558">ဒဂုံမြို့သစ်(ဆိပ်ကမ်း)</option>
+                <option value="Dawbon" data-lat="16.7864" data-lng="96.1889">ဒေါပုံ</option>
+                <option value="Hlaing" data-lat="16.8409" data-lng="96.1264">လှိုင်</option>
+                <option value="Hlaingthaya" data-lat="16.8681" data-lng="96.0594">လှိုင်သာယာ</option>
+                <option value="Insein" data-lat="16.8892" data-lng="96.1031">အင်းစိန်</option>
+                <option value="Kamayut" data-lat="16.8286" data-lng="96.1284">ကမာရွတ်</option>
+                <option value="Kyauktada" data-lat="16.7744" data-lng="96.1594">ကျောက်တံတား</option>
+                <option value="Kyimyindaing" data-lat="16.8042" data-lng="96.1158">ကြည့်မြင်တိုင်</option>
+                <option value="Lanmadaw" data-lat="16.7818" data-lng="96.1424">လမ်းမတော်</option>
+                <option value="Latha" data-lat="16.7766" data-lng="96.1505">လသာ</option>
+                <option value="Mayangone" data-lat="16.8697" data-lng="96.1436">မရမ်းကုန်း</option>
+                <option value="Mingaladon" data-lat="16.9497" data-lng="96.1364">မင်္ဂလာဒုံ</option>
+                <option value="MingalaTaungnyunt" data-lat="16.7917" data-lng="96.1706">မင်္ဂလာတောင်ညွန့်</option>
+                <option value="NorthOkkalapa" data-lat="16.9083" data-lng="96.1667">မြောက်ဥက္ကလာပ</option>
+                <option value="Pabedan" data-lat="16.7778" data-lng="96.1547">ပန်းဘဲတန်း</option>
+                <option value="Pazundaung" data-lat="16.7900" data-lng="96.1700">ပုဇွန်တောင်</option>
+                <option value="Sanchaung" data-lat="16.8080" data-lng="96.1345">စမ်းချောင်း</option>
+                <option value="Seikgyikanaungto" data-lat="16.7458" data-lng="96.1136">ဆိပ်ကြီးခနောင်တို</option>
+                <option value="SouthOkkalapa" data-lat="16.8522" data-lng="96.1758">တောင်ဥက္ကလာပ</option>
+                <option value="Tamwe" data-lat="16.8111" data-lng="96.1750">တာမွေ</option>
+                <option value="Tharkayta" data-lat="16.7961" data-lng="96.2081">သာကေတ</option>
+                <option value="Thingangyun" data-lat="16.8322" data-lng="96.1969">သင်္ဃန်းကျွန်း</option>
+                <option value="Yankin" data-lat="16.8353" data-lng="96.1583">ရန်ကင်း</option>
+                <option value="Seikkan" data-lat="16.7700" data-lng="96.1600">ဆိပ်ကမ်း</option>
+                <option value="Kokan" data-lat="16.8200" data-lng="96.1600">ကိုးကန့်</option>
+                <option value="Shwepyitha" data-lat="16.9744" data-lng="96.0964">ရွှေပြည်သာ</option>
+            </select>
+            <input type="text" id="pickup-manual" class="manual-input" placeholder="လမ်းအမည်နှင့် အိမ်နံပါတ် ရိုက်ထည့်ပါ">
         </div>
 
         <div class="loc-box" style="border-left-color: #ff4757;">
-            <b>Drop-off Location:</b> 
-            <input type="text" id="dropoff-text" class="loc-input" placeholder="နေရာရိုက်ရှာပါ သို့မဟုတ် မြေပုံတွင်ထောက်ပါ">
+            <b>Drop-off (ပို့မည့်နေရာ):</b>
+            <select id="dropoff-township" class="loc-select">
+                <option value="">မြို့နယ်ရွေးပါ</option>
+                </select>
+            <input type="text" id="dropoff-manual" class="manual-input" placeholder="လမ်းအမည်နှင့် အိမ်နံပါတ် ရိုက်ထည့်ပါ">
         </div>
 
-        <div class="input-group">
-            <input type="text" id="item-detail" placeholder="ဘာပစ္စည်းပို့မှာလဲ? (ဥပမာ- ထမင်းဘူး)">
+        <input type="text" id="item-detail" class="standard-input" placeholder="ဘာပစ္စည်းပို့မှာလဲ? (ဥပမာ- ထမင်းဘူး)">
+
+        <div class="input-row">
+            <input type="number" id="item-weight" class="standard-input" placeholder="အလေးချိန် (kg)">
+            <input type="number" id="item-value" class="standard-input" placeholder="တန်ဖိုး (KS)">
         </div>
 
-        <div style="display: flex; gap: 10px;" class="input-group">
-            <input type="number" id="item-weight" placeholder="အလေးချိန် (kg)">
-            <input type="number" id="item-value" placeholder="ပစ္စည်းတန်ဖိုး (KS)">
-        </div>
-
-        <div class="input-group">
-            <input type="tel" id="receiver-phone" placeholder="လက်ခံမည့်သူ့ဖုန်းနံပါတ်">
-        </div>
+        <input type="tel" id="receiver-phone" class="standard-input" placeholder="လက်ခံမည့်သူ့ဖုန်းနံပါတ်">
 
         <button id="placeOrderBtn" class="btn-confirm">ORDER NOW</button>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
     <script type="module" src="../js/customer.js"></script>
-
 </body>
 </html>
