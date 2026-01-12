@@ -30,7 +30,7 @@ if (navigator.geolocation) {
     });
 }
 
-// --- ၃။ Listen to Pending Orders (စာသားလိပ်စာ နှင့် Map Link များ ထည့်သွင်းထားသည်) ---
+// --- ၃။ Listen to Pending Orders ---
 const q = query(collection(db, "orders"), where("status", "==", "pending"));
 
 onSnapshot(q, (snapshot) => {
@@ -44,9 +44,9 @@ onSnapshot(q, (snapshot) => {
         const order = orderDoc.data();
         const orderId = orderDoc.id;
 
-        // Google Map Link များ ဖန်တီးခြင်း
-        const pickupLink = `https://www.google.com/maps/search/?api=1&query=${order.pickup.lat},${order.pickup.lng}`;
-        const dropoffLink = `https://www.google.com/maps/search/?api=1&query=${order.dropoff.lat},${order.dropoff.lng}`;
+        // ✅ အမှန်ပြင်ထားသော Google Map Link များ (Template Literals ${} ကိုသုံးထားသည်)
+        const pickupLink = `https://www.google.com/maps?q=${order.pickup.lat},${order.pickup.lng}`;
+        const dropoffLink = `https://www.google.com/maps?q=${order.dropoff.lat},${order.dropoff.lng}`;
 
         const card = document.createElement('div');
         card.className = 'order-card';
@@ -80,7 +80,6 @@ onSnapshot(q, (snapshot) => {
         
         ordersContainer.appendChild(card);
 
-        // မြေပုံပေါ်မှာ ပစ္စည်းယူရမယ့်နေရာကို Marker ပြမယ်
         L.marker([order.pickup.lat, order.pickup.lng]).addTo(map)
             .bindPopup(`ယူရန်: ${order.item}`);
     });
@@ -94,6 +93,11 @@ document.addEventListener('click', async (e) => {
         const pAddr = e.target.getAttribute('data-paddr');
         const dAddr = e.target.getAttribute('data-daddr');
         
+        if (!auth.currentUser) {
+            alert("ကျေးဇူးပြု၍ Login အရင်ဝင်ပါ");
+            return;
+        }
+
         try {
             const orderRef = doc(db, "orders", orderId);
             
@@ -104,19 +108,19 @@ document.addEventListener('click', async (e) => {
                 acceptedAt: new Date()
             });
             
-            // Telegram ကို Notification ပို့မယ် (လိပ်စာအပြည့်အစုံပါဝင်သည်)
+            // ✅ Telegram Message ပို့ရာတွင် HTML Format အမှန်ဖြစ်စေရန် ပြင်ထားသည်
             const msg = `✅ <b>Order လက်ခံလိုက်ပါပြီ!</b>\n\n` +
                         `📦 <b>ပစ္စည်း:</b> ${itemName}\n` +
                         `🚴 <b>Rider:</b> ${auth.currentUser.email}\n\n` +
-                        `📍 <b>ယူရန်:</b> ${pAddr}\n` +
-                        `🏁 <b>ပို့ရန်:</b> ${dAddr}\n` +
+                        `📍 <b>ယူရန်:</b> ${pAddr || "လိပ်စာမပါရှိပါ"}\n` +
+                        `🏁 <b>ပို့ရန်:</b> ${dAddr || "လိပ်စာမပါရှိပါ"}\n` +
                         `⏰ <b>အချိန်:</b> ${new Date().toLocaleTimeString()}`;
             
             await notifyTelegram(msg);
             
-            alert("Order ကို လက်ခံလိုက်ပါပြီ။ Customer ဆီသို့ သွားရောက်ပေးပါ!");
+            alert("Order ကို လက်ခံလိုက်ပါပြီ။ Telegram Notification ပို့ပြီးပါပြီ။");
         } catch (error) {
-            console.error(error);
+            console.error("Error accepting order:", error);
             alert("Error: Order လက်ခံ၍မရပါ - " + error.message);
         }
     }
