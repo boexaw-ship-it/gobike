@@ -1,125 +1,32 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Flash Delivery - Customer</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-<style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI', Roboto, sans-serif;}
-body{background:#f0f2f5;display:flex;justify-content:center;align-items:center;height:100vh;}
-.container{width:100%;max-width:450px;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 0 20px rgba(0,0,0,0.1);}
-header{padding:15px;text-align:center;background:#000;color:#fff;font-size:18px;font-weight:bold;}
-#map{height:300px;}
-.input-box{width:90%;margin:10px auto;padding:10px;border:1px solid #ddd;border-radius:8px;display:block;}
-button.primary-btn{width:90%;margin:10px auto;padding:12px;border:none;background:#000;color:#fff;border-radius:8px;font-weight:bold;cursor:pointer;}
-button.primary-btn:hover{background:#333;}
-.info-row{display:flex;justify-content:space-between;width:90%;margin:10px auto;font-weight:bold;}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoBike - Login / Signup</title>
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+    <div class="auth-container">
+        <div id="signup-box">
+            <h2>Create Account</h2>
+            <input type="text" id="reg-name" placeholder="Full Name">
+            <input type="email" id="reg-email" placeholder="Gmail">
+            <input type="tel" id="reg-phone" placeholder="Phone Number">
+            <input type="password" id="reg-password" placeholder="Password">
+            <button id="signup-btn">Sign Up</button>
+            <p>Already have an account? <a href="#" onclick="showLogin()">Login</a></p>
+        </div>
 
-<div class="container">
-    <header>Request Delivery</header>
-
-    <input type="text" id="pickup-search" class="input-box" placeholder="Search Pickup Location">
-    <input type="text" id="dropoff-search" class="input-box" placeholder="Search Drop-off Location">
-
-    <div id="map"></div>
-
-    <div class="info-row">
-        <span>Distance:</span><span id="distance-text">0 km</span>
+        <div id="login-box" style="display:none;">
+            <h2>Login</h2>
+            <input type="email" id="login-email" placeholder="Gmail">
+            <input type="password" id="login-password" placeholder="Password">
+            <button id="login-btn">Sign In</button>
+            <p>New here? <a href="#" onclick="showSignup()">Create account</a></p>
+        </div>
     </div>
-    <div class="info-row">
-        <span>Delivery Fee:</span><span id="fee-text">0 MMK</span>
-    </div>
 
-    <button class="primary-btn" id="request-btn">Request Delivery</button>
-</div>
-
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script>
-// --- Initialize map ---
-const map = L.map('map').setView([16.8661, 96.1951], 12); // Yangon default
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-    maxZoom: 19
-}).addTo(map);
-
-// --- Markers ---
-let pickupMarker = L.marker([16.8661, 96.1951], {draggable:true}).addTo(map).bindPopup("Pickup");
-let dropoffMarker = L.marker([16.8661, 96.1951], {draggable:true}).addTo(map).bindPopup("Drop-off");
-
-let pickupCoords = pickupMarker.getLatLng();
-let dropoffCoords = dropoffMarker.getLatLng();
-
-// --- Helper function to calculate distance in km ---
-function getDistance(lat1, lon1, lat2, lon2){
-    function deg2rad(deg){ return deg * (Math.PI/180); }
-    const R = 6371;
-    const dLat = deg2rad(lat2-lat1);
-    const dLon = deg2rad(lon2-lon1);
-    const a = Math.sin(dLat/2)*Math.sin(dLat/2)+
-              Math.cos(deg2rad(lat1))*Math.cos(deg2rad(lat2))*
-              Math.sin(dLon/2)*Math.sin(dLon/2);
-    const c = 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R*c;
-}
-
-// --- Update distance and fee ---
-function updateDistanceFee(){
-    const dist = getDistance(
-        pickupCoords.lat, pickupCoords.lng,
-        dropoffCoords.lat, dropoffCoords.lng
-    );
-    document.getElementById('distance-text').innerText = dist.toFixed(2) + ' km';
-    const fee = 1000 + Math.ceil(dist*500); // Base 1000 + 500 per km
-    document.getElementById('fee-text').innerText = fee + ' MMK';
-}
-
-// --- Nominatim search ---
-async function searchLocation(query, markerType){
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
-    const data = await res.json();
-    if(data && data.length>0){
-        const lat = parseFloat(data[0].lat);
-        const lon = parseFloat(data[0].lon);
-        if(markerType==='pickup'){
-            pickupMarker.setLatLng([lat,lon]).openPopup();
-            pickupCoords = pickupMarker.getLatLng();
-            map.setView([lat,lon],15);
-        } else {
-            dropoffMarker.setLatLng([lat,lon]).openPopup();
-            dropoffCoords = dropoffMarker.getLatLng();
-            map.setView([lat,lon],15);
-        }
-        updateDistanceFee();
-    }
-}
-
-// --- Event listeners ---
-document.getElementById('pickup-search').addEventListener('change', e=>{
-    searchLocation(e.target.value, 'pickup');
-});
-document.getElementById('dropoff-search').addEventListener('change', e=>{
-    searchLocation(e.target.value, 'dropoff');
-});
-
-// --- Draggable markers ---
-pickupMarker.on('move', e=>{
-    pickupCoords = e.latlng;
-    updateDistanceFee();
-});
-dropoffMarker.on('move', e=>{
-    dropoffCoords = e.latlng;
-    updateDistanceFee();
-});
-
-// --- Request delivery button ---
-document.getElementById('request-btn').addEventListener('click', ()=>{
-    alert(`Delivery Requested!\nPickup: ${pickupCoords.lat.toFixed(5)}, ${pickupCoords.lng.toFixed(5)}\nDrop-off: ${dropoffCoords.lat.toFixed(5)}, ${dropoffCoords.lng.toFixed(5)}\nFee: ${document.getElementById('fee-text').innerText}`);
-});
-</script>
-
+    <script type="module" src="js/auth.js"></script>
 </body>
 </html>
