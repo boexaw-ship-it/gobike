@@ -3,83 +3,132 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GoBike - Login / Sign Up</title>
-<link rel="stylesheet" href="css/style.css">
+<title>Flash Freelance Delivery</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 <style>
-  body {
-    font-family: Arial, sans-serif;
-    background: #f7f7f7;
-    display: flex;
-    justify-content: center;
-    padding: 20px;
-  }
-  .container {
-    width: 100%;
-    max-width: 400px;
-    background: #fff;
-    padding: 25px 20px;
-    border-radius: 10px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-  }
-  h2 { text-align:center; margin-bottom: 20px; color: #333; }
-  input, select, button {
-    width: 100%;
-    padding: 12px;
-    margin: 8px 0;
-    border-radius: 6px;
-    border: 1px solid #ccc;
-    font-size: 16px;
-  }
-  button {
-    background: #007bff;
-    color: white;
-    border: none;
-    cursor: pointer;
-    font-weight: bold;
-  }
-  button:hover { background: #0056b3; }
-  p { color: red; font-size: 14px; }
+/* --- Global Styles --- */
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI', Roboto, sans-serif;}
+body{background-color:#f0f2f5;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;}
+.phone-frame{width:100%;max-width:450px;height:100vh;background:#fff;position:relative;box-shadow:0 0 20px rgba(0,0,0,0.1);}
+
+/* --- Login & Sign Up Pages --- */
+#login-page,#signup-page{display:flex;flex-direction:column;padding:40px 30px;height:100%;justify-content:center;text-align:center;background:#fff;}
+#signup-page{display:none;}
+.logo-area{width:80px;height:80px;background:#000;color:#fff;border-radius:22px;display:flex;justify-content:center;align-items:center;font-size:40px;margin:0 auto 20px;}
+h2{font-size:26px;font-weight:bold;margin-bottom:5px;color:#1e272e;}
+p{font-size:14px;color:#555;margin-bottom:15px;}
+.input-box{width:100%;padding:16px;margin-bottom:15px;border:1px solid #eee;border-radius:12px;background:#f9f9f9;outline:none;font-size:16px;transition:0.3s;}
+.input-box:focus{border-color:#000;}
+.primary-btn{width:100%;padding:16px;background:#000;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:bold;cursor:pointer;margin-top:10px;}
+.primary-btn:hover{background:#333;}
+.signup-text{margin-top:20px;font-size:13px;color:#888;}
+.signup-text a{color:#000;font-weight:bold;text-decoration:none;cursor:pointer;}
+
+/* --- Main App --- */
+#main-app{display:none;height:100%;flex-direction:column;}
+header{padding:15px;display:flex;justify-content:space-between;align-items:center;position:absolute;top:0;width:100%;z-index:10;}
+.header-btn{background:white;padding:10px;border-radius:50%;box-shadow:0 2px 5px rgba(0,0,0,0.1);width:40px;height:40px;display:flex;justify-content:center;align-items:center;}
+.header-status{font-weight:bold;background:white;padding:5px 20px;border-radius:20px;box-shadow:0 2px 5px rgba(0,0,0,0.1);}
+.map-area{flex:1;background:#e5e3df;display:flex;justify-content:center;align-items:center;position:relative;}
+.center-marker{position:absolute;font-size:30px;color:#ff3b30;z-index:5;}
+.map-text{color:#999;font-weight:bold;}
+.booking-card{background:#fff;padding:20px;border-radius:25px 25px 0 0;box-shadow:0 -5px 20px rgba(0,0,0,0.1);z-index:20;}
+.handle{width:40px;height:4px;background:#ddd;border-radius:10px;margin:0 auto 15px;}
+.card-title{margin-bottom:15px;font-size:18px;}
+.route-picker{background:#f8f8f8;padding:15px;border-radius:15px;margin-bottom:20px;}
+.route-row{display:flex;align-items:center;gap:12px;}
+.dot-green{color:#4cd964;font-size:12px;}
+.dot-red{color:#ff3b30;font-size:14px;}
+.route-row input{border:none;background:transparent;width:100%;font-size:15px;outline:none;}
+.divider-line{width:1px;height:15px;background:#ddd;margin-left:6px;margin-top:5px;margin-bottom:5px;}
+.price-tag{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;padding:0 5px;}
+.vehicle-info{display:flex;align-items:center;gap:12px;}
+.vehicle-info i{font-size:22px;}
+.service-name{font-size:14px;font-weight:bold;}
+.eta{font-size:12px;color:#888;}
+.amount{font-weight:bold;font-size:18px;}
 </style>
-</head>
-<body>
-
-<div class="container">
-  <h2>GoBike</h2>
-
-  <!-- LOGIN -->
-  <div>
-    <h3>Login</h3>
-    <input type="email" id="loginEmail" placeholder="Email">
-    <input type="password" id="loginPassword" placeholder="Password">
-    <button onclick="login()">Login</button>
-    <p id="loginMsg"></p>
-  </div>
-
-  <hr>
-
-  <!-- SIGN UP -->
-  <div>
-    <h3>Sign Up</h3>
-    <input type="text" id="signupName" placeholder="Your Name">
-    <input type="text" id="signupPhone" placeholder="Phone Number (optional)">
-    <input type="email" id="signupEmail" placeholder="Email">
-    <input type="password" id="signupPassword" placeholder="Password">
-    <select id="signupRole">
-      <option value="customer">Customer</option>
-      <option value="rider">Rider</option>
-    </select>
-    <button onclick="signUp()">Sign Up</button>
-    <p id="signupMsg"></p>
-  </div>
-</div>
 
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
+</head>
+<body>
+
+<div class="phone-frame">
+
+    <!-- LOGIN PAGE -->
+    <div id="login-page">
+        <div class="logo-area"><i class="fas fa-bolt"></i></div>
+        <h2>Flash Delivery</h2>
+        <p>Login to continue</p>
+        <input type="text" id="loginEmail" class="input-box" placeholder="Phone or Email">
+        <input type="password" id="loginPassword" class="input-box" placeholder="Password">
+        <button class="primary-btn" onclick="login()">Login</button>
+        <p class="signup-text">New here? <a onclick="showSignUp()">Sign Up</a></p>
+    </div>
+
+    <!-- SIGN UP PAGE -->
+    <div id="signup-page">
+        <div class="logo-area"><i class="fas fa-bolt"></i></div>
+        <h2>Create Account</h2>
+        <input type="text" id="signupName" class="input-box" placeholder="Full Name">
+        <input type="text" id="signupPhone" class="input-box" placeholder="Phone (Optional)">
+        <input type="email" id="signupEmail" class="input-box" placeholder="Email">
+        <input type="password" id="signupPassword" class="input-box" placeholder="Password">
+        <select id="signupRole" class="input-box">
+            <option value="customer">Customer</option>
+            <option value="rider">Rider</option>
+        </select>
+        <button class="primary-btn" onclick="signUp()">Sign Up</button>
+        <p class="signup-text"><a onclick="showLogin()">Back to Login</a></p>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="main-app">
+        <header>
+            <div class="header-btn"><i class="fas fa-bars"></i></div>
+            <div class="header-status">Pickup</div>
+            <div class="header-btn"><i class="fas fa-user"></i></div>
+        </header>
+        <div class="map-area">
+            <i class="fas fa-location-crosshairs center-marker"></i>
+            <div class="map-text">MAP VIEW CENTER</div>
+        </div>
+        <div class="booking-card">
+            <div class="handle"></div>
+            <h3 class="card-title">Where to?</h3>
+            <div class="route-picker">
+                <div class="route-row">
+                    <i class="fas fa-circle dot-green"></i>
+                    <input type="text" placeholder="Pickup location" value="Current Location">
+                </div>
+                <div class="divider-line"></div>
+                <div class="route-row">
+                    <i class="fas fa-location-dot dot-red"></i>
+                    <input type="text" placeholder="Drop-off location">
+                </div>
+            </div>
+            <div class="price-tag">
+                <div class="vehicle-info">
+                    <i class="fas fa-motorcycle"></i>
+                    <div>
+                        <p class="service-name">Standard</p>
+                        <p class="eta">3-5 mins away</p>
+                    </div>
+                </div>
+                <span class="amount">3,000 MMK</span>
+            </div>
+            <button class="primary-btn">Request Delivery</button>
+        </div>
+    </div>
+
+</div>
+
 <script>
-// ---------------- FIREBASE CONFIG ----------------
+/* --- Firebase Config --- */
 const firebaseConfig = {
   apiKey: "AIzaSyA1tAW0DWW633uYOZ1cHw-kfnHL2kQrlNM",
   authDomain: "gobike-14050.firebaseapp.com",
@@ -92,52 +141,52 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// ---------------- LOGIN ----------------
-function login(){
-  const email = document.getElementById("loginEmail").value.trim();
-  const password = document.getElementById("loginPassword").value.trim();
-  const msg = document.getElementById("loginMsg");
-  msg.innerText = "";
-
-  if(!email || !password){ msg.innerText = "Enter email & password"; return; }
-
-  auth.signInWithEmailAndPassword(email,password)
-    .then(res => db.collection("users").doc(res.user.uid).get())
-    .then(doc => {
-      if(!doc.exists) throw new Error("User not found");
-      const role = doc.data().role;
-      if(role === "customer") location.href = "html/customer.html";
-      else if(role === "rider") location.href = "html/delivery.html";
-      else throw new Error("Invalid role");
-    })
-    .catch(err => msg.innerText = err.message);
+/* --- Page Switch --- */
+function showApp(){
+    document.getElementById('login-page').style.display='none';
+    document.getElementById('signup-page').style.display='none';
+    document.getElementById('main-app').style.display='flex';
+}
+function showSignUp(){
+    document.getElementById('login-page').style.display='none';
+    document.getElementById('signup-page').style.display='flex';
+}
+function showLogin(){
+    document.getElementById('signup-page').style.display='none';
+    document.getElementById('login-page').style.display='flex';
 }
 
-// ---------------- SIGN UP ----------------
+/* --- Authentication --- */
+function login(){
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value.trim();
+    if(!email || !password){alert("Enter email & password"); return;}
+    auth.signInWithEmailAndPassword(email,password)
+    .then(res=> db.collection('users').doc(res.user.uid).get())
+    .then(doc=>{
+        if(!doc.exists) throw new Error("User not found");
+        showApp();
+    })
+    .catch(err=>alert(err.message));
+}
+
 function signUp(){
-  const name = document.getElementById("signupName").value.trim();
-  const phone = document.getElementById("signupPhone").value.trim();
-  const email = document.getElementById("signupEmail").value.trim();
-  const password = document.getElementById("signupPassword").value.trim();
-  const role = document.getElementById("signupRole").value;
-  const msg = document.getElementById("signupMsg");
-  msg.innerText = "";
-
-  if(!name || !email || !password){ msg.innerText = "Name, Email & Password required"; return; }
-
-  auth.createUserWithEmailAndPassword(email,password)
-    .then(res=>{
-      const uid = res.user.uid;
-      return db.collection("users").doc(uid).set({
+    const name = document.getElementById('signupName').value.trim();
+    const phone = document.getElementById('signupPhone').value.trim();
+    const email = document.getElementById('signupEmail').value.trim();
+    const password = document.getElementById('signupPassword').value.trim();
+    const role = document.getElementById('signupRole').value;
+    if(!name || !email || !password){alert("Name, Email, Password required"); return;}
+    auth.createUserWithEmailAndPassword(email,password)
+    .then(res=> db.collection('users').doc(res.user.uid).set({
         name: name,
         phone: phone || null,
         email: email,
         role: role,
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-    })
-    .then(()=> msg.innerText = "Sign up successful! You can now login.")
-    .catch(err => msg.innerText = err.message);
+    }))
+    .then(()=>{alert("Sign Up Successful!"); showLogin();})
+    .catch(err=>alert(err.message));
 }
 </script>
 
