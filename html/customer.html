@@ -10,7 +10,7 @@
     
     <link rel="stylesheet" href="../css/style.css">
     <style>
-        body { background: #f4f7f6; display: block; padding: 0; margin: 0; }
+        body { background: #f4f7f6; display: block; padding: 0; margin: 0; font-family: sans-serif; }
         .header { background: #ffcc00; padding: 15px; text-align: center; font-weight: bold; font-size: 1.2rem; }
         
         #map { 
@@ -34,13 +34,13 @@
 
         .input-group { margin-bottom: 10px; }
         
-        /* Input များ ပိုလှပစေရန် */
         .input-group input {
             width: 100%;
             padding: 12px;
             border: 1px solid #ddd;
             border-radius: 8px;
             box-sizing: border-box;
+            outline: none;
         }
 
         .loc-box {
@@ -49,8 +49,18 @@
             border-radius: 10px;
             border-left: 5px solid #ffcc00;
             margin-bottom: 15px;
-            font-size: 0.85rem;
             box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .loc-box b { display: block; font-size: 0.8rem; color: #333; margin-bottom: 5px; }
+        
+        .loc-input {
+            width: 100%;
+            border: none;
+            outline: none;
+            font-size: 0.9rem;
+            color: #555;
+            background: transparent;
         }
 
         .btn-confirm {
@@ -64,11 +74,7 @@
             font-size: 1rem;
             cursor: pointer;
             transition: 0.3s;
-        }
-
-        .btn-confirm:disabled {
-            background: #ccc;
-            color: #666;
+            margin-top: 10px;
         }
     </style>
 </head>
@@ -79,13 +85,16 @@
     <div id="map"></div>
     
     <div class="order-container">
-        <p class="info-text">📍 မြေပုံပေါ်တွင်နှိပ်၍ဖြစ်စေ၊ ရှာဖွေ၍ဖြစ်စေ နေရာရွေးပါ</p>
+        <p class="info-text">📍 မြေပုံပေါ်တွင်နှိပ်၍ဖြစ်စေ၊ စာရိုက်ရှာ၍ဖြစ်စေ နေရာရွေးပါ</p>
 
         <div class="loc-box">
-            <b>Pick-up:</b> <span id="pickup-text">မြေပုံပေါ်တွင် ရွေးပါ...</span>
+            <b>Pick-up Location:</b> 
+            <input type="text" id="pickup-text" class="loc-input" placeholder="နေရာရိုက်ရှာပါ သို့မဟုတ် မြေပုံတွင်ထောက်ပါ">
         </div>
+
         <div class="loc-box" style="border-left-color: #ff4757;">
-            <b>Drop-off:</b> <span id="dropoff-text">မြေပုံပေါ်တွင် ရွေးပါ...</span>
+            <b>Drop-off Location:</b> 
+            <input type="text" id="dropoff-text" class="loc-input" placeholder="နေရာရိုက်ရှာပါ သို့မဟုတ် မြေပုံတွင်ထောက်ပါ">
         </div>
 
         <div class="input-group">
@@ -106,7 +115,6 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
-    
     <script type="module" src="../js/customer.js"></script>
 
 </body>
