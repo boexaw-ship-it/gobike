@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Rider Dashboard</title>
+<title>Rider - GoBike</title>
 <link rel="stylesheet" href="../css/style.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -10,65 +10,45 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="../js/firebase-config.js"></script>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<style>
-  #map{height:400px;width:100%;margin-top:15px;border-radius:8px;}
-  #status{margin-top:10px;font-weight:bold;}
-  #orders{margin-top:15px;}
-  #orders li{margin-bottom:10px;}
-</style>
+<script type="module" src="../js/auth.js"></script>
+<style>#map{height:400px;width:100%;margin-top:15px;border-radius:8px;}</style>
 </head>
 <body>
 <div class="app">
   <h2>Rider Dashboard</h2>
   <p id="status">Initializing GPS...</p>
   <div id="map"></div>
-  <h3>Assigned Orders</h3>
-  <ul id="orders"></ul>
 </div>
 
-<script>
+<script type="module">
+import { checkAuth } from "../js/auth.js";
+checkAuth("rider");
+
 auth.onAuthStateChanged(user=>{
-  if(!user) location.href="../index.html";
-  
+  if(!user) return;
   db.collection("users").doc(user.uid).get().then(doc=>{
-    if(!doc.exists||doc.data().role!=="rider"){ auth.signOut(); location.href="../index.html"; }
-  });
+    if(!doc.exists || doc.data().role!=="rider"){ auth.signOut(); return; }
 
-  const map=L.map('map').setView([16.82,96.15],12);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy;OpenStreetMap'}).addTo(map);
-  const riderIcon=L.icon({iconUrl:'../assets/bike.png',iconSize:[40,40],iconAnchor:[20,40]});
-  const marker=L.marker([16.82,96.15],{icon:riderIcon}).addTo(map);
-  const path=L.polyline([[16.82,96.15]],{color:'red',weight:4}).addTo(map);
-  const statusEl=document.getElementById("status");
-  const ordersEl=document.getElementById("orders");
+    let map=L.map('map').setView([16.82,96.15],12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy;OpenStreetMap'}).addTo(map);
 
-  // GPS Watch
-  if(navigator.geolocation){
-    navigator.geolocation.watchPosition(pos=>{
-      const lat=pos.coords.latitude, lng=pos.coords.longitude;
-      statusEl.innerText=`GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    const riderIcon=L.icon({iconUrl:'../assets/bike.png',iconSize:[40,40],iconAnchor:[20,40]});
+    let marker=L.marker([16.82,96.15],{icon:riderIcon}).addTo(map);
+    let path=L.polyline([[16.82,96.15]],{color:'red',weight:4}).addTo(map);
 
-      db.collection("locations").doc(user.uid).set({
-        lat,lng,role:"rider",name:"Rider "+user.uid,
-        updatedAt:firebase.firestore.FieldValue.serverTimestamp()
-      },{merge:true});
-
-      marker.setLatLng([lat,lng]).bindPopup("Rider").openPopup();
-      let latlngs=path.getLatLngs(); latlngs.push([lat,lng]); path.setLatLngs(latlngs);
-      map.panTo([lat,lng]);
-    }, err=>{statusEl.innerText="GPS Error: "+err.message;},{enableHighAccuracy:true,maximumAge:0,timeout:10000});
-  } else { statusEl.innerText="Geolocation not supported"; }
-
-  // Assigned Orders Live
-  db.collection("orders").where("riderId","==",user.uid).onSnapshot(snapshot=>{
-    ordersEl.innerHTML="";
-    snapshot.docs.forEach(doc=>{
-      const o=doc.data();
-      const li=document.createElement("li");
-      li.innerHTML=`Order: Pickup(${o.pickup.lat.toFixed(5)},${o.pickup.lng.toFixed(5)}) 
-      → Drop(${o.drop.lat.toFixed(5)},${o.drop.lng.toFixed(5)}) | Status: ${o.status}`;
-      ordersEl.appendChild(li);
-    });
+    if(navigator.geolocation){
+      navigator.geolocation.watchPosition(pos=>{
+        const lat=pos.coords.latitude, lng=pos.coords.longitude;
+        document.getElementById("status").innerText=`GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        db.collection("locations").doc(user.uid).set({
+          lat, lng, role:"rider", name:"Rider "+user.uid,
+          updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+        },{merge:true});
+        marker.setLatLng([lat,lng]).bindPopup("Rider").openPopup();
+        let latlngs=path.getLatLngs(); latlngs.push([lat,lng]); path.setLatLngs(latlngs);
+        map.panTo([lat,lng]);
+      },err=>{document.getElementById("status").innerText="GPS Error:"+err.message;},{enableHighAccuracy:true,maximumAge:0,timeout:10000});
+    } else { document.getElementById("status").innerText="Geolocation not supported"; }
   });
 });
 </script>
