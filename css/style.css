@@ -1,112 +1,139 @@
-/* General Reset */
+/* --- Root Variables --- */
+:root {
+    --primary-color: #ffcc00; /* GoBike Yellow */
+    --secondary-color: #333;
+    --bg-color: #f8f9fa;
+    --card-bg: #ffffff;
+    --text-color: #2d3436;
+    --input-border: #dfe6e9;
+    --shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+/* --- Base Styles --- */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Poppins', sans-serif;
 }
 
 body {
-    background-color: #f4f7f6;
+    background-color: var(--bg-color);
+    height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
-    min-height: 100vh;
     padding: 20px;
 }
 
-/* Auth Container Box */
+/* --- Auth Box --- */
 .auth-box {
-    background: #ffffff;
+    background: var(--card-bg);
     width: 100%;
-    max-width: 400px;
-    padding: 30px;
-    border-radius: 20px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    max-width: 420px;
+    padding: 40px 30px;
+    border-radius: 24px;
+    box-shadow: var(--shadow);
     text-align: center;
 }
 
-/* Logo Style */
-.logo {
-    width: 80px;
-    height: 80px;
-    margin-bottom: 20px;
-    object-fit: contain;
+.logo-container img {
+    width: 70px;
+    margin-bottom: 10px;
 }
 
-/* Tabs Styling */
+.logo-container h1 {
+    font-size: 24px;
+    color: var(--secondary-color);
+    font-weight: 800;
+}
+
+.logo-container p {
+    font-size: 13px;
+    color: #888;
+    margin-bottom: 30px;
+}
+
+/* --- Tabs --- */
 .tabs {
     display: flex;
-    background: #f0f0f0;
-    padding: 5px;
-    border-radius: 12px;
-    margin-bottom: 25px;
+    background: #f1f2f6;
+    padding: 6px;
+    border-radius: 14px;
+    margin-bottom: 30px;
 }
 
 .tabs button {
     flex: 1;
-    padding: 10px;
+    padding: 12px;
     border: none;
     background: transparent;
-    cursor: pointer;
     font-weight: 600;
-    color: #666;
+    color: #747d8c;
+    cursor: pointer;
     transition: 0.3s;
-    border-radius: 8px;
+    border-radius: 10px;
 }
 
 .tabs button.active {
-    background: #ffffff;
-    color: #ffcc00; /* GoBike Theme Color */
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    background: #fff;
+    color: var(--secondary-color);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
 }
 
-/* Input Fields */
+/* --- Forms & Inputs --- */
+.input-group {
+    margin-bottom: 15px;
+}
+
 input, select {
     width: 100%;
-    padding: 12px 15px;
-    margin-bottom: 15px;
-    border: 1px solid #ddd;
-    border-radius: 10px;
-    outline: none;
+    padding: 14px 18px;
+    border: 1.5px solid var(--input-border);
+    border-radius: 12px;
     font-size: 14px;
+    outline: none;
     transition: 0.3s;
+    background: #fdfdfd;
 }
 
 input:focus, select:focus {
-    border-color: #ffcc00;
-    box-shadow: 0 0 5px rgba(255, 204, 0, 0.3);
+    border-color: var(--primary-color);
+    background: #fff;
 }
 
-/* Buttons */
-button[id="loginBtn"], button[id="signupBtn"] {
+/* --- Buttons --- */
+.main-btn {
     width: 100%;
-    padding: 12px;
-    background: #ffcc00;
+    padding: 15px;
+    background: var(--primary-color);
     border: none;
-    color: #000;
+    border-radius: 12px;
     font-size: 16px;
-    font-weight: bold;
-    border-radius: 10px;
+    font-weight: 700;
+    color: #000;
     cursor: pointer;
     transition: 0.3s;
     margin-top: 10px;
 }
 
-button[id="loginBtn"]:hover, button[id="signupBtn"]:hover {
-    background: #e6b800;
+.main-btn:hover {
+    background: #f1c40f;
     transform: translateY(-2px);
 }
 
-button[id="loginBtn"]:active, button[id="signupBtn"]:active {
-    transform: translateY(0);
+/* --- Footer --- */
+.footer-links {
+    margin-top: 25px;
+    font-size: 11px;
+    color: #bdc3c7;
 }
 
-/* Responsive for Mobile */
+/* --- Mobile Responsive --- */
 @media (max-width: 480px) {
     .auth-box {
-        padding: 20px;
         box-shadow: none;
         background: transparent;
+        padding: 20px;
     }
 }
