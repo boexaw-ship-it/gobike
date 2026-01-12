@@ -6,23 +6,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <link rel="stylesheet" href="../css/style.css">
-
-<!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 
-<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-
-<!-- Firebase Config -->
 <script src="../js/firebase-config.js"></script>
-
-<!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <style>
-  #map { height: 500px; width: 100%; border-radius: 8px; margin-top: 10px; }
+#map { height: 500px; width: 100%; margin-top: 10px; border-radius: 8px; }
+button { margin-top: 10px; padding: 8px 12px; font-size: 16px; }
 </style>
 </head>
 <body>
@@ -31,106 +25,109 @@
   <h2>Customer Dashboard</h2>
   <p id="status">Loading map...</p>
   <div id="map"></div>
+  <p id="info"></p>
+  <button id="submitOrder" disabled>Submit Order</button>
 </div>
 
 <script>
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-auth.onAuthStateChanged(user => {
-  if (!user) {
-    // Not logged in → redirect to login
-    location.href = "../index.html";
-    return;
-  }
+let map, riderIcon, markers={}, routes={}, colors={};
+let pickupMarker=null, dropMarker=null, orderLine=null;
 
+auth.onAuthStateChanged(user => {
+  if (!user) { location.href="../index.html"; return; }
   const uid = user.uid;
 
-  // Optional: check role from Firestore
+  // ---------------- Role check ----------------
   db.collection("users").doc(uid).get()
     .then(doc => {
-      if (!doc.exists) throw new Error("User not found");
-      if (doc.data().role !== "customer") {
-        alert("Access denied: not a customer");
+      if (!doc.exists || doc.data().role !== "customer") {
+        alert("Access denied");
         auth.signOut();
-        location.href = "../index.html";
+        location.href="../index.html";
       }
-    })
-    .catch(err => {
-      alert(err.message);
-      auth.signOut();
-      location.href = "../index.html";
     });
 
-  // ---------------- Leaflet Map Setup ----------------
-  const map = L.map('map').setView([16.82, 96.15], 12);
+  // ---------------- Leaflet Map ----------------
+  map = L.map('map').setView([16.82, 96.15], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ attribution:'&copy; OpenStreetMap contributors' }).addTo(map);
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
+  riderIcon = L.icon({ iconUrl:'../assets/bike.png', iconSize:[40,40], iconAnchor:[20,40] });
 
-  const riderIcon = L.icon({
-    iconUrl: '../assets/bike.png',
-    iconSize: [40, 40],
-    iconAnchor: [20, 40]
+  document.getElementById("status").innerText="Click on map: first pickup, then drop";
+
+  let step = 1;
+  map.on('click', function(e){
+    if(step===1){
+      if(pickupMarker) map.removeLayer(pickupMarker);
+      pickupMarker = L.marker(e.latlng).addTo(map).bindPopup("Pickup").openPopup();
+      document.getElementById("info").innerText=`Pickup set at Lat ${e.latlng.lat.toFixed(5)}, Lng ${e.latlng.lng.toFixed(5)}`;
+      step=2;
+    } else if(step===2){
+      if(dropMarker) map.removeLayer(dropMarker);
+      dropMarker = L.marker(e.latlng).addTo(map).bindPopup("Drop").openPopup();
+
+      // Draw line
+      if(orderLine) map.removeLayer(orderLine);
+      orderLine = L.polyline([pickupMarker.getLatLng(), dropMarker.getLatLng()], {color:'blue', weight:4}).addTo(map);
+
+      document.getElementById("info").innerText += ` | Drop set at Lat ${e.latlng.lat.toFixed(5)}, Lng ${e.latlng.lng.toFixed(5)}`;
+      document.getElementById("submitOrder").disabled = false;
+      step=3;
+    }
   });
 
-  const markers = {};
-  const routes = {};
-  const colors = {};
+  // ---------------- Rider realtime ----------------
+  db.collection("locations").where("role","==","rider")
+    .onSnapshot(snapshot=>{
+      snapshot.docs.forEach(doc=>{
+        const data = doc.data(); const rid=doc.id;
+        if(!data.lat||!data.lng) return;
+        const pos=[data.lat,data.lng];
+        const popup=`<b>${data.name||rid}</b><br>Updated: ${data.updatedAt?data.updatedAt.toDate().toLocaleTimeString():''}`;
 
-  function getRandomColor(uid){
-    if (colors[uid]) return colors[uid];
-    const color = '#' + Math.floor(Math.random()*16777215).toString(16);
-    colors[uid] = color;
-    return color;
-  }
+        if(markers[rid]){ markers[rid].setLatLng(pos); markers[rid].setPopupContent(popup); }
+        else{ markers[rid]=L.marker(pos,{icon:riderIcon}).addTo(map).bindPopup(popup); }
 
-  document.getElementById("status").innerText = "Listening for riders...";
-
-  // ---------------- Firestore Real-Time Listener ----------------
-  db.collection("locations")
-    .where("role","==","rider") // only rider
-    .onSnapshot(snapshot => {
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        const rid = doc.id;
-
-        if (!data.lat || !data.lng) return;
-        const pos = [data.lat, data.lng];
-
-        const popupContent = `
-          <b>${data.name || rid}</b><br>
-          Last update: ${data.updatedAt ? data.updatedAt.toDate().toLocaleTimeString() : ''}
-        `;
-
-        // ---------------- Marker ----------------
-        if (markers[rid]) {
-          markers[rid].setLatLng(pos);
-          markers[rid].setPopupContent(popupContent);
-        } else {
-          markers[rid] = L.marker(pos, { icon: riderIcon })
-            .addTo(map)
-            .bindPopup(popupContent);
-        }
-
-        // ---------------- Polyline Route ----------------
-        if (!routes[rid]) {
-          routes[rid] = L.polyline([pos], { color: getRandomColor(rid), weight: 4 }).addTo(map);
-        } else {
-          const latlngs = routes[rid].getLatLngs();
-          latlngs.push(pos);
-          routes[rid].setLatLngs(latlngs);
-        }
+        if(!routes[rid]) routes[rid]=L.polyline([pos],{color:getRandomColor(rid),weight:4}).addTo(map);
+        else{ const latlngs=routes[rid].getLatLngs(); latlngs.push(pos); routes[rid].setLatLngs(latlngs); }
       });
-
-      // Auto center on first rider
-      const ridIDs = snapshot.docs.map(d => d.id);
-      if (ridIDs.length && markers[ridIDs[0]]) {
-        map.setView(markers[ridIDs[0]].getLatLng(), map.getZoom());
-      }
     });
 });
+
+// ---------------- Random color ----------------
+function getRandomColor(uid){ if(colors[uid]) return colors[uid]; const c='#'+Math.floor(Math.random()*16777215).toString(16); colors[uid]=c; return c; }
+
+// ---------------- Submit Order ----------------
+document.getElementById("submitOrder").onclick = ()=>{
+  if(!pickupMarker||!dropMarker) return alert("Pickup and Drop required");
+
+  const pickup = pickupMarker.getLatLng();
+  const drop = dropMarker.getLatLng();
+
+  // Simple distance in km
+  const distance = map.distance(pickup,drop)/1000;
+  const price = Math.ceil(distance*1000); // 1km = 1000Ks
+
+  db.collection("orders").add({
+    customerId: auth.currentUser.uid,
+    pickup: {lat:pickup.lat, lng:pickup.lng},
+    drop: {lat:drop.lat, lng:drop.lng},
+    price: price,
+    status: "pending",
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(()=>{
+    alert(`Order submitted! Distance: ${distance.toFixed(2)} km, Price: ${price} Ks`);
+    // Reset
+    map.removeLayer(pickupMarker); pickupMarker=null;
+    map.removeLayer(dropMarker); dropMarker=null;
+    if(orderLine) map.removeLayer(orderLine); orderLine=null;
+    document.getElementById("submitOrder").disabled=true;
+    document.getElementById("info").innerText="";
+  }).catch(err=>alert("Error: "+err.message));
+};
 </script>
 
 </body>
