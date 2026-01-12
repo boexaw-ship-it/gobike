@@ -2,121 +2,218 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Customer Dashboard - GoBike</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="../css/style.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<title>Flash Freelance Delivery</title>
+
+<!-- Font Awesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+<!-- Leaflet.js CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+<style>
+/* --- Global Styles --- */
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI', Roboto, sans-serif;}
+body{background-color:#f0f2f5;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;}
+.phone-frame{width:100%;max-width:450px;height:100vh;background:#fff;position:relative;box-shadow:0 0 20px rgba(0,0,0,0.1);}
+
+/* --- Login & Sign Up Pages --- */
+#login-page,#signup-page{display:flex;flex-direction:column;padding:40px 30px;height:100%;justify-content:center;text-align:center;background:#fff;}
+#signup-page{display:none;}
+.logo-area{width:80px;height:80px;background:#000;color:#fff;border-radius:22px;display:flex;justify-content:center;align-items:center;font-size:40px;margin:0 auto 20px;}
+h2{font-size:26px;font-weight:bold;margin-bottom:5px;color:#1e272e;}
+p{font-size:14px;color:#555;margin-bottom:15px;}
+.input-box{width:100%;padding:16px;margin-bottom:15px;border:1px solid #eee;border-radius:12px;background:#f9f9f9;outline:none;font-size:16px;transition:0.3s;}
+.input-box:focus{border-color:#000;}
+.primary-btn{width:100%;padding:16px;background:#000;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:bold;cursor:pointer;margin-top:10px;}
+.primary-btn:hover{background:#333;}
+.signup-text{margin-top:20px;font-size:13px;color:#888;}
+.signup-text a{color:#000;font-weight:bold;text-decoration:none;cursor:pointer;}
+
+/* --- Main App --- */
+#main-app{display:none;height:100%;flex-direction:column;}
+header{padding:15px;display:flex;justify-content:space-between;align-items:center;position:absolute;top:0;width:100%;z-index:10;}
+.header-btn{background:white;padding:10px;border-radius:50%;box-shadow:0 2px 5px rgba(0,0,0,0.1);width:40px;height:40px;display:flex;justify-content:center;align-items:center;}
+.header-status{font-weight:bold;background:white;padding:5px 20px;border-radius:20px;box-shadow:0 2px 5px rgba(0,0,0,0.1);}
+.map-area{flex:1;position:relative;}
+#map{width:100%;height:100%;border-radius:0;}
+.booking-card{background:#fff;padding:20px;border-radius:25px 25px 0 0;box-shadow:0 -5px 20px rgba(0,0,0,0.1);z-index:20;position:absolute;bottom:0;width:100%;}
+.handle{width:40px;height:4px;background:#ddd;border-radius:10px;margin:0 auto 15px;}
+.card-title{margin-bottom:15px;font-size:18px;}
+.route-picker{background:#f8f8f8;padding:15px;border-radius:15px;margin-bottom:20px;}
+.route-row{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+.dot-green{color:#4cd964;font-size:12px;}
+.dot-red{color:#ff3b30;font-size:14px;}
+.route-row input{border:none;background:transparent;width:100%;font-size:15px;outline:none;}
+.price-tag{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;padding:0 5px;}
+.vehicle-info{display:flex;align-items:center;gap:12px;}
+.vehicle-info i{font-size:22px;}
+.service-name{font-size:14px;font-weight:bold;}
+.eta{font-size:12px;color:#888;}
+.amount{font-weight:bold;font-size:18px;}
+</style>
+
+<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<script src="../js/firebase-config.js"></script>
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-<style>
-  body {font-family:sans-serif;margin:0;padding:10px;}
-  #map {height:500px;width:100%;border-radius:8px;margin-top:10px;}
-  button {padding:8px 12px;margin-top:10px;font-size:16px;}
-</style>
+<!-- Leaflet.js JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 </head>
 <body>
 
-<div class="app">
-  <h2>Customer Dashboard</h2>
-  <p id="status">Loading map...</p>
-  <div id="map"></div>
-  <p id="info"></p>
-  <button id="submitOrder" disabled>Submit Order</button>
+<div class="phone-frame">
+
+    <!-- LOGIN PAGE -->
+    <div id="login-page">
+        <div class="logo-area"><i class="fas fa-bolt"></i></div>
+        <h2>Flash Delivery</h2>
+        <p>Login to continue</p>
+        <input type="text" id="loginEmail" class="input-box" placeholder="Email">
+        <input type="password" id="loginPassword" class="input-box" placeholder="Password">
+        <button class="primary-btn" onclick="login()">Login</button>
+        <p class="signup-text">New here? <a onclick="showSignUp()">Sign Up</a></p>
+    </div>
+
+    <!-- SIGN UP PAGE -->
+    <div id="signup-page">
+        <div class="logo-area"><i class="fas fa-bolt"></i></div>
+        <h2>Create Account</h2>
+        <input type="text" id="signupName" class="input-box" placeholder="Full Name">
+        <input type="text" id="signupPhone" class="input-box" placeholder="Phone (Optional)">
+        <input type="email" id="signupEmail" class="input-box" placeholder="Email">
+        <input type="password" id="signupPassword" class="input-box" placeholder="Password">
+        <select id="signupRole" class="input-box">
+            <option value="customer">Customer</option>
+            <option value="rider">Rider</option>
+        </select>
+        <button class="primary-btn" onclick="signUp()">Sign Up</button>
+        <p class="signup-text"><a onclick="showLogin()">Back to Login</a></p>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="main-app">
+        <header>
+            <div class="header-btn"><i class="fas fa-bars"></i></div>
+            <div class="header-status">Pickup</div>
+            <div class="header-btn"><i class="fas fa-user"></i></div>
+        </header>
+        <div class="map-area">
+            <div id="map"></div>
+        </div>
+        <div class="booking-card">
+            <div class="handle"></div>
+            <h3 class="card-title">Where to?</h3>
+            <div class="route-picker">
+                <div class="route-row">
+                    <i class="fas fa-circle dot-green"></i>
+                    <input type="text" id="pickup" placeholder="Pickup location">
+                </div>
+                <div class="route-row">
+                    <i class="fas fa-location-dot dot-red"></i>
+                    <input type="text" id="dropoff" placeholder="Drop-off location">
+                </div>
+            </div>
+            <div class="price-tag">
+                <div class="vehicle-info">
+                    <i class="fas fa-motorcycle"></i>
+                    <div>
+                        <p class="service-name">Standard</p>
+                        <p class="eta">3-5 mins away</p>
+                    </div>
+                </div>
+                <span class="amount">3,000 MMK</span>
+            </div>
+            <button class="primary-btn" onclick="requestDelivery()">Request Delivery</button>
+        </div>
+    </div>
+
 </div>
 
 <script>
-// ---------------- AUTH CHECK ----------------
-auth.onAuthStateChanged(user=>{
-  if(!user) location.href="../index.html";
-  db.collection("users").doc(user.uid).get().then(doc=>{
-    if(!doc.exists || doc.data().role !== "customer"){ auth.signOut(); location.href="../index.html"; }
-  });
-});
+// Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyA1tAW0DWW633uYOZ1cHw-kfnHL2kQrlNM",
+  authDomain: "gobike-14050.firebaseapp.com",
+  projectId: "gobike-14050",
+  storageBucket: "gobike-14050.appspot.com",
+  messagingSenderId: "1079730742000",
+  appId: "1:1079730742000:web:2ba453b89870404fcc1835"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
 
-// ---------------- MAP ----------------
-let map = L.map('map').setView([16.82,96.15],12);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-  attribution:'&copy; OpenStreetMap'
-}).addTo(map);
+// Page switch
+function showApp(){document.getElementById('login-page').style.display='none';document.getElementById('signup-page').style.display='none';document.getElementById('main-app').style.display='flex';}
+function showSignUp(){document.getElementById('login-page').style.display='none';document.getElementById('signup-page').style.display='flex';}
+function showLogin(){document.getElementById('signup-page').style.display='none';document.getElementById('login-page').style.display='flex';}
 
-const riderIcon = L.icon({iconUrl:'../assets/bike.png',iconSize:[40,40],iconAnchor:[20,40]});
-let markers={}, routes={}, colors={}, pickupMarker=null, dropMarker=null, orderLine=null;
-
-// Random color for rider paths
-function getRandomColor(uid){
-  if(colors[uid]) return colors[uid];
-  const c = '#'+Math.floor(Math.random()*16777215).toString(16);
-  colors[uid] = c;
-  return c;
+// Auth
+function login(){
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value.trim();
+    if(!email || !password){alert("Enter email & password"); return;}
+    auth.signInWithEmailAndPassword(email,password)
+    .then(res=> db.collection('users').doc(res.user.uid).get())
+    .then(doc=>{
+        if(!doc.exists) throw new Error("User not found");
+        showApp();
+        initMap();
+    })
+    .catch(err=>alert(err.message));
 }
 
-// ---------------- PICKUP / DROP ----------------
-map.on('click', function(e){
-  if(!pickupMarker){
-    pickupMarker = L.marker(e.latlng).addTo(map).bindPopup("Pickup").openPopup();
-    document.getElementById("info").innerText = `Pickup at ${e.latlng.lat.toFixed(5)},${e.latlng.lng.toFixed(5)}`;
-  } else if(!dropMarker){
-    dropMarker = L.marker(e.latlng).addTo(map).bindPopup("Drop").openPopup();
-    if(orderLine) map.removeLayer(orderLine);
-    orderLine = L.polyline([pickupMarker.getLatLng(), dropMarker.getLatLng()], {color:'blue', weight:4}).addTo(map);
-    document.getElementById("info").innerText += ` | Drop at ${e.latlng.lat.toFixed(5)},${e.latlng.lng.toFixed(5)}`;
-    document.getElementById("submitOrder").disabled = false;
-  }
-});
+function signUp(){
+    const name = document.getElementById('signupName').value.trim();
+    const phone = document.getElementById('signupPhone').value.trim();
+    const email = document.getElementById('signupEmail').value.trim();
+    const password = document.getElementById('signupPassword').value.trim();
+    const role = document.getElementById('signupRole').value;
+    if(!name || !email || !password){alert("Name, Email, Password required"); return;}
+    auth.createUserWithEmailAndPassword(email,password)
+    .then(res=> db.collection('users').doc(res.user.uid).set({
+        name:name, phone: phone || null, email: email, role: role,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    }))
+    .then(()=>{alert("Sign Up Successful!"); showLogin();})
+    .catch(err=>alert(err.message));
+}
 
-// ---------------- LIVE RIDERS ----------------
-db.collection("locations").where("role","==","rider").onSnapshot(snapshot=>{
-  snapshot.docs.forEach(doc=>{
-    const data = doc.data(); const rid = doc.id;
-    if(!data.lat || !data.lng) return;
-    const pos = [data.lat, data.lng];
-    const popup = `<b>${data.name||rid}</b><br>Updated:${data.updatedAt?data.updatedAt.toDate().toLocaleTimeString():''}`;
+// Leaflet Map
+let map, pickupMarker;
+function initMap(){
+    map = L.map('map');
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+        maxZoom:19
+    }).addTo(map);
 
-    if(markers[rid]){
-      markers[rid].setLatLng(pos).setPopupContent(popup);
-    } else {
-      markers[rid] = L.marker(pos,{icon:riderIcon}).addTo(map).bindPopup(popup);
-    }
+    navigator.geolocation.getCurrentPosition(position=>{
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        map.setView([lat,lng],15);
+        pickupMarker = L.marker([lat,lng]).addTo(map).bindPopup("Pickup Location").openPopup();
+        document.getElementById("pickup").value=`${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    },()=>alert("Geolocation failed"));
+}
 
-    if(!routes[rid]){
-      routes[rid] = L.polyline([pos],{color:getRandomColor(rid), weight:4}).addTo(map);
-    } else {
-      const latlngs = routes[rid].getLatLngs();
-      latlngs.push(pos);
-      routes[rid].setLatLngs(latlngs);
-    }
-  });
-});
-
-// ---------------- SUBMIT ORDER ----------------
-document.getElementById("submitOrder").onclick = ()=>{
-  if(!pickupMarker || !dropMarker) return alert("Pickup and Drop required");
-  const pickup = pickupMarker.getLatLng();
-  const drop = dropMarker.getLatLng();
-  const distance = map.distance(pickup, drop)/1000; // km
-  const price = Math.ceil(distance*1000);
-
-  db.collection("orders").add({
-    customerId: auth.currentUser.uid,
-    customerName: auth.currentUser.displayName || auth.currentUser.email,
-    pickup:{lat:pickup.lat,lng:pickup.lng},
-    drop:{lat:drop.lat,lng:drop.lng},
-    price: price,
-    status:"pending",
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  }).then(()=>{
-    alert(`Order submitted! Distance:${distance.toFixed(2)} km Price:${price} Ks`);
-    map.removeLayer(pickupMarker); map.removeLayer(dropMarker);
-    if(orderLine) map.removeLayer(orderLine);
-    pickupMarker=null; dropMarker=null; orderLine=null;
-    document.getElementById("submitOrder").disabled=true;
-    document.getElementById("info").innerText="";
-  });
-};
+// Request Delivery
+function requestDelivery(){
+    const pickup = document.getElementById("pickup").value.trim();
+    const dropoff = document.getElementById("dropoff").value.trim();
+    if(!pickup || !dropoff){alert("Fill pickup and drop-off"); return;}
+    const user = auth.currentUser;
+    if(!user){alert("Login required"); return;}
+    db.collection("orders").add({
+        userId:user.uid,
+        pickup,
+        dropoff,
+        status:"pending",
+        createdAt:firebase.firestore.FieldValue.serverTimestamp()
+    }).then(()=>alert("Order Requested!"));
+}
 </script>
+
 </body>
 </html>
