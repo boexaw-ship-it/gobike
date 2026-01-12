@@ -22,26 +22,26 @@
 
         <div id="loginForm" class="form-container">
             <div class="input-group">
-                <input type="email" id="login-email" placeholder="Gmail Address" required>
+                <input type="email" id="login-email" placeholder="Gmail Address">
             </div>
             <div class="input-group">
-                <input type="password" id="login-password" placeholder="Password" required>
+                <input type="password" id="login-password" placeholder="Password">
             </div>
-            <button id="loginBtn" class="main-btn">Sign In</button> 
+            <button type="button" id="loginBtn" class="main-btn">Sign In</button> 
         </div>
 
         <div id="signupForm" class="form-container" style="display:none;">
             <div class="input-group">
-                <input type="text" id="reg-name" placeholder="Full Name" required>
+                <input type="text" id="reg-name" placeholder="Full Name">
             </div>
             <div class="input-group">
-                <input type="email" id="reg-email" placeholder="Gmail Address" required>
+                <input type="email" id="reg-email" placeholder="Gmail Address">
             </div>
             <div class="input-group">
-                <input type="password" id="reg-password" placeholder="Password" required>
+                <input type="password" id="reg-password" placeholder="Password">
             </div>
             <div class="input-group">
-                <input type="tel" id="reg-phone" placeholder="Phone Number" required>
+                <input type="tel" id="reg-phone" placeholder="Phone Number">
             </div>
             <div class="input-group">
                 <select id="reg-role">
@@ -49,7 +49,7 @@
                     <option value="delivery">Rider (Delivery)</option>
                 </select>
             </div>
-            <button id="signupBtn" class="main-btn">Create Account</button>
+            <button type="button" id="signupBtn" class="main-btn">Create Account</button>
         </div>
 
         <div class="footer-links">
@@ -60,6 +60,7 @@
     <script type="module" src="js/auth.js"></script>
     
     <script>
+        // Tab ပြောင်းတဲ့ function တွေကို ဒီမှာပဲထားလို့ရပါတယ်
         function showLogin() {
             document.getElementById('loginForm').style.display = 'block';
             document.getElementById('signupForm').style.display = 'none';
