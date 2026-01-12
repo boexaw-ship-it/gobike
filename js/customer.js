@@ -1,111 +1,114 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GoBike - Place Order</title>
+import { db, auth } from './firebase-config.js';
+import { 
+    collection, addDoc, serverTimestamp, onSnapshot 
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { notifyTelegram } from './telegram.js';
+
+// --- ၁။ Map Initialization ---
+const map = L.map('map').setView([16.8661, 96.1951], 12); 
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+let pickupCoords = null;
+let dropoffCoords = null;
+let pickupMarker, dropoffMarker;
+
+// *** အရေးကြီးသည်- Pickup က မြို့နယ်စာရင်းကို Drop-off ထဲသို့ ကူးထည့်ခြင်း ***
+const pickupSelect = document.getElementById('pickup-township');
+const dropoffSelect = document.getElementById('dropoff-township');
+dropoffSelect.innerHTML = pickupSelect.innerHTML;
+
+// --- ၂။ မြို့နယ်ရွေးချယ်မှု Logic ---
+function handleTownshipChange(type) {
+    const select = document.getElementById(type + '-township');
+    const option = select.options[select.selectedIndex];
     
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="../css/style.css">
-    <style>
-        body { background: #f4f7f6; font-family: sans-serif; margin: 0; padding-bottom: 30px; }
-        .header { background: #ffcc00; padding: 15px; text-align: center; font-weight: bold; font-size: 1.2rem; position: sticky; top: 0; z-index: 1000; }
-        
-        #map { height: 250px; width: 100%; border-bottom: 5px solid #ffcc00; }
-        .order-container { padding: 15px; max-width: 500px; margin: auto; }
-        .info-text { font-size: 0.85rem; color: #666; margin-bottom: 15px; text-align: center; }
+    if (!option.value) return;
 
-        .loc-box {
-            background: #fff; padding: 12px; border-radius: 10px; border-left: 5px solid #ffcc00;
-            margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        }
-        .loc-box b { font-size: 0.8rem; color: #333; display: block; margin-bottom: 5px; }
+    const lat = parseFloat(option.getAttribute('data-lat'));
+    const lng = parseFloat(option.getAttribute('data-lng'));
+    const townshipName = option.text;
 
-        .loc-select, .manual-input, .standard-input {
-            width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;
-            font-size: 0.9rem; outline: none; box-sizing: border-box;
-        }
-        .manual-input { margin-top: 8px; background: #fafafa; border-style: dashed; }
-
-        .input-row { display: flex; gap: 10px; margin-bottom: 10px; }
-        .standard-input { margin-bottom: 10px; }
-
-        .btn-confirm {
-            background: #000; color: #ffcc00; width: 100%; padding: 15px; border: none;
-            border-radius: 12px; font-weight: bold; font-size: 1rem; cursor: pointer;
-            transition: 0.3s;
-        }
-        .btn-confirm:disabled { background: #ccc; }
-    </style>
-</head>
-<body>
-
-    <div class="header">GoBike Order</div>
-    <div id="map"></div>
+    if (type === 'pickup') {
+        pickupCoords = { lat, lng };
+        if (pickupMarker) map.removeLayer(pickupMarker);
+        pickupMarker = L.marker([lat, lng], { draggable: true }).addTo(map)
+            .bindPopup(`ယူရန်: ${townshipName}`).openPopup();
+    } else {
+        dropoffCoords = { lat, lng };
+        if (dropoffMarker) map.removeLayer(dropoffMarker);
+        dropoffMarker = L.marker([lat, lng], { draggable: true }).addTo(map)
+            .bindPopup(`ပို့ရန်: ${townshipName}`).openPopup();
+    }
     
-    <div class="order-container">
-        <p class="info-text">📍 မြို့နယ်ရွေးပါ၊ လိပ်စာအသေးစိတ်ကို Manual ရိုက်ထည့်ပါ</p>
+    map.setView([lat, lng], 14);
+    updatePricing();
 
-        <div class="loc-box">
-            <b>Pick-up (ယူမည့်နေရာ):</b>
-            <select id="pickup-township" class="loc-select">
-                <option value="">မြို့နယ်ရွေးပါ</option>
-                <option value="Ahlone" data-lat="16.7875" data-lng="96.1261">အလုံ</option>
-                <option value="Bahan" data-lat="16.8115" data-lng="96.1518">ဗဟန်း</option>
-                <option value="Botahtaung" data-lat="16.7818" data-lng="96.1706">ဗိုလ်တထောင်</option>
-                <option value="Dagon" data-lat="16.7971" data-lng="96.1475">ဒဂုံ</option>
-                <option value="Dagon_East" data-lat="16.9061" data-lng="96.2239">ဒဂုံမြို့သစ်(အရှေ့ပိုင်း)</option>
-                <option value="Dagon_North" data-lat="16.9042" data-lng="96.1917">ဒဂုံမြို့သစ်(မြောက်ပိုင်း)</option>
-                <option value="Dagon_South" data-lat="16.8572" data-lng="96.2161">ဒဂုံမြို့သစ်(တောင်ပိုင်း)</option>
-                <option value="Dagon_Seikkan" data-lat="16.8517" data-lng="96.2558">ဒဂုံမြို့သစ်(ဆိပ်ကမ်း)</option>
-                <option value="Dawbon" data-lat="16.7864" data-lng="96.1889">ဒေါပုံ</option>
-                <option value="Hlaing" data-lat="16.8409" data-lng="96.1264">လှိုင်</option>
-                <option value="Hlaingthaya" data-lat="16.8681" data-lng="96.0594">လှိုင်သာယာ</option>
-                <option value="Insein" data-lat="16.8892" data-lng="96.1031">အင်းစိန်</option>
-                <option value="Kamayut" data-lat="16.8286" data-lng="96.1284">ကမာရွတ်</option>
-                <option value="Kyauktada" data-lat="16.7744" data-lng="96.1594">ကျောက်တံတား</option>
-                <option value="Kyimyindaing" data-lat="16.8042" data-lng="96.1158">ကြည့်မြင်တိုင်</option>
-                <option value="Lanmadaw" data-lat="16.7818" data-lng="96.1424">လမ်းမတော်</option>
-                <option value="Latha" data-lat="16.7766" data-lng="96.1505">လသာ</option>
-                <option value="Mayangone" data-lat="16.8697" data-lng="96.1436">မရမ်းကုန်း</option>
-                <option value="Mingaladon" data-lat="16.9497" data-lng="96.1364">မင်္ဂလာဒုံ</option>
-                <option value="MingalaTaungnyunt" data-lat="16.7917" data-lng="96.1706">မင်္ဂလာတောင်ညွန့်</option>
-                <option value="NorthOkkalapa" data-lat="16.9083" data-lng="96.1667">မြောက်ဥက္ကလာပ</option>
-                <option value="Pabedan" data-lat="16.7778" data-lng="96.1547">ပန်းဘဲတန်း</option>
-                <option value="Pazundaung" data-lat="16.7900" data-lng="96.1700">ပုဇွန်တောင်</option>
-                <option value="Sanchaung" data-lat="16.8080" data-lng="96.1345">စမ်းချောင်း</option>
-                <option value="SouthOkkalapa" data-lat="16.8522" data-lng="96.1758">တောင်ဥက္ကလာပ</option>
-                <option value="Tamwe" data-lat="16.8111" data-lng="96.1750">တာမွေ</option>
-                <option value="Tharkayta" data-lat="16.7961" data-lng="96.2081">သာကေတ</option>
-                <option value="Thingangyun" data-lat="16.8322" data-lng="96.1969">သင်္ဃန်းကျွန်း</option>
-                <option value="Yankin" data-lat="16.8353" data-lng="96.1583">ရန်ကင်း</option>
-                <option value="Shwepyitha" data-lat="16.9744" data-lng="96.0964">ရွှေပြည်သာ</option>
-            </select>
-            <input type="text" id="pickup-manual" class="manual-input" placeholder="လမ်းအမည်နှင့် အိမ်နံပါတ် (Manual)">
-        </div>
+    // Marker Dragging
+    const marker = type === 'pickup' ? pickupMarker : dropoffMarker;
+    marker.on('dragend', function(e) {
+        const pos = e.target.getLatLng();
+        if (type === 'pickup') pickupCoords = { lat: pos.lat, lng: pos.lng };
+        else dropoffCoords = { lat: pos.lat, lng: pos.lng };
+        updatePricing();
+    });
+}
 
-        <div class="loc-box" style="border-left-color: #ff4757;">
-            <b>Drop-off (ပို့မည့်နေရာ):</b>
-            <select id="dropoff-township" class="loc-select">
-                <option value="">မြို့နယ်ရွေးပါ</option>
-                </select>
-            <input type="text" id="dropoff-manual" class="manual-input" placeholder="လမ်းအမည်နှင့် အိမ်နံပါတ် (Manual)">
-        </div>
+pickupSelect.addEventListener('change', () => handleTownshipChange('pickup'));
+dropoffSelect.addEventListener('change', () => handleTownshipChange('dropoff'));
 
-        <input type="text" id="item-detail" class="standard-input" placeholder="ဘာပစ္စည်းပို့မှာလဲ? (ဥပမာ- ထမင်းဘူး)">
+// --- ၃။ ဈေးနှုန်းတွက်ချက်မှု ---
+function updatePricing() {
+    if (pickupCoords && dropoffCoords) {
+        const p1 = L.latLng(pickupCoords.lat, pickupCoords.lng);
+        const p2 = L.latLng(dropoffCoords.lat, dropoffCoords.lng);
+        const distanceKm = (p1.distanceTo(p2) / 1000).toFixed(2);
         
-        <div class="input-row">
-            <input type="number" id="item-weight" class="standard-input" placeholder="အလေးချိန် (kg)">
-            <input type="number" id="item-value" class="standard-input" placeholder="တန်ဖိုး (KS)">
-        </div>
+        const weight = parseFloat(document.getElementById('item-weight').value) || 0;
+        let fee = 1500 + (distanceKm * 500); 
+        if (weight > 5) fee += (weight - 5) * 200;
 
-        <input type="tel" id="receiver-phone" class="standard-input" placeholder="လက်ခံမည့်သူ့ဖုန်းနံပါတ်">
+        const totalFee = Math.round(fee);
+        document.getElementById('placeOrderBtn').innerText = `ORDER NOW - ${totalFee} KS (${distanceKm} km)`;
+        return { distanceKm, totalFee };
+    }
+    return null;
+}
 
-        <button id="placeOrderBtn" class="btn-confirm">ORDER NOW</button>
-    </div>
+document.getElementById('item-weight').addEventListener('input', updatePricing);
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script type="module" src="../js/customer.js"></script>
-</body>
-</html>
-        
+// --- ၄။ Order Submission ---
+document.getElementById('placeOrderBtn').addEventListener('click', async () => {
+    const item = document.getElementById('item-detail').value;
+    const weight = document.getElementById('item-weight').value;
+    const value = document.getElementById('item-value').value;
+    const phone = document.getElementById('receiver-phone').value;
+    const feeInfo = updatePricing();
+
+    const pTown = pickupSelect.options[pickupSelect.selectedIndex].text;
+    const pAddr = document.getElementById('pickup-address').value;
+    const dTown = dropoffSelect.options[dropoffSelect.selectedIndex].text;
+    const dAddr = document.getElementById('dropoff-address').value;
+
+    if (!pickupCoords || !dropoffCoords || !item || !phone || !weight || !value) {
+        alert("အချက်အလက်အားလုံး ပြည့်စုံအောင်ဖြည့်ပါ");
+        return;
+    }
+
+    try {
+        const orderData = {
+            pickup: { ...pickupCoords, address: `${pTown}၊ ${pAddr}` },
+            dropoff: { ...dropoffCoords, address: `${dTown}၊ ${dAddr}` },
+            item, weight: weight + " kg", itemValue: value + " KS",
+            phone, deliveryFee: feeInfo.totalFee, status: "pending", createdAt: serverTimestamp()
+        };
+
+        await addDoc(collection(db, "orders"), orderData);
+
+        const msg = `📦 <b>New Order!</b>\n\n📝 ပစ္စည်း: ${item}\n💰 ပို့ခ: ${feeInfo.totalFee} KS\n📍 ယူရန်: ${orderData.pickup.address}\n🏁 ပို့ရန်: ${orderData.dropoff.address}`;
+        await notifyTelegram(msg);
+        alert("Order တင်ခြင်း အောင်မြင်ပါသည်!");
+        location.reload();
+    } catch (e) {
+        alert("Error: " + e.message);
+    }
+});
