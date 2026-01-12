@@ -12,13 +12,11 @@ const ordersContainer = document.getElementById('available-orders');
 
 // --- ၂။ Rider ရဲ့ Live Location ကို Firebase သို့ ပို့ခြင်း ---
 if (navigator.geolocation) {
-    // ၅ စက္ကန့်တစ်ခါ ဒါမှမဟုတ် တည်နေရာပြောင်းတိုင်း Auto Update လုပ်မယ်
     navigator.geolocation.watchPosition(async (position) => {
         if (auth.currentUser) {
             const { latitude, longitude } = position.coords;
             const riderId = auth.currentUser.uid;
 
-            // 'active_riders' collection ထဲမှာ Rider ရဲ့ လက်ရှိနေရာကို သိမ်းမယ်
             await setDoc(doc(db, "active_riders", riderId), {
                 name: auth.currentUser.email,
                 lat: latitude,
@@ -32,7 +30,7 @@ if (navigator.geolocation) {
     });
 }
 
-// --- ၃။ Listen to Pending Orders (အရင်အတိုင်း) ---
+// --- ၃။ Listen to Pending Orders (စာသားလိပ်စာ နှင့် Map Link များ ထည့်သွင်းထားသည်) ---
 const q = query(collection(db, "orders"), where("status", "==", "pending"));
 
 onSnapshot(q, (snapshot) => {
@@ -46,35 +44,59 @@ onSnapshot(q, (snapshot) => {
         const order = orderDoc.data();
         const orderId = orderDoc.id;
 
+        // Google Map Link များ ဖန်တီးခြင်း
+        const pickupLink = `https://www.google.com/maps/search/?api=1&query=${order.pickup.lat},${order.pickup.lng}`;
+        const dropoffLink = `https://www.google.com/maps/search/?api=1&query=${order.dropoff.lat},${order.dropoff.lng}`;
+
         const card = document.createElement('div');
         card.className = 'order-card';
         card.innerHTML = `
             <div class="status-tag">NEW ORDER</div>
-            <div class="order-info"><b>ပစ္စည်း:</b> ${order.item}</div>
-            <div class="order-info"><b>ဖုန်း:</b> ${order.phone}</div>
-            <div class="order-info"><b>ယူရန်:</b> ${order.pickup.lat.toFixed(4)}, ${order.pickup.lng.toFixed(4)}</div>
-            <div class="order-info"><b>ပို့ရန်:</b> ${order.dropoff.lat.toFixed(4)}, ${order.dropoff.lng.toFixed(4)}</div>
-            <button class="btn-accept" data-id="${orderId}" data-item="${order.item}">လက်ခံမည် (Accept)</button>
+            <div class="order-info"><b>📦 ပစ္စည်း:</b> ${order.item}</div>
+            <div class="order-info"><b>📞 ဖုန်း:</b> ${order.phone}</div>
+            
+            <hr style="border: 0.5px solid #444; margin: 10px 0;">
+            
+            <div class="order-info">
+                <b>📍 ယူရန်လိပ်စာ:</b><br>
+                <span style="color: #ffcc00;">${order.pickup.address || "လိပ်စာ ရှာမတွေ့ပါ"}</span>
+                <br><a href="${pickupLink}" target="_blank" style="color: #00ccff; font-size: 0.8rem;">[မြေပုံတွင်ကြည့်ရန်]</a>
+            </div>
+
+            <div class="order-info" style="margin-top: 10px;">
+                <b>🏁 ပို့ရန်လိပ်စာ:</b><br>
+                <span style="color: #ffcc00;">${order.dropoff.address || "လိပ်စာ ရှာမတွေ့ပါ"}</span>
+                <br><a href="${dropoffLink}" target="_blank" style="color: #00ccff; font-size: 0.8rem;">[မြေပုံတွင်ကြည့်ရန်]</a>
+            </div>
+
+            <button class="btn-accept" 
+                data-id="${orderId}" 
+                data-item="${order.item}" 
+                data-paddr="${order.pickup.address}" 
+                data-daddr="${order.dropoff.address}">
+                လက်ခံမည် (Accept)
+            </button>
         `;
         
         ordersContainer.appendChild(card);
 
         // မြေပုံပေါ်မှာ ပစ္စည်းယူရမယ့်နေရာကို Marker ပြမယ်
         L.marker([order.pickup.lat, order.pickup.lng]).addTo(map)
-            .bindPopup(`ပစ္စည်းယူရန်: ${order.item}`);
+            .bindPopup(`ယူရန်: ${order.item}`);
     });
 });
 
-// --- ၄။ Accept Order Logic (Telegram Notification ပါဝင်သည်) ---
+// --- ၄။ Accept Order Logic ---
 document.addEventListener('click', async (e) => {
     if (e.target.classList.contains('btn-accept')) {
         const orderId = e.target.getAttribute('data-id');
         const itemName = e.target.getAttribute('data-item');
+        const pAddr = e.target.getAttribute('data-paddr');
+        const dAddr = e.target.getAttribute('data-daddr');
         
         try {
             const orderRef = doc(db, "orders", orderId);
             
-            // Firebase မှာ Status ပြောင်းမယ်
             await updateDoc(orderRef, {
                 status: "accepted",
                 riderId: auth.currentUser.uid,
@@ -82,11 +104,13 @@ document.addEventListener('click', async (e) => {
                 acceptedAt: new Date()
             });
             
-            // Telegram ကို Notification ပို့မယ်
+            // Telegram ကို Notification ပို့မယ် (လိပ်စာအပြည့်အစုံပါဝင်သည်)
             const msg = `✅ <b>Order လက်ခံလိုက်ပါပြီ!</b>\n\n` +
-                        `📦 ပစ္စည်း: ${itemName}\n` +
-                        `🚴 Rider: ${auth.currentUser.email}\n` +
-                        `⏰ အချိန်: ${new Date().toLocaleTimeString()}`;
+                        `📦 <b>ပစ္စည်း:</b> ${itemName}\n` +
+                        `🚴 <b>Rider:</b> ${auth.currentUser.email}\n\n` +
+                        `📍 <b>ယူရန်:</b> ${pAddr}\n` +
+                        `🏁 <b>ပို့ရန်:</b> ${dAddr}\n` +
+                        `⏰ <b>အချိန်:</b> ${new Date().toLocaleTimeString()}`;
             
             await notifyTelegram(msg);
             
