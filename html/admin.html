@@ -2,80 +2,94 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Admin Orders - GoBike</title>
+<title>Admin - GoBike</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <link rel="stylesheet" href="../css/style.css">
 
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<!-- Firebase (compat) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<!-- Firebase Config -->
 <script src="../js/firebase-config.js"></script>
 
 <style>
-  .app { padding: 15px; font-family: sans-serif; }
-  table { width: 100%; border-collapse: collapse; margin-top:10px; }
-  th, td { border:1px solid #ccc; padding:6px; text-align:left; }
-  th { background:#eee; }
-  button { padding:5px 8px; cursor:pointer; }
+  #map { height: 350px; margin-top: 10px; }
+  .order { border:1px solid #ddd; padding:10px; margin-top:10px; }
+  .order button { margin-top: 6px; }
 </style>
-
 </head>
 <body>
 
 <div class="app">
-  <h2>Admin Order Management</h2>
+  <h2>Admin Panel</h2>
 
-  <table>
-    <thead>
-      <tr>
-        <th>Order ID</th>
-        <th>Customer</th>
-        <th>Destination</th>
-        <th>Status</th>
-        <th>Actions</th>
-        <th>Created At</th>
-      </tr>
-    </thead>
-    <tbody id="orders-list"></tbody>
-  </table>
+  <div id="orders"></div>
+  <div id="map"></div>
 </div>
 
 <script>
-auth.signInAnonymously()
-.then(()=>{
-  db.collection("orders").orderBy("createdAt","desc").onSnapshot(snapshot=>{
-    const tbody = document.getElementById("orders-list");
-    tbody.innerHTML = '';
-    snapshot.docs.forEach(doc=>{
-      const order = doc.data();
-      const tr = document.createElement("tr");
+/* ---------------- Map ---------------- */
+let map = L.map('map').setView([16.82, 96.15], 12);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution:'&copy; OpenStreetMap'
+}).addTo(map);
 
-      const created = order.createdAt ? order.createdAt.toDate().toLocaleString() : '';
+let pickupMarker, dropMarker, routeLine;
 
-      tr.innerHTML = 
-        <td>${doc.id}</td>
-        <td>${order.customerName || order.customerId}</td>
-        <td>${order.destination}</td>
-        <td id="status-${doc.id}">${order.status}</td>
-        <td>
-          <button onclick="updateStatus('${doc.id}','accepted')">Accept</button>
-          <button onclick="updateStatus('${doc.id}','delivered')">Delivered</button>
-          <button onclick="updateStatus('${doc.id}','cancelled')">Cancel</button>
-        </td>
-        <td>${created}</td>
-      ;
+function showOnMap(order){
+  if (pickupMarker) map.removeLayer(pickupMarker);
+  if (dropMarker) map.removeLayer(dropMarker);
+  if (routeLine) map.removeLayer(routeLine);
 
-      tbody.appendChild(tr);
-    });
+  pickupMarker = L.marker(order.pickup).addTo(map).bindPopup("Pickup").openPopup();
+  dropMarker = L.marker(order.drop).addTo(map).bindPopup("Drop").openPopup();
+
+  routeLine = L.polyline([order.pickup, order.drop], { color:'blue' }).addTo(map);
+  map.fitBounds(routeLine.getBounds());
+}
+
+/* ---------------- Orders List ---------------- */
+const ordersDiv = document.getElementById("orders");
+
+db.collection("orders")
+.where("status","==","pending")
+.orderBy("createdAt","desc")
+.onSnapshot(snapshot=>{
+  ordersDiv.innerHTML = "";
+
+  snapshot.forEach(doc=>{
+    const o = doc.data();
+
+    const div = document.createElement("div");
+    div.className = "order";
+
+    div.innerHTML = `
+      <p><b>Order ID:</b> ${doc.id}</p>
+      <p><b>Price:</b> ${o.price} Ks</p>
+      <button id="view-${doc.id}">View Map</button>
+      <button id="approve-${doc.id}">Approve</button>
+    `;
+
+    ordersDiv.appendChild(div);
+
+    document.getElementById(`view-${doc.id}`).onclick = () => showOnMap(o);
+    document.getElementById(`approve-${doc.id}`).onclick = () => approveOrder(doc.id);
   });
-})
-.catch(err=>alert("Auth Error: "+err.message));
+});
 
-function updateStatus(orderId, status){
-  db.collection("orders").doc(orderId).update({status:status})
-    .then(()=>console.log("Status updated"))
-    .catch(err=>alert(err.message));
+function approveOrder(id){
+  db.collection("orders").doc(id).update({
+    status: "approved",
+    approvedAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  alert("Order approved");
 }
 </script>
 
