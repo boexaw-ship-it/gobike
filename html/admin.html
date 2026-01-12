@@ -1,58 +1,33 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Admin Dashboard</title>
-<link rel="stylesheet" href="../css/style.css">
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<script src="../js/firebase-config.js"></script>
-<style>
-  .app{padding:20px;}
-  #orders li{margin-bottom:10px;}
-  button{margin-left:5px;}
-</style>
-</head>
-<body>
 <div class="app">
   <h2>Admin Dashboard</h2>
-  <h3>Pending Orders</h3>
-  <ul id="orders"></ul>
+  <ul id="ordersList"></ul>
 </div>
 
-<script>
+<script type="module">
 auth.onAuthStateChanged(user=>{
   if(!user) location.href="../index.html";
-
   db.collection("users").doc(user.uid).get().then(doc=>{
-    if(!doc.exists||doc.data().role!=="admin"){ auth.signOut(); location.href="../index.html"; }
+    if(!doc.exists || doc.data().role!=="admin"){ auth.signOut(); location.href="../index.html"; }
   });
 
-  const ordersEl=document.getElementById("orders");
-
-  // Listen for pending orders
+  // Realtime pending orders
   db.collection("orders").where("status","==","pending").onSnapshot(snapshot=>{
-    ordersEl.innerHTML="";
-    snapshot.docs.forEach(doc=>{
-      const o=doc.data(); const id=doc.id;
+    const ul=document.getElementById("ordersList");
+    ul.innerHTML="";
+    snapshot.forEach(doc=>{
+      const d=doc.data();
       const li=document.createElement("li");
-      li.innerHTML=`Order: Pickup(${o.pickup.lat.toFixed(5)},${o.pickup.lng.toFixed(5)}) 
-      → Drop(${o.drop.lat.toFixed(5)},${o.drop.lng.toFixed(5)}) | Customer: ${o.customerId} 
-      <button onclick="assignOrder('${id}')">Assign to Rider</button>`;
-      ordersEl.appendChild(li);
+      li.innerHTML=`Order: ${d.pickup.lat.toFixed(5)},${d.pickup.lng.toFixed(5)} → ${d.drop.lat.toFixed(5)},${d.drop.lng.toFixed(5)}
+        | Customer: ${d.customerName} 
+        <button onclick="approveOrder('${doc.id}')">Approve</button>`;
+      ul.appendChild(li);
     });
   });
-
-  window.assignOrder=function(orderId){
-    const riderId=prompt("Enter Rider UID to assign:");
-    if(!riderId) return;
-    db.collection("orders").doc(orderId).update({
-      riderId:riderId,
-      status:"assigned"
-    }).then(()=>alert("Order assigned!")).catch(err=>alert(err.message));
-  };
 });
+
+function approveOrder(orderId){
+  db.collection("orders").doc(orderId).update({status:"approved"})
+    .then(()=>alert("Order approved!"))
+    .catch(err=>alert(err.message));
+}
 </script>
-</body>
-</html>
