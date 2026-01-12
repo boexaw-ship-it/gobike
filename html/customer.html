@@ -2,134 +2,73 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Customer - GoBike</title>
+<title>Customer Order - GoBike</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <link rel="stylesheet" href="../css/style.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 
-<!-- Firebase SDK (COMPAT) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-
-<!-- Firebase Config -->
 <script src="../js/firebase-config.js"></script>
 
-<!-- Leaflet -->
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
 <style>
-  #map { height: 500px; width: 100%; margin-top: 15px; }
-  .login-box { margin-bottom: 10px; }
-  .input { padding: 6px; width: 150px; }
-  .btn { padding: 6px 12px; cursor: pointer; }
+  .app { padding: 15px; font-family: sans-serif; max-width: 500px; margin:auto; }
+  input, textarea { width: 100%; padding: 8px; margin:5px 0; }
+  button { padding:10px 15px; margin-top:10px; cursor:pointer; }
+  #status { margin-top:10px; font-weight:bold; }
 </style>
-</head>
 
+</head>
 <body>
 
 <div class="app">
+  <h2>Create Order</h2>
 
-  <h2>Customer Dashboard</h2>
+  <input id="customerName" placeholder="Your Name">
+  <input id="destination" placeholder="Delivery Destination">
+  <textarea id="note" placeholder="Additional Note (optional)"></textarea>
+  <button onclick="createOrder()">Place Order</button>
 
-  <!-- LOGIN -->
-  <div class="login-box">
-    <input id="name" class="input" placeholder="Your Name">
-    <button class="btn" onclick="login()">Enter</button>
-    <p id="status"></p>
-  </div>
-
-  <!-- MAP -->
-  <div id="map"></div>
-
+  <p id="status"></p>
 </div>
 
 <script>
-/* ================= LOGIN ================= */
-let currentUID = null;
+let uid = null;
 
-function login(){
-  const name = document.getElementById("name").value.trim();
-  if(!name){
-    alert("Enter your name");
+// Anonymous login
+auth.signInAnonymously()
+.then(res=>{
+  uid = res.user.uid;
+})
+.catch(err=>{
+  alert("Auth error: "+err.message);
+});
+
+function createOrder(){
+  const name = document.getElementById("customerName").value.trim();
+  const dest = document.getElementById("destination").value.trim();
+  const note = document.getElementById("note").value.trim();
+
+  if(!name || !dest){
+    alert("Name and Destination required");
     return;
   }
 
-  auth.signInAnonymously()
-    .then(res=>{
-      currentUID = res.user.uid;
-      document.getElementById("status").innerText = "Logged in";
-
-      // Save customer profile
-      db.collection("users").doc(currentUID).set({
-        name: name,
-        role: "customer",
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-
-      initMap(); // start map after login
-    })
-    .catch(err=>alert(err.message));
-}
-
-/* ================= MAP ================= */
-let map, markers={}, routes={}, colors={};
-
-function initMap(){
-  map = L.map('map').setView([16.82, 96.15], 12);
-
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
-
-  const riderIcon = L.icon({
-    iconUrl: '../assets/bike.png',
-    iconSize: [40,40],
-    iconAnchor: [20,40],
-    popupAnchor: [0,-40]
-  });
-
-  function getColor(uid){
-    if(colors[uid]) return colors[uid];
-    colors[uid] = '#' + Math.floor(Math.random()*16777215).toString(16);
-    return colors[uid];
-  }
-
-  // Live riders
-  db.collection("locations").onSnapshot(snapshot=>{
-    snapshot.docs.forEach(doc=>{
-      const d = doc.data();
-      if(!d.lat || !d.lng) return;
-
-      const uid = doc.id;
-      const pos = [d.lat, d.lng];
-      const updated = d.updatedAt ? d.updatedAt.toDate().toLocaleTimeString() : '';
-      
-      const popup = <b>${d.name || uid}</b><br>Role: ${d.role}<br>Updated: ${updated};
-
-      if(markers[uid]){
-        markers[uid].setLatLng(pos).setPopupContent(popup);
-      } else {
-        markers[uid] = L.marker(pos,{icon:riderIcon}).addTo(map).bindPopup(popup);
-      }
-
-      if(!routes[uid]){
-        routes[uid] = L.polyline([pos],{
-          color:getColor(uid),
-          weight:4
-        }).addTo(map);
-      } else {
-        const line = routes[uid].getLatLngs();
-        line.push(pos);
-        routes[uid].setLatLngs(line);
-      }
-    });
-
-    const ids = snapshot.docs.map(d=>d.id);
-    if(ids.length && markers[ids[0]]){
-      map.setView(markers[ids[0]].getLatLng(), map.getZoom());
-    }
+  db.collection("orders").add({
+    customerId: uid,
+    customerName: name,
+    destination: dest,
+    note: note,
+    status: "pending",
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(()=>{
+    document.getElementById("status").innerText = "Order placed successfully!";
+    document.getElementById("customerName").value="";
+    document.getElementById("destination").value="";
+    document.getElementById("note").value="";
+  }).catch(err=>{
+    document.getElementById("status").innerText = "Error: "+err.message;
   });
 }
 </script>
