@@ -40,30 +40,32 @@ auth.signInAnonymously()
 
     /* =================== GPS Watch =================== */
     if(navigator.geolocation){
-      navigator.geolocation.watchPosition(pos=>{
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
+      navigator.geolocation.watchPosition(
+        pos=>{
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
 
-        // Save location to Firestore
-        db.collection("locations").doc(uid).set({
-          lat: lat,
-          lng: lng,
-          name: name,
-          role: "rider",
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+          // Save location to Firestore
+          db.collection("locations").doc(uid).set({
+            lat: lat,
+            lng: lng,
+            name: name,
+            role: "rider",
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
 
-        document.getElementById("status").innerText = 
-          GPS OK: Lat ${lat.toFixed(5)}, Lng ${lng.toFixed(5)};
-      },
-      err=>{
-        document.getElementById("status").innerText = "GPS Error: " + err.message;
-      },
-      {
-        enableHighAccuracy: true,
-        maximumAge: 0,
-        timeout: 5000
-      });
+          document.getElementById("status").innerText = 
+            GPS OK: Lat ${lat.toFixed(5)}, Lng ${lng.toFixed(5)};
+        },
+        err=>{
+          document.getElementById("status").innerText = "GPS Error: " + err.message;
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 5000
+        }
+      );
     } else {
       document.getElementById("status").innerText = "Geolocation not supported.";
     }
