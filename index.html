@@ -5,220 +5,121 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Flash Delivery - Customer</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI', Roboto, sans-serif;}
-body{background-color:#f0f2f5;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;}
-.phone-frame{width:100%;max-width:450px;height:100vh;background:#fff;position:relative;box-shadow:0 0 20px rgba(0,0,0,0.1);}
-#login-page,#signup-page{display:flex;flex-direction:column;padding:40px 30px;height:100%;justify-content:center;text-align:center;background:#fff;}
-#signup-page{display:none;}
-.logo-area{width:80px;height:80px;background:#000;color:#fff;border-radius:22px;display:flex;justify-content:center;align-items:center;font-size:40px;margin:0 auto 20px;}
-h2{font-size:26px;font-weight:bold;margin-bottom:5px;color:#1e272e;}
-p{font-size:14px;color:#555;margin-bottom:15px;}
-.input-box{width:100%;padding:16px;margin-bottom:15px;border:1px solid #eee;border-radius:12px;background:#f9f9f9;outline:none;font-size:16px;transition:0.3s;}
-.input-box:focus{border-color:#000;}
-.primary-btn{width:100%;padding:16px;background:#000;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:bold;cursor:pointer;margin-top:10px;}
-.primary-btn:hover{background:#333;}
-.signup-text{margin-top:20px;font-size:13px;color:#888;}
-.signup-text a{color:#000;font-weight:bold;text-decoration:none;cursor:pointer;}
-#main-app{display:none;height:100%;flex-direction:column;}
-header{padding:15px;display:flex;justify-content:space-between;align-items:center;position:absolute;top:0;width:100%;z-index:10;}
-.header-btn{background:white;padding:10px;border-radius:50%;box-shadow:0 2px 5px rgba(0,0,0,0.1);width:40px;height:40px;display:flex;justify-content:center;align-items:center;}
-.header-status{font-weight:bold;background:white;padding:5px 20px;border-radius:20px;box-shadow:0 2px 5px rgba(0,0,0,0.1);}
-#map{flex:1;width:100%;}
-.booking-card{background:#fff;padding:20px;border-radius:25px 25px 0 0;box-shadow:0 -5px 20px rgba(0,0,0,0.1);z-index:20;}
-.handle{width:40px;height:4px;background:#ddd;border-radius:10px;margin:0 auto 15px;}
-.card-title{margin-bottom:15px;font-size:18px;}
-.route-picker{background:#f8f8f8;padding:15px;border-radius:15px;margin-bottom:20px;}
-.route-row{display:flex;align-items:center;gap:12px;}
-.dot-green{color:#4cd964;font-size:12px;}
-.dot-red{color:#ff3b30;font-size:14px;}
-.route-row input{border:none;background:transparent;width:100%;font-size:15px;outline:none;}
-.divider-line{width:1px;height:15px;background:#ddd;margin-left:6px;margin-top:5px;margin-bottom:5px;}
-.price-tag{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;padding:0 5px;}
-.vehicle-info{display:flex;align-items:center;gap:12px;}
-.vehicle-info i{font-size:22px;}
-.service-name{font-size:14px;font-weight:bold;}
-.eta{font-size:12px;color:#888;}
-.amount{font-weight:bold;font-size:18px;}
+body{background:#f0f2f5;display:flex;justify-content:center;align-items:center;height:100vh;}
+.container{width:100%;max-width:450px;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 0 20px rgba(0,0,0,0.1);}
+header{padding:15px;text-align:center;background:#000;color:#fff;font-size:18px;font-weight:bold;}
+#map{height:300px;}
+.input-box{width:90%;margin:10px auto;padding:10px;border:1px solid #ddd;border-radius:8px;display:block;}
+button.primary-btn{width:90%;margin:10px auto;padding:12px;border:none;background:#000;color:#fff;border-radius:8px;font-weight:bold;cursor:pointer;}
+button.primary-btn:hover{background:#333;}
+.info-row{display:flex;justify-content:space-between;width:90%;margin:10px auto;font-weight:bold;}
 </style>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 </head>
 <body>
-<div class="phone-frame">
 
-<!-- LOGIN PAGE -->
-<div id="login-page">
-    <div class="logo-area"><i class="fas fa-bolt"></i></div>
-    <h2>Flash Delivery</h2>
-    <p>Login to continue</p>
-    <input type="text" id="loginEmail" class="input-box" placeholder="Phone or Email">
-    <input type="password" id="loginPassword" class="input-box" placeholder="Password">
-    <button class="primary-btn" onclick="login()">Login</button>
-    <p class="signup-text">New here? <a onclick="showSignUp()">Sign Up</a></p>
-</div>
+<div class="container">
+    <header>Request Delivery</header>
 
-<!-- SIGN UP PAGE -->
-<div id="signup-page">
-    <div class="logo-area"><i class="fas fa-bolt"></i></div>
-    <h2>Create Account</h2>
-    <input type="text" id="signupName" class="input-box" placeholder="Full Name">
-    <input type="text" id="signupPhone" class="input-box" placeholder="Phone (Optional)">
-    <input type="email" id="signupEmail" class="input-box" placeholder="Email">
-    <input type="password" id="signupPassword" class="input-box" placeholder="Password">
-    <select id="signupRole" class="input-box">
-        <option value="customer">Customer</option>
-        <option value="rider">Rider</option>
-    </select>
-    <button class="primary-btn" onclick="signUp()">Sign Up</button>
-    <p class="signup-text"><a onclick="showLogin()">Back to Login</a></p>
-</div>
+    <input type="text" id="pickup-search" class="input-box" placeholder="Search Pickup Location">
+    <input type="text" id="dropoff-search" class="input-box" placeholder="Search Drop-off Location">
 
-<!-- MAIN APP -->
-<div id="main-app">
-<header>
-    <div class="header-btn"><i class="fas fa-bars"></i></div>
-    <div class="header-status">Pickup</div>
-    <div class="header-btn"><i class="fas fa-user"></i></div>
-</header>
-<div id="map"></div>
+    <div id="map"></div>
 
-<div class="booking-card">
-    <div class="handle"></div>
-    <h3 class="card-title">Where to?</h3>
-    <div class="route-picker">
-        <div class="route-row">
-            <i class="fas fa-circle dot-green"></i>
-            <input type="text" id="pickup-location" placeholder="Pickup location">
-        </div>
-        <div class="divider-line"></div>
-        <div class="route-row">
-            <i class="fas fa-location-dot dot-red"></i>
-            <input type="text" id="drop-location" placeholder="Drop-off location">
-        </div>
+    <div class="info-row">
+        <span>Distance:</span><span id="distance-text">0 km</span>
     </div>
-    <div class="price-tag">
-        <div class="vehicle-info">
-            <i class="fas fa-motorcycle"></i>
-            <div>
-                <p class="service-name">Standard</p>
-                <p class="eta" id="distance-text">Calculating...</p>
-            </div>
-        </div>
-        <span class="amount" id="fee-text">0 MMK</span>
+    <div class="info-row">
+        <span>Delivery Fee:</span><span id="fee-text">0 MMK</span>
     </div>
-    <button class="primary-btn" onclick="requestDelivery()">Request Delivery</button>
-</div>
-</div>
+
+    <button class="primary-btn" id="request-btn">Request Delivery</button>
 </div>
 
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-/* --- Firebase --- */
-const firebaseConfig = {
-  apiKey: "AIzaSyA1tAW0DWW633uYOZ1cHw-kfnHL2kQrlNM",
-  authDomain: "gobike-14050.firebaseapp.com",
-  projectId: "gobike-14050",
-  storageBucket: "gobike-14050.appspot.com",
-  messagingSenderId: "1079730742000",
-  appId: "1:1079730742000:web:2ba453b89870404fcc1835"
-};
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
+// --- Initialize map ---
+const map = L.map('map').setView([16.8661, 96.1951], 12); // Yangon default
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    maxZoom: 19
+}).addTo(map);
 
-/* --- Page Switch --- */
-function showApp(){document.getElementById('login-page').style.display='none';document.getElementById('signup-page').style.display='none';document.getElementById('main-app').style.display='flex';initMap();}
-function showSignUp(){document.getElementById('login-page').style.display='none';document.getElementById('signup-page').style.display='flex';}
-function showLogin(){document.getElementById('signup-page').style.display='none';document.getElementById('login-page').style.display='flex';}
+// --- Markers ---
+let pickupMarker = L.marker([16.8661, 96.1951], {draggable:true}).addTo(map).bindPopup("Pickup");
+let dropoffMarker = L.marker([16.8661, 96.1951], {draggable:true}).addTo(map).bindPopup("Drop-off");
 
-/* --- Authentication --- */
-function login(){
-    const email = document.getElementById('loginEmail').value.trim();
-    const password = document.getElementById('loginPassword').value.trim();
-    if(!email||!password){alert("Enter email & password");return;}
-    auth.signInWithEmailAndPassword(email,password)
-    .then(res=> db.collection('users').doc(res.user.uid).get())
-    .then(doc=>{if(!doc.exists) throw new Error("User not found"); showApp();})
-    .catch(err=>alert(err.message));
-}
-function signUp(){
-    const name = document.getElementById('signupName').value.trim();
-    const phone = document.getElementById('signupPhone').value.trim();
-    const email = document.getElementById('signupEmail').value.trim();
-    const password = document.getElementById('signupPassword').value.trim();
-    const role = document.getElementById('signupRole').value;
-    if(!name||!email||!password){alert("Name, Email, Password required");return;}
-    auth.createUserWithEmailAndPassword(email,password)
-    .then(res=> db.collection('users').doc(res.user.uid).set({
-        name, phone: phone||null, email, role,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    })).then(()=>{alert("Sign Up Successful!");showLogin();})
-    .catch(err=>alert(err.message));
+let pickupCoords = pickupMarker.getLatLng();
+let dropoffCoords = dropoffMarker.getLatLng();
+
+// --- Helper function to calculate distance in km ---
+function getDistance(lat1, lon1, lat2, lon2){
+    function deg2rad(deg){ return deg * (Math.PI/180); }
+    const R = 6371;
+    const dLat = deg2rad(lat2-lat1);
+    const dLon = deg2rad(lon2-lon1);
+    const a = Math.sin(dLat/2)*Math.sin(dLat/2)+
+              Math.cos(deg2rad(lat1))*Math.cos(deg2rad(lat2))*
+              Math.sin(dLon/2)*Math.sin(dLon/2);
+    const c = 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R*c;
 }
 
-/* --- Leaflet Map & Distance/Fee --- */
-let map, pickupMarker, dropMarker;
-function initMap(){
-    map = L.map('map').setView([16.8409, 96.1735],13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-        attribution:'&copy; OpenStreetMap contributors'
-    }).addTo(map);
-
-    if(navigator.geolocation){
-        navigator.geolocation.getCurrentPosition(pos=>{
-            const lat=pos.coords.latitude, lng=pos.coords.longitude;
-            map.setView([lat,lng],15);
-            pickupMarker=L.marker([lat,lng],{draggable:true}).addTo(map).bindPopup("Pickup").openPopup();
-            document.getElementById('pickup-location').value=`${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-            pickupMarker.on('dragend', updateDistanceFee);
-        });
-    }
-
-    dropMarker=L.marker([16.8415,96.1735],{draggable:true}).addTo(map).bindPopup("Drop-off");
-    dropMarker.on('dragend', updateDistanceFee);
-    updateDistanceFee();
-    map.on('click', e=>{
-        if(!pickupMarker || !dropMarker) return;
-        if(!document.getElementById('pickup-location').value){pickupMarker.setLatLng(e.latlng);document.getElementById('pickup-location').value=`${e.latlng.lat.toFixed(5)}, ${e.latlng.lng.toFixed(5)}`;}
-        else {dropMarker.setLatLng(e.latlng);document.getElementById('drop-location').value=`${e.latlng.lat.toFixed(5)}, ${e.latlng.lng.toFixed(5)}`;}
-        updateDistanceFee();
-    });
-}
-
+// --- Update distance and fee ---
 function updateDistanceFee(){
-    if(!pickupMarker || !dropMarker) return;
-    const lat1=pickupMarker.getLatLng().lat, lng1=pickupMarker.getLatLng().lng;
-    const lat2=dropMarker.getLatLng().lat, lng2=dropMarker.getLatLng().lng;
-
-    const R=6371;
-    const dLat=(lat2-lat1)*Math.PI/180;
-    const dLng=(lng2-lng1)*Math.PI/180;
-    const a=Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
-    const c=2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    const distance=R*c; // km
-
-    const fee=Math.max(1000, Math.round(distance*1000)); // 1km=1000 MMK min 1000
-    document.getElementById('distance-text').innerText=`${distance.toFixed(2)} km`;
-    document.getElementById('fee-text').innerText=`${fee.toLocaleString()} MMK`;
+    const dist = getDistance(
+        pickupCoords.lat, pickupCoords.lng,
+        dropoffCoords.lat, dropoffCoords.lng
+    );
+    document.getElementById('distance-text').innerText = dist.toFixed(2) + ' km';
+    const fee = 1000 + Math.ceil(dist*500); // Base 1000 + 500 per km
+    document.getElementById('fee-text').innerText = fee + ' MMK';
 }
 
-/* --- Request Delivery --- */
-function requestDelivery(){
-    const pickup=document.getElementById('pickup-location').value.trim();
-    const drop=document.getElementById('drop-location').value.trim();
-    if(!pickup||!drop){alert("Enter pickup & drop");return;}
-    const user=auth.currentUser; if(!user){alert("Not logged in"); return;}
-    const distanceText=document.getElementById('distance-text').innerText;
-    const feeText=document.getElementById('fee-text').innerText;
-
-    db.collection('deliveries').add({
-        userId:user.uid, pickup, drop, distance: distanceText, fee: feeText,
-        status:"pending", createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    }).then(()=>alert("Delivery Requested!")).catch(err=>alert(err.message));
+// --- Nominatim search ---
+async function searchLocation(query, markerType){
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
+    const data = await res.json();
+    if(data && data.length>0){
+        const lat = parseFloat(data[0].lat);
+        const lon = parseFloat(data[0].lon);
+        if(markerType==='pickup'){
+            pickupMarker.setLatLng([lat,lon]).openPopup();
+            pickupCoords = pickupMarker.getLatLng();
+            map.setView([lat,lon],15);
+        } else {
+            dropoffMarker.setLatLng([lat,lon]).openPopup();
+            dropoffCoords = dropoffMarker.getLatLng();
+            map.setView([lat,lon],15);
+        }
+        updateDistanceFee();
+    }
 }
+
+// --- Event listeners ---
+document.getElementById('pickup-search').addEventListener('change', e=>{
+    searchLocation(e.target.value, 'pickup');
+});
+document.getElementById('dropoff-search').addEventListener('change', e=>{
+    searchLocation(e.target.value, 'dropoff');
+});
+
+// --- Draggable markers ---
+pickupMarker.on('move', e=>{
+    pickupCoords = e.latlng;
+    updateDistanceFee();
+});
+dropoffMarker.on('move', e=>{
+    dropoffCoords = e.latlng;
+    updateDistanceFee();
+});
+
+// --- Request delivery button ---
+document.getElementById('request-btn').addEventListener('click', ()=>{
+    alert(`Delivery Requested!\nPickup: ${pickupCoords.lat.toFixed(5)}, ${pickupCoords.lng.toFixed(5)}\nDrop-off: ${dropoffCoords.lat.toFixed(5)}, ${dropoffCoords.lng.toFixed(5)}\nFee: ${document.getElementById('fee-text').innerText}`);
+});
 </script>
+
 </body>
 </html>
