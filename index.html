@@ -3,34 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GoBike - Login</title>
+    <title>GoBike - Fast Delivery</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+
     <div class="auth-box">
-        <img src="assets/logo.png" alt="Logo" class="logo">
+        <div class="logo-container">
+            <img src="assets/logo.png" alt="GoBike Logo" class="logo">
+            <h1>GoBike</h1>
+            <p>Reliable Delivery Service</p>
+        </div>
         
         <div class="tabs">
             <button id="loginTab" class="active" onclick="showLogin()">Login</button>
             <button id="signupTab" onclick="showSignup()">Sign Up</button>
         </div>
 
-        <div id="loginForm">
-            <input type="email" id="login-email" placeholder="Gmail">
-            <input type="password" id="login-password" placeholder="Password">
-            <button id="loginBtn">Login</button> 
+        <div id="loginForm" class="form-container">
+            <div class="input-group">
+                <input type="email" id="login-email" placeholder="Gmail Address" required>
+            </div>
+            <div class="input-group">
+                <input type="password" id="login-password" placeholder="Password" required>
+            </div>
+            <button id="loginBtn" class="main-btn">Sign In</button> 
         </div>
 
-        <div id="signupForm" style="display:none;">
-            <input type="text" id="reg-name" placeholder="Full Name">
-            <input type="email" id="reg-email" placeholder="Gmail Address">
-            <input type="password" id="reg-password" placeholder="Password">
-            <input type="tel" id="reg-phone" placeholder="Phone Number">
-            <select id="reg-role">
-                <option value="customer">Customer</option>
-                <option value="delivery">Rider</option>
-            </select>
-            <button id="signupBtn">Register</button>
+        <div id="signupForm" class="form-container" style="display:none;">
+            <div class="input-group">
+                <input type="text" id="reg-name" placeholder="Full Name" required>
+            </div>
+            <div class="input-group">
+                <input type="email" id="reg-email" placeholder="Gmail Address" required>
+            </div>
+            <div class="input-group">
+                <input type="password" id="reg-password" placeholder="Password" required>
+            </div>
+            <div class="input-group">
+                <input type="tel" id="reg-phone" placeholder="Phone Number" required>
+            </div>
+            <div class="input-group">
+                <select id="reg-role">
+                    <option value="customer">Customer</option>
+                    <option value="delivery">Rider (Delivery)</option>
+                </select>
+            </div>
+            <button id="signupBtn" class="main-btn">Create Account</button>
+        </div>
+
+        <div class="footer-links">
+            <p>© 2024 GoBike Service. All rights reserved.</p>
         </div>
     </div>
 
@@ -40,10 +63,15 @@
         function showLogin() {
             document.getElementById('loginForm').style.display = 'block';
             document.getElementById('signupForm').style.display = 'none';
+            document.getElementById('loginTab').classList.add('active');
+            document.getElementById('signupTab').classList.remove('active');
         }
+
         function showSignup() {
             document.getElementById('loginForm').style.display = 'none';
             document.getElementById('signupForm').style.display = 'block';
+            document.getElementById('signupTab').classList.add('active');
+            document.getElementById('loginTab').classList.remove('active');
         }
     </script>
 </body>
