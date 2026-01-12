@@ -18,27 +18,23 @@ if (orderId) {
         if (!docSnap.exists()) return;
         const data = docSnap.data();
 
-        // ဘေလ် နှင့် အချက်အလက်များ ပြသခြင်း
+        // ဘေလ် UI Update
         document.getElementById('fee-amount').innerText = data.deliveryFee;
         document.getElementById('payment-type').innerText = `(${data.paymentMethod})`;
         document.getElementById('status-badge').innerText = data.status;
 
         if (data.status === "accepted") {
             document.getElementById('status-text').innerText = "Rider လာနေပါပြီ";
-            document.getElementById('rider-info').style.display = "block";
-            document.getElementById('rider-name').innerText = data.riderName;
-            document.getElementById('call-link').href = `tel:${data.riderPhone || ''}`;
             document.getElementById('schedule-text').innerText = data.pickupSchedule === 'tomorrow' ? "📅 မနက်ဖြန်မှ လာယူပါမည်" : "🛵 ယခု လာယူနေပါပြီ";
         }
 
         if (data.status === "completed") {
-            document.getElementById('status-text').innerText = "ရောက်ရှိသွားပါပြီ";
-            document.getElementById('receipt-overlay').style.display = "block";
-            document.getElementById('rider-info').style.display = "none";
+            document.getElementById('status-text').innerText = "ပို့ဆောင်မှု ပြီးပါပြီ";
+            document.getElementById('receipt-overlay').style.display = "block"; // Receipt UI ပြမည်
             if(riderMarker) map.removeLayer(riderMarker);
         }
 
-        // Rider Live Location Tracking
+        // Rider Live Location
         if (data.riderId && data.status === "accepted") {
             onSnapshot(doc(db, "active_riders", data.riderId), (riderSnap) => {
                 if (riderSnap.exists()) {
@@ -55,4 +51,3 @@ if (orderId) {
         }
     });
 }
-
