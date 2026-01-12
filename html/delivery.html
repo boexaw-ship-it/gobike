@@ -3,117 +3,49 @@
 <head>
 <meta charset="UTF-8">
 <title>Rider - GoBike</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <link rel="stylesheet" href="../css/style.css">
-
-<!-- Leaflet CSS -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-
-<!-- Firebase SDK (COMPAT) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-
-<!-- Firebase Config -->
 <script src="../js/firebase-config.js"></script>
-
-<style>
-  #map {
-    height: 300px;
-    width: 100%;
-    margin-top: 15px;
-    border-radius: 8px;
-  }
-</style>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<style>#map{height:300px;width:100%;margin-top:15px;border-radius:8px;}</style>
 </head>
 <body>
-
 <div class="app">
   <h2>Rider Dashboard</h2>
   <p id="status">Initializing...</p>
   <div id="map"></div>
 </div>
 
-<!-- Leaflet JS -->
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
 <script>
-/* ---------------- Firebase refs ---------------- */
-const auth = firebase.auth();
-const db   = firebase.firestore();
+auth.onAuthStateChanged(user=>{
+  if(!user) location.href="../index.html";
+  db.collection("users").doc(user.uid).get().then(doc=>{
+    if(!doc.exists||doc.data().role!=="rider"){ auth.signOut(); location.href="../index.html"; }
+  });
 
-/* ---------------- Leaflet Map ---------------- */
-let map = L.map('map').setView([16.82, 96.15], 13);
+  let map=L.map('map').setView([16.82,96.15],12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy;OpenStreetMap'}).addTo(map);
+  const riderIcon=L.icon({iconUrl:'../assets/bike.png',iconSize:[40,40],iconAnchor:[20,40]});
+  let marker=L.marker([16.82,96.15],{icon:riderIcon}).addTo(map);
+  let path=L.polyline([[16.82,96.15]],{color:'red',weight:4}).addTo(map);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '&copy; OpenStreetMap contributors'
-}).addTo(map);
-
-const riderIcon = L.icon({
-  iconUrl: '../assets/bike.png',
-  iconSize: [40, 40],
-  iconAnchor: [20, 40]
-});
-
-let marker = L.marker([16.82, 96.15], { icon: riderIcon }).addTo(map);
-let path   = L.polyline([[16.82, 96.15]], { color: 'red', weight: 4 }).addTo(map);
-
-/* ---------------- Anonymous Login ---------------- */
-auth.signInAnonymously()
-.then(res => {
-  const uid = res.user.uid;
-  document.getElementById("status").innerText = "Logged in. GPS starting...";
-
-  /* ---------------- GPS Watch ---------------- */
-  if (!navigator.geolocation) {
-    document.getElementById("status").innerText = "Geolocation not supported.";
-    return;
-  }
-
-  navigator.geolocation.watchPosition(
-    pos => {
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
-      const name = localStorage.getItem("name") || "Rider";
-
-      document.getElementById("status").innerText =
-        `Live GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-
-      /* ---------- Save to Firestore ---------- */
-      db.collection("locations").doc(uid).set({
-        lat: lat,
-        lng: lng,
-        role: "rider",
-        name: name,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
-
-      /* ---------- Update Map ---------- */
-      marker.setLatLng([lat, lng]).bindPopup(name);
-
-      const latlngs = path.getLatLngs();
-      latlngs.push([lat, lng]);
-      path.setLatLngs(latlngs);
-
-      map.panTo([lat, lng]);
-    },
-    err => {
-      document.getElementById("status").innerText =
-        "GPS Error: " + err.message;
-    },
-    {
-      enableHighAccuracy: true,
-      maximumAge: 0,
-      timeout: 10000
-    }
-  );
-})
-.catch(err => {
-  document.getElementById("status").innerText =
-    "Auth Error: " + err.message;
+  if(navigator.geolocation){
+    navigator.geolocation.watchPosition(pos=>{
+      const lat=pos.coords.latitude, lng=pos.coords.longitude;
+      document.getElementById("status").innerText=`GPS: ${lat.toFixed(5)},${lng.toFixed(5)}`;
+      db.collection("locations").doc(user.uid).set({
+        lat, lng, role:"rider", name:"Rider "+user.uid,
+        updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+      },{merge:true});
+      marker.setLatLng([lat,lng]).bindPopup("Rider").openPopup();
+      let latlngs=path.getLatLngs(); latlngs.push([lat,lng]); path.setLatLngs(latlngs);
+      map.panTo([lat,lng]);
+    },err=>{document.getElementById("status").innerText="GPS Error:"+err.message;},{enableHighAccuracy:true,maximumAge:0,timeout:10000});
+  }else{document.getElementById("status").innerText="Geolocation not supported";}
 });
 </script>
-
 </body>
 </html>
