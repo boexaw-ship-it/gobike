@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Flash Freelance Delivery</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
 <style>
 /* --- Global Styles --- */
 *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI', Roboto, sans-serif;}
@@ -29,9 +33,7 @@ p{font-size:14px;color:#555;margin-bottom:15px;}
 header{padding:15px;display:flex;justify-content:space-between;align-items:center;position:absolute;top:0;width:100%;z-index:10;}
 .header-btn{background:white;padding:10px;border-radius:50%;box-shadow:0 2px 5px rgba(0,0,0,0.1);width:40px;height:40px;display:flex;justify-content:center;align-items:center;}
 .header-status{font-weight:bold;background:white;padding:5px 20px;border-radius:20px;box-shadow:0 2px 5px rgba(0,0,0,0.1);}
-.map-area{flex:1;background:#e5e3df;display:flex;justify-content:center;align-items:center;position:relative;}
-.center-marker{position:absolute;font-size:30px;color:#ff3b30;z-index:5;}
-.map-text{color:#999;font-weight:bold;}
+#map{flex:1;width:100%;}
 .booking-card{background:#fff;padding:20px;border-radius:25px 25px 0 0;box-shadow:0 -5px 20px rgba(0,0,0,0.1);z-index:20;}
 .handle{width:40px;height:4px;background:#ddd;border-radius:10px;margin:0 auto 15px;}
 .card-title{margin-bottom:15px;font-size:18px;}
@@ -53,6 +55,9 @@ header{padding:15px;display:flex;justify-content:space-between;align-items:cente
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 </head>
 <body>
@@ -93,22 +98,23 @@ header{padding:15px;display:flex;justify-content:space-between;align-items:cente
             <div class="header-status">Pickup</div>
             <div class="header-btn"><i class="fas fa-user"></i></div>
         </header>
-        <div class="map-area">
-            <i class="fas fa-location-crosshairs center-marker"></i>
-            <div class="map-text">MAP VIEW CENTER</div>
-        </div>
+
+        <!-- Leaflet Map -->
+        <div id="map"></div>
+
+        <!-- Booking Card -->
         <div class="booking-card">
             <div class="handle"></div>
             <h3 class="card-title">Where to?</h3>
             <div class="route-picker">
                 <div class="route-row">
                     <i class="fas fa-circle dot-green"></i>
-                    <input type="text" placeholder="Pickup location" value="Current Location">
+                    <input type="text" id="pickup-location" placeholder="Pickup location" value="Current Location">
                 </div>
                 <div class="divider-line"></div>
                 <div class="route-row">
                     <i class="fas fa-location-dot dot-red"></i>
-                    <input type="text" placeholder="Drop-off location">
+                    <input type="text" id="drop-location" placeholder="Drop-off location">
                 </div>
             </div>
             <div class="price-tag">
@@ -121,7 +127,7 @@ header{padding:15px;display:flex;justify-content:space-between;align-items:cente
                 </div>
                 <span class="amount">3,000 MMK</span>
             </div>
-            <button class="primary-btn">Request Delivery</button>
+            <button class="primary-btn" onclick="requestDelivery()">Request Delivery</button>
         </div>
     </div>
 
@@ -146,6 +152,7 @@ function showApp(){
     document.getElementById('login-page').style.display='none';
     document.getElementById('signup-page').style.display='none';
     document.getElementById('main-app').style.display='flex';
+    initMap();
 }
 function showSignUp(){
     document.getElementById('login-page').style.display='none';
@@ -187,6 +194,44 @@ function signUp(){
     }))
     .then(()=>{alert("Sign Up Successful!"); showLogin();})
     .catch(err=>alert(err.message));
+}
+
+/* --- Leaflet Map --- */
+let map;
+function initMap(){
+    map = L.map('map').setView([16.8409, 96.1735], 13); // Yangon default
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+        attribution:'&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Show current location
+    if(navigator.geolocation){
+        navigator.geolocation.getCurrentPosition(pos=>{
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            map.setView([lat,lng],15);
+            L.marker([lat,lng]).addTo(map).bindPopup("You are here").openPopup();
+        });
+    }
+}
+
+/* --- Request Delivery --- */
+function requestDelivery(){
+    const pickup = document.getElementById('pickup-location').value.trim();
+    const drop = document.getElementById('drop-location').value.trim();
+    if(!pickup || !drop){alert("Enter pickup & drop locations"); return;}
+
+    const user = auth.currentUser;
+    if(!user){alert("Not logged in"); return;}
+
+    db.collection('deliveries').add({
+        userId: user.uid,
+        pickup,
+        drop,
+        status: "pending",
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(()=>alert("Delivery Requested!"))
+      .catch(err=>alert(err.message));
 }
 </script>
 
