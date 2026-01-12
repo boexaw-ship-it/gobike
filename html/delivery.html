@@ -7,7 +7,7 @@
 
 <link rel="stylesheet" href="../css/style.css">
 
-<!-- Leaflet CSS for optional mini-map preview -->
+<!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 
 <!-- Firebase SDK (COMPAT) -->
@@ -23,18 +23,15 @@
     height: 300px;
     width: 100%;
     margin-top: 15px;
+    border-radius: 8px;
   }
 </style>
-
 </head>
 <body>
 
 <div class="app">
   <h2>Rider Dashboard</h2>
-  <p>GPS tracking is active.</p>
-  <p id="status"></p>
-
-  <!-- Optional: Rider mini map -->
+  <p id="status">Initializing...</p>
   <div id="map"></div>
 </div>
 
@@ -42,68 +39,80 @@
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
-// ---------------- Anonymous login ----------------
+/* ---------------- Firebase refs ---------------- */
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+/* ---------------- Leaflet Map ---------------- */
+let map = L.map('map').setView([16.82, 96.15], 13);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+const riderIcon = L.icon({
+  iconUrl: '../assets/bike.png',
+  iconSize: [40, 40],
+  iconAnchor: [20, 40]
+});
+
+let marker = L.marker([16.82, 96.15], { icon: riderIcon }).addTo(map);
+let path   = L.polyline([[16.82, 96.15]], { color: 'red', weight: 4 }).addTo(map);
+
+/* ---------------- Anonymous Login ---------------- */
 auth.signInAnonymously()
-  .then(res => {
-    const uid = res.user.uid;
-    document.getElementById("status").innerText = "Logged in as UID: " + uid;
+.then(res => {
+  const uid = res.user.uid;
+  document.getElementById("status").innerText = "Logged in. GPS starting...";
 
-    // ---------------- Leaflet mini map ----------------
-    let map = L.map('map').setView([16.82, 96.15], 12);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
+  /* ---------------- GPS Watch ---------------- */
+  if (!navigator.geolocation) {
+    document.getElementById("status").innerText = "Geolocation not supported.";
+    return;
+  }
 
-    const riderIcon = L.icon({
-      iconUrl: '../assets/bike.png',
-      iconSize: [40, 40],
-      iconAnchor: [20, 40],
-      popupAnchor: [0, -40]
-    });
+  navigator.geolocation.watchPosition(
+    pos => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      const name = localStorage.getItem("name") || "Rider";
 
-    let marker = L.marker([16.82, 96.15], { icon: riderIcon }).addTo(map);
-    let path = L.polyline([[16.82, 96.15]], { color: 'red', weight: 4 }).addTo(map);
+      document.getElementById("status").innerText =
+        `Live GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 
-    // ---------------- GPS watch ----------------
-    if (navigator.geolocation) {
-      navigator.geolocation.watchPosition(
-        pos => {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-          const name = localStorage.getItem("name") || "Rider";
+      /* ---------- Save to Firestore ---------- */
+      db.collection("locations").doc(uid).set({
+        lat: lat,
+        lng: lng,
+        role: "rider",
+        name: name,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
 
-          document.getElementById("status").innerText =
-            `GPS OK: Lat ${lat.toFixed(5)}, Lng ${lng.toFixed(5)}`;
+      /* ---------- Update Map ---------- */
+      marker.setLatLng([lat, lng]).bindPopup(name);
 
-          // ---------------- Firestore save ----------------
-          db.collection("locations").doc(uid).set({
-            lat: lat,
-            lng: lng,
-            name: name,
-            role: "rider",
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-          });
+      const latlngs = path.getLatLngs();
+      latlngs.push([lat, lng]);
+      path.setLatLngs(latlngs);
 
-          // ---------------- Leaflet marker & polyline ----------------
-          marker.setLatLng([lat, lng]).bindPopup(name).openPopup();
-          let latlngs = path.getLatLngs();
-          latlngs.push([lat, lng]);
-          path.setLatLngs(latlngs);
-          map.panTo([lat, lng]);
-        },
-        err => {
-          document.getElementById("status").innerText = "GPS Error: " + err.message;
-        },
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
-      );
-    } else {
-      document.getElementById("status").innerText = "Geolocation not supported.";
+      map.panTo([lat, lng]);
+    },
+    err => {
+      document.getElementById("status").innerText =
+        "GPS Error: " + err.message;
+    },
+    {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 10000
     }
-
-  })
-  .catch(err => {
-    document.getElementById("status").innerText = "Auth Error: " + err.message;
-  });
+  );
+})
+.catch(err => {
+  document.getElementById("status").innerText =
+    "Auth Error: " + err.message;
+});
 </script>
 
 </body>
