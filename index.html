@@ -2,41 +2,75 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>GoBike Login / Sign Up</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GoBike - Login / Sign Up</title>
 <link rel="stylesheet" href="css/style.css">
 <style>
-  body{font-family:sans-serif;padding:20px;}
-  input, select, button{display:block;margin:10px 0;padding:8px;width:250px;}
-  .section{margin-bottom:30px;}
+  body {
+    font-family: Arial, sans-serif;
+    background: #f7f7f7;
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+  }
+  .container {
+    width: 100%;
+    max-width: 400px;
+    background: #fff;
+    padding: 25px 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  }
+  h2 { text-align:center; margin-bottom: 20px; color: #333; }
+  input, select, button {
+    width: 100%;
+    padding: 12px;
+    margin: 8px 0;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 16px;
+  }
+  button {
+    background: #007bff;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  button:hover { background: #0056b3; }
+  p { color: red; font-size: 14px; }
 </style>
 </head>
 <body>
 
-<h2>GoBike</h2>
+<div class="container">
+  <h2>GoBike</h2>
 
-<!-- LOGIN -->
-<div class="section">
-  <h3>Login</h3>
-  <input type="email" id="loginEmail" placeholder="Email">
-  <input type="password" id="loginPassword" placeholder="Password">
-  <button onclick="login()">Login</button>
-  <p id="loginMsg"></p>
-</div>
+  <!-- LOGIN -->
+  <div>
+    <h3>Login</h3>
+    <input type="email" id="loginEmail" placeholder="Email">
+    <input type="password" id="loginPassword" placeholder="Password">
+    <button onclick="login()">Login</button>
+    <p id="loginMsg"></p>
+  </div>
 
-<!-- SIGN UP -->
-<div class="section">
-  <h3>Sign Up</h3>
-  <input type="text" id="signupName" placeholder="Your Name">
-  <input type="text" id="signupPhone" placeholder="Phone Number (optional)">
-  <input type="email" id="signupEmail" placeholder="Email">
-  <input type="password" id="signupPassword" placeholder="Password">
-  <select id="signupRole">
-    <option value="customer">Customer</option>
-    <option value="rider">Rider</option>
-    <option value="admin">Admin</option>
-  </select>
-  <button onclick="signUp()">Sign Up</button>
-  <p id="signupMsg"></p>
+  <hr>
+
+  <!-- SIGN UP -->
+  <div>
+    <h3>Sign Up</h3>
+    <input type="text" id="signupName" placeholder="Your Name">
+    <input type="text" id="signupPhone" placeholder="Phone Number (optional)">
+    <input type="email" id="signupEmail" placeholder="Email">
+    <input type="password" id="signupPassword" placeholder="Password">
+    <select id="signupRole">
+      <option value="customer">Customer</option>
+      <option value="rider">Rider</option>
+    </select>
+    <button onclick="signUp()">Sign Up</button>
+    <p id="signupMsg"></p>
+  </div>
 </div>
 
 <!-- Firebase SDK -->
@@ -44,8 +78,8 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
-<!-- Firebase Config -->
 <script>
+// ---------------- FIREBASE CONFIG ----------------
 const firebaseConfig = {
   apiKey: "AIzaSyA1tAW0DWW633uYOZ1cHw-kfnHL2kQrlNM",
   authDomain: "gobike-14050.firebaseapp.com",
@@ -57,9 +91,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
-</script>
 
-<script>
 // ---------------- LOGIN ----------------
 function login(){
   const email = document.getElementById("loginEmail").value.trim();
@@ -67,19 +99,18 @@ function login(){
   const msg = document.getElementById("loginMsg");
   msg.innerText = "";
 
-  if(!email || !password){ msg.innerText="Enter email & password"; return; }
+  if(!email || !password){ msg.innerText = "Enter email & password"; return; }
 
   auth.signInWithEmailAndPassword(email,password)
-  .then(res=> db.collection("users").doc(res.user.uid).get())
-  .then(doc=>{
-    if(!doc.exists) throw new Error("User not found");
-    const role = doc.data().role;
-    if(role==="customer") location.href="html/customer.html";
-    else if(role==="rider") location.href="html/delivery.html";
-    else if(role==="admin") location.href="html/admin.html";
-    else throw new Error("Invalid role");
-  })
-  .catch(err=> msg.innerText = err.message);
+    .then(res => db.collection("users").doc(res.user.uid).get())
+    .then(doc => {
+      if(!doc.exists) throw new Error("User not found");
+      const role = doc.data().role;
+      if(role === "customer") location.href = "html/customer.html";
+      else if(role === "rider") location.href = "html/delivery.html";
+      else throw new Error("Invalid role");
+    })
+    .catch(err => msg.innerText = err.message);
 }
 
 // ---------------- SIGN UP ----------------
@@ -90,23 +121,23 @@ function signUp(){
   const password = document.getElementById("signupPassword").value.trim();
   const role = document.getElementById("signupRole").value;
   const msg = document.getElementById("signupMsg");
-  msg.innerText="";
+  msg.innerText = "";
 
-  if(!name || !email || !password){ msg.innerText="Name, Email & Password required"; return; }
+  if(!name || !email || !password){ msg.innerText = "Name, Email & Password required"; return; }
 
   auth.createUserWithEmailAndPassword(email,password)
-  .then(res=>{
-    const uid = res.user.uid;
-    return db.collection("users").doc(uid).set({
-      name: name,
-      phone: phone || null,
-      email: email,
-      role: role,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-  })
-  .then(()=> msg.innerText="Sign up successful! You can now login.")
-  .catch(err=> msg.innerText=err.message);
+    .then(res=>{
+      const uid = res.user.uid;
+      return db.collection("users").doc(uid).set({
+        name: name,
+        phone: phone || null,
+        email: email,
+        role: role,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    })
+    .then(()=> msg.innerText = "Sign up successful! You can now login.")
+    .catch(err => msg.innerText = err.message);
 }
 </script>
 
