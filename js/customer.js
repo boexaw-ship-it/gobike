@@ -15,7 +15,7 @@ let dropoffCoords = null;
 // --- ၂။ Sync Dropdown Options ---
 const pickupSelect = document.getElementById('pickup-township');
 const dropoffSelect = document.getElementById('dropoff-township');
-dropoffSelect.innerHTML = pickupSelect.innerHTML; // ပထမ option မှအစ အကုန်ကူးထည့်မည်
+dropoffSelect.innerHTML = pickupSelect.innerHTML;
 
 // --- ၃။ Township Change Handle ---
 function updateLocation(type) {
@@ -37,7 +37,6 @@ function updateLocation(type) {
         dropoffMarker = L.marker([lat, lng], { draggable: true }).addTo(map);
     }
 
-    // Zoom to point
     map.flyTo([lat, lng], 15);
     calculatePrice();
 }
@@ -69,9 +68,10 @@ document.getElementById('placeOrderBtn').onclick = async () => {
     const feeInfo = calculatePrice();
     const item = document.getElementById('item-detail').value;
     const phone = document.getElementById('receiver-phone').value;
+    const payment = document.getElementById('payment-method').value;
 
     if (!feeInfo || !item || !phone) {
-        alert("အချက်အလက်အပြည့်အစုံ ဖြည့်ပေးပါ");
+        alert("အချက်အလက်များကို ပြည့်စုံအောင် ဖြည့်ပေးပါခင်ဗျာ။");
         return;
     }
 
@@ -83,20 +83,31 @@ document.getElementById('placeOrderBtn').onclick = async () => {
             pickup: { ...pickupCoords, address: `${pTown}, ${document.getElementById('pickup-address').value}` },
             dropoff: { ...dropoffCoords, address: `${dTown}, ${document.getElementById('dropoff-address').value}` },
             item,
-            weight: document.getElementById('item-weight').value + "kg",
-            itemValue: document.getElementById('item-value').value + "ks",
+            weight: document.getElementById('item-weight').value + " kg",
+            itemValue: document.getElementById('item-value').value + " KS",
             phone,
+            paymentMethod: payment === "COD" ? "Cash on Delivery" : "Cash at Pickup",
             deliveryFee: feeInfo.total,
             status: "pending",
             createdAt: serverTimestamp()
         };
 
+        // Firebase သို့ သိမ်းဆည်းခြင်း
         await addDoc(collection(db, "orders"), orderData);
         
-        const msg = `📦 <b>New Order!</b>\n\n📍 From: ${orderData.pickup.address}\n🏁 To: ${orderData.dropoff.address}\n💰 Fee: ${feeInfo.total} KS`;
+        // Telegram သို့ အသိပေးခြင်း
+        const msg = `📦 <b>New Order Received!</b>\n` +
+                    `--------------------------\n` +
+                    `📝 ပစ္စည်း: ${item}\n` +
+                    `💰 ပို့ခ: ${feeInfo.total} KS\n` +
+                    `💳 Payment: ${orderData.paymentMethod}\n` +
+                    `📞 ဖုန်း: ${phone}\n` +
+                    `📍 ယူရန်: ${orderData.pickup.address}\n` +
+                    `🏁 ပို့ရန်: ${orderData.dropoff.address}`;
+
         await notifyTelegram(msg);
 
-        alert("Order တင်ပြီးပါပြီ။ ခေတ္တစောင့်ဆိုင်းပေးပါ။");
+        alert("Order အောင်မြင်စွာ တင်ပြီးပါပြီ။");
         location.reload();
     } catch (e) {
         alert("Error: " + e.message);
