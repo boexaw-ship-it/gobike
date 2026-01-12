@@ -2,75 +2,111 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Customer Order - GoBike</title>
+<title>Customer - GoBike</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <link rel="stylesheet" href="../css/style.css">
 
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<!-- Firebase Config -->
 <script src="../js/firebase-config.js"></script>
 
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
 <style>
-  .app { padding: 15px; font-family: sans-serif; max-width: 500px; margin:auto; }
-  input, textarea { width: 100%; padding: 8px; margin:5px 0; }
-  button { padding:10px 15px; margin-top:10px; cursor:pointer; }
-  #status { margin-top:10px; font-weight:bold; }
+  #map { height: 500px; width: 100%; }
 </style>
 
 </head>
 <body>
 
 <div class="app">
-  <h2>Create Order</h2>
-
-  <input id="customerName" placeholder="Your Name">
-  <input id="destination" placeholder="Delivery Destination">
-  <textarea id="note" placeholder="Additional Note (optional)"></textarea>
-  <button onclick="createOrder()">Place Order</button>
-
-  <p id="status"></p>
+  <h2>Customer Dashboard</h2>
+  <div id="map"></div>
 </div>
 
 <script>
-let uid = null;
+// ---------------- Leaflet Map Setup ----------------
+let map = L.map('map').setView([16.82, 96.15], 12); // Myanmar center
 
-// Anonymous login
-auth.signInAnonymously()
-.then(res=>{
-  uid = res.user.uid;
-})
-.catch(err=>{
-  alert("Auth error: "+err.message);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+// Custom Rider / Bike icon
+const riderIcon = L.icon({
+  iconUrl: '../assets/bike.png', 
+  iconSize: [40, 40],
+  iconAnchor: [20, 40],
+  popupAnchor: [0, -40]
 });
 
-function createOrder(){
-  const name = document.getElementById("customerName").value.trim();
-  const dest = document.getElementById("destination").value.trim();
-  const note = document.getElementById("note").value.trim();
+// Store markers & polylines by UID
+let markers = {};
+let routes = {};
 
-  if(!name || !dest){
-    alert("Name and Destination required");
-    return;
-  }
+// ---------------- Smooth Move Function ----------------
+function moveMarkerSmooth(marker, newLatLng, steps = 10, delay = 50) {
+  if (!marker) return;
+  const start = marker.getLatLng();
+  const latStep = (newLatLng[0] - start.lat) / steps;
+  const lngStep = (newLatLng[1] - start.lng) / steps;
 
-  db.collection("orders").add({
-    customerId: uid,
-    customerName: name,
-    destination: dest,
-    note: note,
-    status: "pending",
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  }).then(()=>{
-    document.getElementById("status").innerText = "Order placed successfully!";
-    document.getElementById("customerName").value="";
-    document.getElementById("destination").value="";
-    document.getElementById("note").value="";
-  }).catch(err=>{
-    document.getElementById("status").innerText = "Error: "+err.message;
-  });
+  let i = 0;
+  const interval = setInterval(() => {
+    if (i >= steps) { clearInterval(interval); return; }
+    const lat = start.lat + latStep * i;
+    const lng = start.lng + lngStep * i;
+    marker.setLatLng([lat, lng]);
+    i++;
+  }, delay);
 }
+
+// ---------------- Firestore Real-Time Listener ----------------
+db.collection("locations").onSnapshot(snapshot => {
+  snapshot.docs.forEach(doc => {
+    const data = doc.data();
+    const uid = doc.id;
+
+    if (!data.lat || !data.lng) return;
+    const position = [data.lat, data.lng];
+
+    // Popup content
+    const updatedTime = data.updatedAt ? data.updatedAt.toDate().toLocaleTimeString() : '';
+    const popupContent = `<b>${data.name || uid}</b><br>Role: ${data.role}<br>Updated: ${updatedTime}`;
+
+    // ---------------- Marker ----------------
+    if (markers[uid]) {
+      moveMarkerSmooth(markers[uid], position);
+      markers[uid].setPopupContent(popupContent);
+    } else {
+      markers[uid] = L.marker(position, { icon: riderIcon })
+        .addTo(map)
+        .bindPopup(popupContent)
+        .openPopup();
+    }
+
+    // ---------------- Polyline Route ----------------
+    if (!routes[uid]) {
+      routes[uid] = L.polyline([position], { color: 'red', weight: 4 }).addTo(map);
+    } else {
+      const latlngs = routes[uid].getLatLngs();
+      latlngs.push(position);
+      routes[uid].setLatLngs(latlngs);
+    }
+
+    // ---------------- Auto Follow ----------------
+    map.panTo(position, { animate: true });
+  });
+});
 </script>
 
 </body>
