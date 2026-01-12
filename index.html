@@ -3,30 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GoBike - Login / Signup</title>
+    <title>GoBike - Login</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <div class="auth-container">
-        <div id="signup-box">
-            <h2>Create Account</h2>
-            <input type="text" id="reg-name" placeholder="Full Name">
-            <input type="email" id="reg-email" placeholder="Gmail">
-            <input type="tel" id="reg-phone" placeholder="Phone Number">
-            <input type="password" id="reg-password" placeholder="Password">
-            <button id="signup-btn">Sign Up</button>
-            <p>Already have an account? <a href="#" onclick="showLogin()">Login</a></p>
+    <div class="auth-box">
+        <img src="assets/logo.png" alt="Logo" class="logo">
+        
+        <div class="tabs">
+            <button id="loginTab" class="active" onclick="showLogin()">Login</button>
+            <button id="signupTab" onclick="showSignup()">Sign Up</button>
         </div>
 
-        <div id="login-box" style="display:none;">
-            <h2>Login</h2>
+        <div id="loginForm">
             <input type="email" id="login-email" placeholder="Gmail">
             <input type="password" id="login-password" placeholder="Password">
-            <button id="login-btn">Sign In</button>
-            <p>New here? <a href="#" onclick="showSignup()">Create account</a></p>
+            <button id="loginBtn">Login</button> 
+        </div>
+
+        <div id="signupForm" style="display:none;">
+            <input type="text" id="reg-name" placeholder="Full Name">
+            <input type="email" id="reg-email" placeholder="Gmail Address">
+            <input type="password" id="reg-password" placeholder="Password">
+            <input type="tel" id="reg-phone" placeholder="Phone Number">
+            <select id="reg-role">
+                <option value="customer">Customer</option>
+                <option value="delivery">Rider</option>
+            </select>
+            <button id="signupBtn">Register</button>
         </div>
     </div>
 
     <script type="module" src="js/auth.js"></script>
+    
+    <script>
+        function showLogin() {
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('signupForm').style.display = 'none';
+        }
+        function showSignup() {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('signupForm').style.display = 'block';
+        }
+    </script>
 </body>
 </html>
