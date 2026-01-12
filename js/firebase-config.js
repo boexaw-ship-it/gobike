@@ -1,3 +1,4 @@
+// Firebase COMPAT config
 const firebaseConfig = {
   apiKey: "AIzaSyA1tAW0DWW633uYOZ1cHw-kfnHL2kQrlNM",
   authDomain: "gobike-14050.firebaseapp.com",
