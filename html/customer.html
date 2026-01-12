@@ -22,6 +22,8 @@
 <style>
   #map { height: 500px; width: 100%; margin-top: 15px; }
   .login-box { margin-bottom: 10px; }
+  .input { padding: 6px; width: 150px; }
+  .btn { padding: 6px 12px; cursor: pointer; }
 </style>
 </head>
 
@@ -58,7 +60,7 @@ function login(){
     .then(res=>{
       currentUID = res.user.uid;
       document.getElementById("status").innerText = "Logged in";
-      
+
       // Save customer profile
       db.collection("users").doc(currentUID).set({
         name: name,
@@ -102,11 +104,9 @@ function initMap(){
 
       const uid = doc.id;
       const pos = [d.lat, d.lng];
-      const popup = 
-        <b>${d.name || uid}</b><br>
-        Role: ${d.role}<br>
-        ${d.updatedAt ? d.updatedAt.toDate().toLocaleTimeString() : ''}
-      ;
+      const updated = d.updatedAt ? d.updatedAt.toDate().toLocaleTimeString() : '';
+      
+      const popup = <b>${d.name || uid}</b><br>Role: ${d.role}<br>Updated: ${updated};
 
       if(markers[uid]){
         markers[uid].setLatLng(pos).setPopupContent(popup);
