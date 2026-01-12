@@ -1,113 +1,43 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<title>Customer - GoBike</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GoBike Login</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<h2>GoBike Login</h2>
+<input type="email" id="email" placeholder="Email">
+<input type="password" id="password" placeholder="Password">
+<button onclick="login()">Login</button>
+<p id="message"></p>
 
-<link rel="stylesheet" href="../css/style.css">
-
-<!-- Leaflet CSS -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-
-<!-- Firebase SDK (COMPAT) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-
-<!-- Firebase Config -->
-<script src="../js/firebase-config.js"></script>
-
-<!-- Leaflet JS -->
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
-<style>
-  #map {
-    height: 500px;
-    width: 100%;
-  }
-</style>
-</head>
-<body>
-
-<div class="app">
-  <h2>Customer Dashboard</h2>
-  <div id="map"></div>
-</div>
+<script src="js/firebase-config.js"></script>
 
 <script>
-// ---------------- Leaflet Map Setup ----------------
-let map = L.map('map').setView([16.82, 96.15], 12); // Myanmar center
+function login(){
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  const msg = document.getElementById("message");
+  msg.innerText="";
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '&copy; OpenStreetMap contributors'
-}).addTo(map);
-
-// Custom Rider / Bike icon
-const riderIcon = L.icon({
-  iconUrl: '../assets/bike.png', // Rider avatar
-  iconSize: [40, 40],
-  iconAnchor: [20, 40],
-  popupAnchor: [0, -40]
-});
-
-// Store markers & polylines by UID
-let markers = {};
-let routes = {};
-let colors = {}; // UID-specific color
-
-// Helper: random color generator
-function getRandomColor(uid) {
-  if (colors[uid]) return colors[uid];
-  const color = '#' + Math.floor(Math.random()*16777215).toString(16);
-  colors[uid] = color;
-  return color;
+  auth.signInWithEmailAndPassword(email,password)
+    .then(res=>{
+      return db.collection("users").doc(res.user.uid).get();
+    })
+    .then(doc=>{
+      if(!doc.exists) throw new Error("User not found");
+      const role = doc.data().role;
+      if(role==="customer") location.href="html/customer.html";
+      else if(role==="rider") location.href="html/delivery.html";
+      else if(role==="admin") location.href="html/admin.html";
+      else throw new Error("Invalid role");
+    })
+    .catch(err=> msg.innerText=err.message);
 }
-
-// ---------------- Firestore Real-Time Listener ----------------
-db.collection("locations").onSnapshot(snapshot => {
-  snapshot.docs.forEach(doc => {
-    const data = doc.data();
-    const uid = doc.id;
-
-    if (!data.lat || !data.lng) return;
-    const position = [data.lat, data.lng];
-
-    // ---------------- Marker ----------------
-    const updatedTime = data.updatedAt ? data.updatedAt.toDate().toLocaleTimeString() : '';
-    const popupContent = `
-      <b>${data.name || uid}</b><br>
-      Role: ${data.role}<br>
-      Updated: ${updatedTime}
-    `;
-
-    if (markers[uid]) {
-      // Smooth move marker
-      markers[uid].setLatLng(position);
-      markers[uid].setPopupContent(popupContent);
-    } else {
-      markers[uid] = L.marker(position, { icon: riderIcon })
-        .addTo(map)
-        .bindPopup(popupContent);
-    }
-
-    // ---------------- Polyline Route ----------------
-    if (!routes[uid]) {
-      routes[uid] = L.polyline([position], { color: getRandomColor(uid), weight: 4 }).addTo(map);
-    } else {
-      const latlngs = routes[uid].getLatLngs();
-      latlngs.push(position);
-      routes[uid].setLatLngs(latlngs);
-    }
-  });
-
-  // ---------------- Auto map follow: center on first rider ----------------
-  const uids = snapshot.docs.map(d => d.id);
-  if (uids.length && markers[uids[0]]) {
-    map.setView(markers[uids[0]].getLatLng(), map.getZoom());
-  }
-});
 </script>
-
 </body>
 </html>
