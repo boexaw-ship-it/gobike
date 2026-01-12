@@ -1,10 +1,11 @@
 import { db, auth } from './firebase-config.js';
 import { 
-    collection, addDoc, serverTimestamp, onSnapshot 
+    collection, addDoc, serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { notifyTelegram } from './telegram.js';
 
 // --- ၁။ Map Initialization ---
+// မြေပုံမပေါ်လျှင် map.invalidateSize() သုံးရန်လိုအပ်နိုင်သည်
 const map = L.map('map').setView([16.8661, 96.1951], 12); 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
@@ -12,13 +13,13 @@ let pickupCoords = null;
 let dropoffCoords = null;
 let pickupMarker, dropoffMarker;
 
-// *** အရေးကြီးသည်- Pickup က မြို့နယ်စာရင်းကို Drop-off ထဲသို့ ကူးထည့်ခြင်း ***
+// *** Drop-off မြို့နယ်စာရင်းကို Pickup အတိုင်း ကူးထည့်ခြင်း ***
 const pickupSelect = document.getElementById('pickup-township');
 const dropoffSelect = document.getElementById('dropoff-township');
 dropoffSelect.innerHTML = pickupSelect.innerHTML;
 
-// --- ၂။ မြို့နယ်ရွေးချယ်မှု Logic ---
-function handleTownshipChange(type) {
+// --- ၂။ Township Select logic ---
+function onTownshipChange(type) {
     const select = document.getElementById(type + '-township');
     const option = select.options[select.selectedIndex];
     
@@ -31,82 +32,74 @@ function handleTownshipChange(type) {
     if (type === 'pickup') {
         pickupCoords = { lat, lng };
         if (pickupMarker) map.removeLayer(pickupMarker);
-        pickupMarker = L.marker([lat, lng], { draggable: true }).addTo(map)
-            .bindPopup(`ယူရန်: ${townshipName}`).openPopup();
+        pickupMarker = L.marker([lat, lng]).addTo(map).bindPopup("ယူရန်: " + townshipName).openPopup();
     } else {
         dropoffCoords = { lat, lng };
         if (dropoffMarker) map.removeLayer(dropoffMarker);
-        dropoffMarker = L.marker([lat, lng], { draggable: true }).addTo(map)
-            .bindPopup(`ပို့ရန်: ${townshipName}`).openPopup();
+        dropoffMarker = L.marker([lat, lng]).addTo(map).bindPopup("ပို့ရန်: " + townshipName).openPopup();
     }
     
     map.setView([lat, lng], 14);
-    updatePricing();
-
-    // Marker Dragging
-    const marker = type === 'pickup' ? pickupMarker : dropoffMarker;
-    marker.on('dragend', function(e) {
-        const pos = e.target.getLatLng();
-        if (type === 'pickup') pickupCoords = { lat: pos.lat, lng: pos.lng };
-        else dropoffCoords = { lat: pos.lat, lng: pos.lng };
-        updatePricing();
-    });
+    calculateFee();
 }
 
-pickupSelect.addEventListener('change', () => handleTownshipChange('pickup'));
-dropoffSelect.addEventListener('change', () => handleTownshipChange('dropoff'));
+pickupSelect.addEventListener('change', () => onTownshipChange('pickup'));
+dropoffSelect.addEventListener('change', () => onTownshipChange('dropoff'));
 
-// --- ၃။ ဈေးနှုန်းတွက်ချက်မှု ---
-function updatePricing() {
+// --- ၃။ Pricing Calculation ---
+function calculateFee() {
     if (pickupCoords && dropoffCoords) {
         const p1 = L.latLng(pickupCoords.lat, pickupCoords.lng);
         const p2 = L.latLng(dropoffCoords.lat, dropoffCoords.lng);
-        const distanceKm = (p1.distanceTo(p2) / 1000).toFixed(2);
+        const distance = (p1.distanceTo(p2) / 1000).toFixed(2);
         
         const weight = parseFloat(document.getElementById('item-weight').value) || 0;
-        let fee = 1500 + (distanceKm * 500); 
+        let fee = 1500 + (distance * 500); // 1km ကို ၅၀၀ နှုန်း
         if (weight > 5) fee += (weight - 5) * 200;
 
-        const totalFee = Math.round(fee);
-        document.getElementById('placeOrderBtn').innerText = `ORDER NOW - ${totalFee} KS (${distanceKm} km)`;
-        return { distanceKm, totalFee };
+        const total = Math.round(fee);
+        document.getElementById('placeOrderBtn').innerText = `ORDER NOW - ${total} KS (${distance} km)`;
+        return { distance, total };
     }
     return null;
 }
 
-document.getElementById('item-weight').addEventListener('input', updatePricing);
+document.getElementById('item-weight').addEventListener('input', calculateFee);
 
-// --- ၄။ Order Submission ---
+// --- ၄။ Place Order ---
 document.getElementById('placeOrderBtn').addEventListener('click', async () => {
+    const feeInfo = calculateFee();
     const item = document.getElementById('item-detail').value;
+    const phone = document.getElementById('receiver-phone').value;
     const weight = document.getElementById('item-weight').value;
     const value = document.getElementById('item-value').value;
-    const phone = document.getElementById('receiver-phone').value;
-    const feeInfo = updatePricing();
+
+    if (!feeInfo || !item || !phone) {
+        alert("မြို့နယ်နှင့် အချက်အလက်များ ပြည့်စုံအောင်ဖြည့်ပါ");
+        return;
+    }
 
     const pTown = pickupSelect.options[pickupSelect.selectedIndex].text;
     const pAddr = document.getElementById('pickup-address').value;
     const dTown = dropoffSelect.options[dropoffSelect.selectedIndex].text;
     const dAddr = document.getElementById('dropoff-address').value;
 
-    if (!pickupCoords || !dropoffCoords || !item || !phone || !weight || !value) {
-        alert("အချက်အလက်အားလုံး ပြည့်စုံအောင်ဖြည့်ပါ");
-        return;
-    }
-
     try {
         const orderData = {
             pickup: { ...pickupCoords, address: `${pTown}၊ ${pAddr}` },
             dropoff: { ...dropoffCoords, address: `${dTown}၊ ${dAddr}` },
-            item, weight: weight + " kg", itemValue: value + " KS",
-            phone, deliveryFee: feeInfo.totalFee, status: "pending", createdAt: serverTimestamp()
+            item, weight, itemValue: value,
+            deliveryFee: feeInfo.total,
+            status: "pending",
+            createdAt: serverTimestamp()
         };
 
         await addDoc(collection(db, "orders"), orderData);
-
-        const msg = `📦 <b>New Order!</b>\n\n📝 ပစ္စည်း: ${item}\n💰 ပို့ခ: ${feeInfo.totalFee} KS\n📍 ယူရန်: ${orderData.pickup.address}\n🏁 ပို့ရန်: ${orderData.dropoff.address}`;
-        await notifyTelegram(msg);
-        alert("Order တင်ခြင်း အောင်မြင်ပါသည်!");
+        
+        const msg = `📦 <b>Order New!</b>\n\nယူရန်: ${orderData.pickup.address}\nပို့ရန်: ${orderData.dropoff.address}\nပို့ခ: ${feeInfo.total} KS`;
+        notifyTelegram(msg);
+        
+        alert("Order တင်ခြင်း အောင်မြင်ပါသည်");
         location.reload();
     } catch (e) {
         alert("Error: " + e.message);
