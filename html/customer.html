@@ -8,13 +8,15 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="../css/style.css">
     <style>
-        body { background: #f4f7f6; display: block; padding: 0; margin: 0; font-family: sans-serif; }
+        body { background: #f4f7f6; padding: 0; margin: 0; font-family: sans-serif; }
         .header { background: #ffcc00; padding: 15px; text-align: center; font-weight: bold; font-size: 1.2rem; }
         
+        /* Map Container - Height သေချာပေးရန်လိုအပ်သည် */
         #map { 
             height: 280px; 
             width: 100%; 
             border-bottom: 5px solid #ffcc00;
+            z-index: 1;
         }
 
         .order-container {
