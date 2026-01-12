@@ -21,8 +21,8 @@ const bikeIcon = L.icon({
 let pickupCoords = null;
 let dropoffCoords = null;
 let pickupMarker, dropoffMarker;
-let pickupAddr = ""; // လိပ်စာစာသားသိမ်းရန်
-let dropoffAddr = ""; // လိပ်စာစာသားသိမ်းရန်
+let pickupAddr = ""; 
+let dropoffAddr = ""; 
 const riderMarkers = {}; 
 
 // --- ၂။ Lat/Long ကို လိပ်စာအဖြစ်ပြောင်းပေးမည့် Function ---
@@ -30,7 +30,6 @@ async function fetchAddress(lat, lng) {
     try {
         const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
         const data = await response.json();
-        // မြို့နယ်၊ လမ်း အမည် စသည့် လူနားလည်သော လိပ်စာပြန်ပေးမည်
         return data.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
     } catch (error) {
         return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
@@ -55,7 +54,7 @@ onSnapshot(collection(db, "active_riders"), (snapshot) => {
     });
 });
 
-// --- ၄။ Map ပေါ်နှိပ်ရင် တည်နေရာယူခြင်း (လိပ်စာစနစ်ပါဝင်သည်) ---
+// --- ၄။ Map ပေါ်နှိပ်ရင် တည်နေရာယူခြင်း ---
 map.on('click', async function(e) {
     const { lat, lng } = e.latlng;
 
@@ -91,7 +90,7 @@ map.on('click', async function(e) {
     }
 });
 
-// --- ၅။ Order Submission (Telegram Notification ပိုင်းကို Rider အတွက် အထူးပြင်ဆင်ထားသည်) ---
+// --- ၅။ Order Submission (Telegram Link ရေးထုံး အမှန်ပြင်ဆင်ထားသည်) ---
 document.getElementById('placeOrderBtn').addEventListener('click', async () => {
     const item = document.getElementById('item-detail').value;
     const phone = document.getElementById('receiver-phone').value;
@@ -112,10 +111,10 @@ document.getElementById('placeOrderBtn').addEventListener('click', async () => {
             createdAt: serverTimestamp()
         };
 
-        // ၁။ Firestore ထဲသို့ သိမ်းဆည်းခြင်း
+        // Firestore ထဲသိမ်းမည်
         await addDoc(collection(db, "orders"), orderData);
 
-        // ၂။ Telegram သို့ Rider ဖတ်ရလွယ်ကူသော format ဖြင့် ပို့ခြင်း
+        // Telegram Message - Link များကို ${ } သုံးပြီး အမှန်ပြင်ထားပါသည်
         const msg = `📦 <b>Order အသစ်တက်လာပါပြီ!</b>\n\n` +
                     `📝 <b>ပစ္စည်း:</b> ${item}\n` +
                     `📞 <b>ဖုန်း:</b> ${phone}\n\n` +
@@ -125,13 +124,14 @@ document.getElementById('placeOrderBtn').addEventListener('click', async () => {
                     `🔗 <a href="https://www.google.com/maps?q=${dropoffCoords.lat},${dropoffCoords.lng}">မြေပုံတွင်ကြည့်ရန် (Drop-off)</a>\n\n` +
                     `⌛ <i>Rider များ အမြန်ဆုံး လက်ခံပေးပါရန်!</i>`;
         
+        // Telegram သို့ ပို့မည်
         await notifyTelegram(msg);
 
         alert("Order တင်ခြင်း အောင်မြင်ပါသည်။ Telegram မှတစ်ဆင့် Rider များထံ အကြောင်းကြားစာ ပို့လိုက်ပါပြီ။");
         location.reload(); 
 
     } catch (error) {
-        console.error(error);
+        console.error("Error Detail:", error);
         alert("Error: " + error.message);
     }
 });
