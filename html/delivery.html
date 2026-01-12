@@ -1,1 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoBike - Rider Dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        body { background: #1a1a1a; color: white; display: block; padding: 0; }
+        .header { background: #ffcc00; padding: 15px; text-align: center; color: black; font-weight: bold; }
+        
+        #map { height: 250px; width: 100%; }
 
+        .order-list-container {
+            padding: 20px;
+        }
+
+        .order-card {
+            background: #2d2d2d;
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 5px solid #ffcc00;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .order-info { font-size: 0.9rem; margin-bottom: 8px; }
+        .order-info b { color: #ffcc00; }
+
+        .btn-accept {
+            background: #ffcc00;
+            color: black;
+            border: none;
+            width: 100%;
+            padding: 12px;
+            border-radius: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .status-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 5px;
+            font-size: 0.75rem;
+            background: #444;
+            color: #ffcc00;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">Rider Dashboard (Orders List)</div>
+
+    <div id="map"></div>
+    
+    <div class="order-list-container">
+        <h4 style="margin-bottom: 15px;">📥 ရရှိနိုင်သော Order များ</h4>
+        <div id="available-orders">
+            <p style="text-align: center; color: #888;">Order အသစ်များကို စောင့်ဆိုင်းနေပါသည်...</p>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script type="module" src="../js/delivery.js"></script>
+
+</body>
+</html>
