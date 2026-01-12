@@ -1,16 +1,38 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>GoBike Login</title>
+<title>GoBike Login / Sign Up</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-<h2>GoBike Login</h2>
-<input type="email" id="email" placeholder="Email">
-<input type="password" id="password" placeholder="Password">
-<button onclick="login()">Login</button>
-<p id="message"></p>
+
+<h2>GoBike</h2>
+
+<!-- Login -->
+<div>
+  <h3>Login</h3>
+  <input type="email" id="loginEmail" placeholder="Email">
+  <input type="password" id="loginPassword" placeholder="Password">
+  <button onclick="login()">Login</button>
+  <p id="loginMsg"></p>
+</div>
+
+<hr>
+
+<!-- Sign Up -->
+<div>
+  <h3>Sign Up</h3>
+  <input type="email" id="signupEmail" placeholder="Email">
+  <input type="password" id="signupPassword" placeholder="Password">
+  <select id="signupRole">
+    <option value="customer">Customer</option>
+    <option value="rider">Rider</option>
+    <option value="admin">Admin</option>
+  </select>
+  <button onclick="signUp()">Sign Up</button>
+  <p id="signupMsg"></p>
+</div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -19,26 +41,42 @@
 
 <script>
 function login(){
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
-  const msg = document.getElementById("message");
+  const email=document.getElementById("loginEmail").value;
+  const password=document.getElementById("loginPassword").value;
+  const msg=document.getElementById("loginMsg");
   msg.innerText="";
-
+  
   auth.signInWithEmailAndPassword(email,password)
-    .then(res=>{
-      // Fetch role from Firestore
-      return db.collection("users").doc(res.user.uid).get();
-    })
-    .then(doc=>{
-      if(!doc.exists) throw new Error("User not found");
-      const role = doc.data().role;
-      if(role==="customer") location.href="html/customer.html";
-      else if(role==="rider") location.href="html/delivery.html";
-      else if(role==="admin") location.href="html/admin.html";
-      else throw new Error("Invalid role");
-    })
-    .catch(err=> msg.innerText=err.message);
+  .then(res=>{
+    return db.collection("users").doc(res.user.uid).get();
+  })
+  .then(doc=>{
+    if(!doc.exists) throw new Error("User not found");
+    const role=doc.data().role;
+    if(role==="customer") location.href="html/customer.html";
+    else if(role==="rider") location.href="html/delivery.html";
+    else if(role==="admin") location.href="html/admin.html";
+    else throw new Error("Invalid role");
+  })
+  .catch(err=> msg.innerText=err.message);
+}
+
+function signUp(){
+  const email=document.getElementById("signupEmail").value;
+  const password=document.getElementById("signupPassword").value;
+  const role=document.getElementById("signupRole").value;
+  const msg=document.getElementById("signupMsg");
+  msg.innerText="";
+  
+  auth.createUserWithEmailAndPassword(email,password)
+  .then(res=>{
+    const uid=res.user.uid;
+    return db.collection("users").doc(uid).set({role:role,name:email});
+  })
+  .then(()=> msg.innerText="Sign up successful! You can now login.")
+  .catch(err=> msg.innerText=err.message);
 }
 </script>
+
 </body>
 </html>
