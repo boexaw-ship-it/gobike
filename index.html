@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>GoBike</title>
+<title>Customer - GoBike</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="../css/style.css">
 
 <!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
@@ -16,107 +16,97 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <!-- Firebase Config -->
-<script src="js/firebase-config.js"></script>
+<script src="../js/firebase-config.js"></script>
 
 <!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <style>
-  body { margin:0; font-family: Arial, sans-serif; background: linear-gradient(to right, #4facfe, #00f2fe); }
-  .app { text-align: center; padding: 40px 20px; }
-  .logo { width: 120px; margin-bottom: 20px; }
-  h1 { font-size: 36px; color: #fff; margin: 10px 0; }
-  p { font-size: 18px; color: #f0f0f0; margin: 10px 0 30px; }
-  button { background: #fff; color:#4facfe; border:none; padding:15px 30px; font-size:16px; margin:10px; border-radius: 10px; cursor:pointer; transition: 0.3s; }
-  button:hover { background:#e6f0ff; transform: scale(1.05); }
-  #map { height: 500px; width: 100%; margin-top:20px; border-radius:10px; }
+  #map {
+    height: 500px;
+    width: 100%;
+  }
 </style>
-
 </head>
 <body>
 
 <div class="app">
-  <img src="assets/logo.png" class="logo">
-  <h1>GoBike</h1>
-  <p>Freelance Delivery Service</p>
-
-  <button onclick="selectRole('customer')">Customer</button>
-  <button onclick="selectRole('rider')">Rider</button>
-
-  <!-- Map (visible only after role select) -->
-  <div id="map" style="display:none;"></div>
+  <h2>Customer Dashboard</h2>
+  <div id="map"></div>
 </div>
 
 <script>
-// ---------------- Role Selection ----------------
-function selectRole(role){
-  localStorage.setItem("role", role);
+// ---------------- Leaflet Map Setup ----------------
+let map = L.map('map').setView([16.82, 96.15], 12); // Myanmar center
 
-  if(role === "customer"){
-    // Show map for Customer
-    document.getElementById('map').style.display = 'block';
-    initCustomerMap();
-  } else {
-    window.location.href = "html/delivery.html"; // Rider page
-  }
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+// Custom Rider / Bike icon
+const riderIcon = L.icon({
+  iconUrl: '../assets/bike.png', // Rider avatar
+  iconSize: [40, 40],
+  iconAnchor: [20, 40],
+  popupAnchor: [0, -40]
+});
+
+// Store markers & polylines by UID
+let markers = {};
+let routes = {};
+let colors = {}; // UID-specific color
+
+// Helper: random color generator
+function getRandomColor(uid) {
+  if (colors[uid]) return colors[uid];
+  const color = '#' + Math.floor(Math.random()*16777215).toString(16);
+  colors[uid] = color;
+  return color;
 }
 
-// ---------------- Customer Map ----------------
-function initCustomerMap(){
-  let map = L.map('map').setView([16.82, 96.15], 12); // Myanmar center
+// ---------------- Firestore Real-Time Listener ----------------
+db.collection("locations").onSnapshot(snapshot => {
+  snapshot.docs.forEach(doc => {
+    const data = doc.data();
+    const uid = doc.id;
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
+    if (!data.lat || !data.lng) return;
+    const position = [data.lat, data.lng];
 
-  const riderIcon = L.icon({
-    iconUrl: 'assets/bike.png',
-    iconSize: [40,40],
-    iconAnchor: [20,40],
-    popupAnchor: [0,-40]
+    // ---------------- Marker ----------------
+    const updatedTime = data.updatedAt ? data.updatedAt.toDate().toLocaleTimeString() : '';
+    const popupContent = `
+      <b>${data.name || uid}</b><br>
+      Role: ${data.role}<br>
+      Updated: ${updatedTime}
+    `;
+
+    if (markers[uid]) {
+      // Smooth move marker
+      markers[uid].setLatLng(position);
+      markers[uid].setPopupContent(popupContent);
+    } else {
+      markers[uid] = L.marker(position, { icon: riderIcon })
+        .addTo(map)
+        .bindPopup(popupContent);
+    }
+
+    // ---------------- Polyline Route ----------------
+    if (!routes[uid]) {
+      routes[uid] = L.polyline([position], { color: getRandomColor(uid), weight: 4 }).addTo(map);
+    } else {
+      const latlngs = routes[uid].getLatLngs();
+      latlngs.push(position);
+      routes[uid].setLatLngs(latlngs);
+    }
   });
 
-  let markers = {};
-  let routes = {};
-  let colors = {};
-
-  function getRandomColor(uid){
-    if(colors[uid]) return colors[uid];
-    const color = '#' + Math.floor(Math.random()*16777215).toString(16);
-    colors[uid] = color;
-    return color;
+  // ---------------- Auto map follow: center on first rider ----------------
+  const uids = snapshot.docs.map(d => d.id);
+  if (uids.length && markers[uids[0]]) {
+    map.setView(markers[uids[0]].getLatLng(), map.getZoom());
   }
-
-  db.collection("locations").onSnapshot(snapshot=>{
-    snapshot.docs.forEach(doc=>{
-      const data = doc.data();
-      const uid = doc.id;
-      if(!data.lat || !data.lng) return;
-
-      const position = [data.lat, data.lng];
-      const updated = data.updatedAt ? data.updatedAt.toDate().toLocaleTimeString() : '';
-
-      const popupContent = `<b>${data.name||uid}</b><br>Role: ${data.role}<br>Updated: ${updated}`;
-
-      if(markers[uid]){
-        markers[uid].setLatLng(position).setPopupContent(popupContent);
-      } else {
-        markers[uid] = L.marker(position,{icon:riderIcon}).addTo(map).bindPopup(popupContent);
-      }
-
-      if(!routes[uid]){
-        routes[uid] = L.polyline([position], {color:getRandomColor(uid), weight:4}).addTo(map);
-      } else {
-        const latlngs = routes[uid].getLatLngs();
-        latlngs.push(position);
-        routes[uid].setLatLngs(latlngs);
-      }
-    });
-
-    const uids = snapshot.docs.map(d=>d.id);
-    if(uids.length && markers[uids[0]]) map.setView(markers[uids[0]].getLatLng(), map.getZoom());
-  });
-}
+});
 </script>
 
 </body>
