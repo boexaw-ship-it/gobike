@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Rider - GoBike</title>
+<title>Rider Dashboard - GoBike</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="../css/style.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -10,47 +11,97 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="../js/firebase-config.js"></script>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script type="module" src="../js/auth.js"></script>
-<style>#map{height:400px;width:100%;margin-top:15px;border-radius:8px;}</style>
+
+<style>
+body {font-family:sans-serif;margin:0;padding:10px;}
+#map {height:500px;width:100%;border-radius:8px;margin-top:10px;}
+#status {margin-top:10px;font-weight:bold;}
+ul {padding-left:20px;}
+li {margin-bottom:8px;}
+button {padding:6px 10px;font-size:14px;}
+</style>
 </head>
 <body>
+
 <div class="app">
   <h2>Rider Dashboard</h2>
   <p id="status">Initializing GPS...</p>
   <div id="map"></div>
+
+  <h3>Assigned Orders</h3>
+  <ul id="ordersList"></ul>
 </div>
 
-<script type="module">
-import { checkAuth } from "../js/auth.js";
-checkAuth("rider");
-
+<script>
+// ---------------- AUTH CHECK ----------------
 auth.onAuthStateChanged(user=>{
-  if(!user) return;
+  if(!user) location.href="../index.html";
   db.collection("users").doc(user.uid).get().then(doc=>{
-    if(!doc.exists || doc.data().role!=="rider"){ auth.signOut(); return; }
-
-    let map=L.map('map').setView([16.82,96.15],12);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy;OpenStreetMap'}).addTo(map);
-
-    const riderIcon=L.icon({iconUrl:'../assets/bike.png',iconSize:[40,40],iconAnchor:[20,40]});
-    let marker=L.marker([16.82,96.15],{icon:riderIcon}).addTo(map);
-    let path=L.polyline([[16.82,96.15]],{color:'red',weight:4}).addTo(map);
-
-    if(navigator.geolocation){
-      navigator.geolocation.watchPosition(pos=>{
-        const lat=pos.coords.latitude, lng=pos.coords.longitude;
-        document.getElementById("status").innerText=`GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-        db.collection("locations").doc(user.uid).set({
-          lat, lng, role:"rider", name:"Rider "+user.uid,
-          updatedAt:firebase.firestore.FieldValue.serverTimestamp()
-        },{merge:true});
-        marker.setLatLng([lat,lng]).bindPopup("Rider").openPopup();
-        let latlngs=path.getLatLngs(); latlngs.push([lat,lng]); path.setLatLngs(latlngs);
-        map.panTo([lat,lng]);
-      },err=>{document.getElementById("status").innerText="GPS Error:"+err.message;},{enableHighAccuracy:true,maximumAge:0,timeout:10000});
-    } else { document.getElementById("status").innerText="Geolocation not supported"; }
+    if(!doc.exists || doc.data().role !== "rider"){ auth.signOut(); location.href="../index.html"; }
   });
+
+  initMap(user);
+  watchOrders(user);
 });
+
+// ---------------- MAP ----------------
+let map, riderMarker, riderPath;
+function initMap(user){
+  map = L.map('map').setView([16.82,96.15],12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap'}).addTo(map);
+
+  const riderIcon = L.icon({iconUrl:'../assets/bike.png',iconSize:[40,40],iconAnchor:[20,40]});
+  riderMarker = L.marker([16.82,96.15],{icon:riderIcon}).addTo(map).bindPopup("You");
+
+  riderPath = L.polyline([[16.82,96.15]],{color:'red',weight:4}).addTo(map);
+
+  // ---------------- GPS Watch ----------------
+  if(navigator.geolocation){
+    navigator.geolocation.watchPosition(pos=>{
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      document.getElementById("status").innerText = `GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+
+      // Update Firebase
+      db.collection("locations").doc(user.uid).set({
+        lat, lng, role:"rider", name:"Rider "+user.uid,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, {merge:true});
+
+      // Update marker & path
+      riderMarker.setLatLng([lat,lng]);
+      let latlngs = riderPath.getLatLngs();
+      latlngs.push([lat,lng]);
+      riderPath.setLatLngs(latlngs);
+      map.panTo([lat,lng]);
+    }, err=>{document.getElementById("status").innerText="GPS Error:"+err.message;},{enableHighAccuracy:true, maximumAge:0, timeout:10000});
+  } else {document.getElementById("status").innerText="Geolocation not supported";}
+}
+
+// ---------------- ASSIGNED ORDERS ----------------
+function watchOrders(user){
+  db.collection("orders")
+    .where("assignedRider", "==", user.uid)
+    .where("status", "==", "approved")
+    .onSnapshot(snapshot=>{
+      const ul = document.getElementById("ordersList");
+      ul.innerHTML = "";
+      snapshot.docs.forEach(doc=>{
+        const data = doc.data();
+        const li = document.createElement("li");
+        li.innerHTML = `Order: Pickup(${data.pickup.lat.toFixed(3)},${data.pickup.lng.toFixed(3)}) → Drop(${data.drop.lat.toFixed(3)},${data.drop.lng.toFixed(3)}) | Price: ${data.price} Ks
+          <button onclick="markDelivered('${doc.id}')">Mark Delivered</button>`;
+        ul.appendChild(li);
+      });
+    });
+}
+
+// ---------------- MARK DELIVERED ----------------
+function markDelivered(orderId){
+  db.collection("orders").doc(orderId).update({status:"delivered"})
+    .then(()=>alert("Order marked as delivered!"))
+    .catch(err=>alert(err.message));
+}
 </script>
 </body>
 </html>
