@@ -11,7 +11,6 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap'
 }).addTo(map);
 
-// Rider ပြသမည့် ဆိုင်ကယ် Icon
 const bikeIcon = L.icon({
     iconUrl: 'https://cdn-icons-png.flaticon.com/512/71/71422.png',
     iconSize: [30, 30],
@@ -25,7 +24,7 @@ let pickupAddr = "";
 let dropoffAddr = ""; 
 const riderMarkers = {}; 
 
-// --- ၂။ Search & Geocoder (စာရိုက်ရှာဖွေခြင်း) ---
+// --- ၂။ Search Box (Geocoder Plugin) ---
 const geocoder = L.Control.geocoder({
     defaultMarkGeocode: false,
     placeholder: "နေရာရှာရန်...",
@@ -48,7 +47,7 @@ async function fetchAddress(lat, lng) {
     }
 }
 
-// --- ၃။ Active ဖြစ်နေသော Rider များကို Live ပြခြင်း ---
+// --- ၃။ Active Rider Live Tracking ---
 onSnapshot(collection(db, "active_riders"), (snapshot) => {
     snapshot.docChanges().forEach((change) => {
         const data = change.doc.data();
@@ -65,41 +64,41 @@ onSnapshot(collection(db, "active_riders"), (snapshot) => {
     });
 });
 
-// --- ၄။ တည်နေရာ ရွေးချယ်မှု Logic ---
+// --- ၄။ တည်နေရာ ရွေးချယ်မှု နှင့် စာသားသတ်မှတ်မှု Logic ---
 async function handleMapSelection(latlng, address = null) {
     const { lat, lng } = latlng;
 
     if (!pickupCoords) {
         pickupCoords = { lat, lng };
-        document.getElementById('pickup-text').innerText = "လိပ်စာ ရှာဖွေနေသည်...";
+        document.getElementById('pickup-text').value = "လိပ်စာ ရှာဖွေနေသည်...";
         pickupAddr = address || await fetchAddress(lat, lng); 
         
         pickupMarker = L.marker([lat, lng], { draggable: true }).addTo(map)
             .bindPopup(`ယူရန်: ${pickupAddr}`).openPopup();
-        document.getElementById('pickup-text').innerText = pickupAddr;
+        document.getElementById('pickup-text').value = pickupAddr;
 
         pickupMarker.on('dragend', async (e) => {
             const newPos = e.target.getLatLng();
             pickupCoords = { lat: newPos.lat, lng: newPos.lng };
             pickupAddr = await fetchAddress(newPos.lat, newPos.lng);
-            document.getElementById('pickup-text').innerText = pickupAddr;
+            document.getElementById('pickup-text').value = pickupAddr;
             calculateFinalFee();
         });
     } 
     else if (!dropoffCoords) {
         dropoffCoords = { lat, lng };
-        document.getElementById('dropoff-text').innerText = "လိပ်စာ ရှာဖွေနေသည်...";
+        document.getElementById('dropoff-text').value = "လိပ်စာ ရှာဖွေနေသည်...";
         dropoffAddr = address || await fetchAddress(lat, lng); 
         
         dropoffMarker = L.marker([lat, lng], { draggable: true }).addTo(map)
             .bindPopup(`ပို့ရန်: ${dropoffAddr}`).openPopup();
-        document.getElementById('dropoff-text').innerText = dropoffAddr;
+        document.getElementById('dropoff-text').value = dropoffAddr;
 
         dropoffMarker.on('dragend', async (e) => {
             const newPos = e.target.getLatLng();
             dropoffCoords = { lat: newPos.lat, lng: newPos.lng };
             dropoffAddr = await fetchAddress(newPos.lat, newPos.lng);
-            document.getElementById('dropoff-text').innerText = dropoffAddr;
+            document.getElementById('dropoff-text').value = dropoffAddr;
             calculateFinalFee();
         });
         calculateFinalFee();
@@ -108,7 +107,27 @@ async function handleMapSelection(latlng, address = null) {
 
 map.on('click', (e) => handleMapSelection(e.latlng));
 
-// --- ၅။ Distance & Fee Calculation ---
+// --- ၅။ စာရိုက်ပြီး Enter ခေါက်ပါက ရှာပေးမည့်စနစ် ---
+function setupInputSearch(inputId) {
+    document.getElementById(inputId).addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            const query = this.value;
+            L.Control.Geocoder.nominatim().geocode(query, (results) => {
+                if (results.length > 0) {
+                    const res = results[0];
+                    map.setView(res.center, 16);
+                    handleMapSelection(res.center, res.name);
+                } else {
+                    alert("ရှာမတွေ့ပါ");
+                }
+            });
+        }
+    });
+}
+setupInputSearch('pickup-text');
+setupInputSearch('dropoff-text');
+
+// --- ၆။ Distance & Fee Calculation ---
 function calculateFinalFee() {
     if (pickupCoords && dropoffCoords) {
         const p1 = L.latLng(pickupCoords.lat, pickupCoords.lng);
@@ -128,10 +147,9 @@ function calculateFinalFee() {
     return null;
 }
 
-// Input ပြောင်းတိုင်း ဈေးနှုန်း update လုပ်ရန်
 document.getElementById('item-weight').addEventListener('input', calculateFinalFee);
 
-// --- ၆။ Order Submission ---
+// --- ၇။ Order Submission ---
 document.getElementById('placeOrderBtn').addEventListener('click', async () => {
     const item = document.getElementById('item-detail').value;
     const phone = document.getElementById('receiver-phone').value;
@@ -147,8 +165,8 @@ document.getElementById('placeOrderBtn').addEventListener('click', async () => {
     try {
         const orderData = {
             userId: auth.currentUser?.uid || "anonymous",
-            pickup: { ...pickupCoords, address: pickupAddr },
-            dropoff: { ...dropoffCoords, address: dropoffAddr },
+            pickup: { ...pickupCoords, address: document.getElementById('pickup-text').value },
+            dropoff: { ...dropoffCoords, address: document.getElementById('dropoff-text').value },
             item: item,
             weight: weight + " kg",
             itemValue: itemValue + " KS",
@@ -161,14 +179,15 @@ document.getElementById('placeOrderBtn').addEventListener('click', async () => {
 
         await addDoc(collection(db, "orders"), orderData);
 
+        // Telegram Message Link Format ပြင်ဆင်ထားသည်
         const msg = `📦 <b>Order အသစ် (COD)</b>\n\n` +
                     `📝 <b>ပစ္စည်း:</b> ${item} (${weight} kg)\n` +
                     `💰 <b>ပစ္စည်းတန်ဖိုး:</b> ${itemValue} KS\n` +
                     `🛵 <b>ပို့ခ:</b> ${feeInfo.totalFee} KS\n` +
                     `📞 <b>ဖုန်း:</b> ${phone}\n\n` +
-                    `📍 <b>ယူရန်:</b> ${pickupAddr}\n` +
+                    `📍 <b>ယူရန်:</b> ${orderData.pickup.address}\n` +
                     `🔗 <a href="https://www.google.com/maps?q=${pickupCoords.lat},${pickupCoords.lng}">Map တွင်ကြည့်ရန်</a>\n\n` +
-                    `🏁 <b>ပို့ရန်:</b> ${dropoffAddr}\n` +
+                    `🏁 <b>ပို့ရန်:</b> ${orderData.dropoff.address}\n` +
                     `🔗 <a href="https://www.google.com/maps?q=${dropoffCoords.lat},${dropoffCoords.lng}">Map တွင်ကြည့်ရန်</a>`;
         
         await notifyTelegram(msg);
@@ -179,3 +198,4 @@ document.getElementById('placeOrderBtn').addEventListener('click', async () => {
         alert("Error: " + error.message);
     }
 });
+
