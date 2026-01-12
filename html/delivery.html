@@ -6,10 +6,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <link rel="stylesheet" href="../css/style.css">
+
+<!-- Firebase SDK (COMPAT) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<!-- Firebase Config -->
 <script src="../js/firebase-config.js"></script>
+
+<style>
+  .app { padding: 20px; font-family: sans-serif; }
+  #status { margin-top: 15px; font-weight: bold; }
+</style>
 
 </head>
 <body>
@@ -17,43 +26,52 @@
 <div class="app">
   <h2>Rider Dashboard</h2>
   <p>GPS tracking is active.</p>
-  <p id="status"></p>
+  <p id="status">Initializing...</p>
 </div>
 
 <script>
-auth.signInAnonymously().then(res=>{
-  const uid = res.user.uid;
-  const name = localStorage.getItem("name") || "Rider";
+/* =================== Anonymous Login =================== */
+auth.signInAnonymously()
+  .then(res=>{
+    const uid = res.user.uid;
+    const name = localStorage.getItem("name") || "Rider";
 
-  document.getElementById("status").innerText = "Logged in as UID: " + uid;
+    document.getElementById("status").innerText = "Logged in as UID: " + uid;
 
-  if(navigator.geolocation){
-    navigator.geolocation.watchPosition(pos=>{
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
+    /* =================== GPS Watch =================== */
+    if(navigator.geolocation){
+      navigator.geolocation.watchPosition(pos=>{
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
 
-      db.collection("locations").doc(uid).set({
-        lat: lat,
-        lng: lng,
-        name: name,
-        role: "rider",
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        // Save location to Firestore
+        db.collection("locations").doc(uid).set({
+          lat: lat,
+          lng: lng,
+          name: name,
+          role: "rider",
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        document.getElementById("status").innerText = 
+          GPS OK: Lat ${lat.toFixed(5)}, Lng ${lng.toFixed(5)};
+      },
+      err=>{
+        document.getElementById("status").innerText = "GPS Error: " + err.message;
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 5000
       });
+    } else {
+      document.getElementById("status").innerText = "Geolocation not supported.";
+    }
 
-      document.getElementById("status").innerText = `GPS OK: Lat ${lat.toFixed(5)}, Lng ${lng.toFixed(5)}`;
-    }, err=>{
-      document.getElementById("status").innerText = "GPS Error: "+err.message;
-    },{
-      enableHighAccuracy:true,
-      maximumAge:0,
-      timeout:5000
-    });
-  } else {
-    document.getElementById("status").innerText="Geolocation not supported.";
-  }
-}).catch(err=>{
-  document.getElementById("status").innerText="Auth Error: "+err.message;
-});
+  })
+  .catch(err=>{
+    document.getElementById("status").innerText = "Auth Error: " + err.message;
+  });
 </script>
 
 </body>
