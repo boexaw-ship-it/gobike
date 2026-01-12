@@ -4,10 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GoBike - Place Order</title>
+    
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    
     <link rel="stylesheet" href="../css/style.css">
     <style>
-        body { background: #f4f7f6; display: block; padding: 0; }
+        body { background: #f4f7f6; display: block; padding: 0; margin: 0; }
         .header { background: #ffcc00; padding: 15px; text-align: center; font-weight: bold; font-size: 1.2rem; }
         
         #map { 
@@ -31,6 +34,15 @@
 
         .input-group { margin-bottom: 10px; }
         
+        /* Input များ ပိုလှပစေရန် */
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+
         .loc-box {
             background: #fff;
             padding: 10px;
@@ -51,6 +63,12 @@
             font-weight: bold;
             font-size: 1rem;
             cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .btn-confirm:disabled {
+            background: #ccc;
+            color: #666;
         }
     </style>
 </head>
@@ -61,7 +79,7 @@
     <div id="map"></div>
     
     <div class="order-container">
-        <p class="info-text">📍 မြေပုံပေါ်တွင် နှိပ်၍ တည်နေရာရွေးချယ်ပါ</p>
+        <p class="info-text">📍 မြေပုံပေါ်တွင်နှိပ်၍ဖြစ်စေ၊ ရှာဖွေ၍ဖြစ်စေ နေရာရွေးပါ</p>
 
         <div class="loc-box">
             <b>Pick-up:</b> <span id="pickup-text">မြေပုံပေါ်တွင် ရွေးပါ...</span>
@@ -73,6 +91,12 @@
         <div class="input-group">
             <input type="text" id="item-detail" placeholder="ဘာပစ္စည်းပို့မှာလဲ? (ဥပမာ- ထမင်းဘူး)">
         </div>
+
+        <div style="display: flex; gap: 10px;" class="input-group">
+            <input type="number" id="item-weight" placeholder="အလေးချိန် (kg)">
+            <input type="number" id="item-value" placeholder="ပစ္စည်းတန်ဖိုး (KS)">
+        </div>
+
         <div class="input-group">
             <input type="tel" id="receiver-phone" placeholder="လက်ခံမည့်သူ့ဖုန်းနံပါတ်">
         </div>
@@ -81,6 +105,7 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
     
     <script type="module" src="../js/customer.js"></script>
 
