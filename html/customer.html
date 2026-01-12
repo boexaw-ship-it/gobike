@@ -22,90 +22,114 @@
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <style>
-  #map { height: 500px; width: 100%; }
+  #map { height: 500px; width: 100%; border-radius: 8px; margin-top: 10px; }
 </style>
-
 </head>
 <body>
 
 <div class="app">
   <h2>Customer Dashboard</h2>
+  <p id="status">Loading map...</p>
   <div id="map"></div>
 </div>
 
 <script>
-// ---------------- Leaflet Map Setup ----------------
-let map = L.map('map').setView([16.82, 96.15], 12); // Myanmar center
+const auth = firebase.auth();
+const db = firebase.firestore();
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '&copy; OpenStreetMap contributors'
-}).addTo(map);
+auth.onAuthStateChanged(user => {
+  if (!user) {
+    // Not logged in → redirect to login
+    location.href = "../index.html";
+    return;
+  }
 
-// Custom Rider / Bike icon
-const riderIcon = L.icon({
-  iconUrl: '../assets/bike.png', 
-  iconSize: [40, 40],
-  iconAnchor: [20, 40],
-  popupAnchor: [0, -40]
-});
+  const uid = user.uid;
 
-// Store markers & polylines by UID
-let markers = {};
-let routes = {};
+  // Optional: check role from Firestore
+  db.collection("users").doc(uid).get()
+    .then(doc => {
+      if (!doc.exists) throw new Error("User not found");
+      if (doc.data().role !== "customer") {
+        alert("Access denied: not a customer");
+        auth.signOut();
+        location.href = "../index.html";
+      }
+    })
+    .catch(err => {
+      alert(err.message);
+      auth.signOut();
+      location.href = "../index.html";
+    });
 
-// ---------------- Smooth Move Function ----------------
-function moveMarkerSmooth(marker, newLatLng, steps = 10, delay = 50) {
-  if (!marker) return;
-  const start = marker.getLatLng();
-  const latStep = (newLatLng[0] - start.lat) / steps;
-  const lngStep = (newLatLng[1] - start.lng) / steps;
+  // ---------------- Leaflet Map Setup ----------------
+  const map = L.map('map').setView([16.82, 96.15], 12);
 
-  let i = 0;
-  const interval = setInterval(() => {
-    if (i >= steps) { clearInterval(interval); return; }
-    const lat = start.lat + latStep * i;
-    const lng = start.lng + lngStep * i;
-    marker.setLatLng([lat, lng]);
-    i++;
-  }, delay);
-}
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
 
-// ---------------- Firestore Real-Time Listener ----------------
-db.collection("locations").onSnapshot(snapshot => {
-  snapshot.docs.forEach(doc => {
-    const data = doc.data();
-    const uid = doc.id;
-
-    if (!data.lat || !data.lng) return;
-    const position = [data.lat, data.lng];
-
-    // Popup content
-    const updatedTime = data.updatedAt ? data.updatedAt.toDate().toLocaleTimeString() : '';
-    const popupContent = `<b>${data.name || uid}</b><br>Role: ${data.role}<br>Updated: ${updatedTime}`;
-
-    // ---------------- Marker ----------------
-    if (markers[uid]) {
-      moveMarkerSmooth(markers[uid], position);
-      markers[uid].setPopupContent(popupContent);
-    } else {
-      markers[uid] = L.marker(position, { icon: riderIcon })
-        .addTo(map)
-        .bindPopup(popupContent)
-        .openPopup();
-    }
-
-    // ---------------- Polyline Route ----------------
-    if (!routes[uid]) {
-      routes[uid] = L.polyline([position], { color: 'red', weight: 4 }).addTo(map);
-    } else {
-      const latlngs = routes[uid].getLatLngs();
-      latlngs.push(position);
-      routes[uid].setLatLngs(latlngs);
-    }
-
-    // ---------------- Auto Follow ----------------
-    map.panTo(position, { animate: true });
+  const riderIcon = L.icon({
+    iconUrl: '../assets/bike.png',
+    iconSize: [40, 40],
+    iconAnchor: [20, 40]
   });
+
+  const markers = {};
+  const routes = {};
+  const colors = {};
+
+  function getRandomColor(uid){
+    if (colors[uid]) return colors[uid];
+    const color = '#' + Math.floor(Math.random()*16777215).toString(16);
+    colors[uid] = color;
+    return color;
+  }
+
+  document.getElementById("status").innerText = "Listening for riders...";
+
+  // ---------------- Firestore Real-Time Listener ----------------
+  db.collection("locations")
+    .where("role","==","rider") // only rider
+    .onSnapshot(snapshot => {
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        const rid = doc.id;
+
+        if (!data.lat || !data.lng) return;
+        const pos = [data.lat, data.lng];
+
+        const popupContent = `
+          <b>${data.name || rid}</b><br>
+          Last update: ${data.updatedAt ? data.updatedAt.toDate().toLocaleTimeString() : ''}
+        `;
+
+        // ---------------- Marker ----------------
+        if (markers[rid]) {
+          markers[rid].setLatLng(pos);
+          markers[rid].setPopupContent(popupContent);
+        } else {
+          markers[rid] = L.marker(pos, { icon: riderIcon })
+            .addTo(map)
+            .bindPopup(popupContent);
+        }
+
+        // ---------------- Polyline Route ----------------
+        if (!routes[rid]) {
+          routes[rid] = L.polyline([pos], { color: getRandomColor(rid), weight: 4 }).addTo(map);
+        } else {
+          const latlngs = routes[rid].getLatLngs();
+          latlngs.push(pos);
+          routes[rid].setLatLngs(latlngs);
+        }
+      });
+
+      // Auto center on first rider
+      const ridIDs = snapshot.docs.map(d => d.id);
+      if (ridIDs.length && markers[ridIDs[0]]) {
+        map.setView(markers[ridIDs[0]].getLatLng(), map.getZoom());
+      }
+    });
 });
 </script>
 
