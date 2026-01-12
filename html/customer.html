@@ -20,7 +20,6 @@
             color: var(--dark);
         }
 
-        /* Fixed Header */
         .header { 
             background: var(--primary); 
             padding: 15px; 
@@ -33,49 +32,47 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
 
-        /* Map UI */
         #map { 
-            height: 300px; 
+            height: 250px; 
             width: 100%; 
             z-index: 1;
         }
 
-        /* Form Container */
         .order-container {
             padding: 15px;
             max-width: 500px;
-            margin: -20px auto 0;
+            margin: -25px auto 0;
             position: relative;
             z-index: 100;
             background: white;
-            border-top-left-radius: 25px;
-            border-top-right-radius: 25px;
-            box-shadow: 0 -5px 20px rgba(0,0,0,0.05);
+            border-top-left-radius: 30px;
+            border-top-right-radius: 30px;
+            box-shadow: 0 -5px 25px rgba(0,0,0,0.08);
         }
 
         .info-text {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: #888;
             margin-bottom: 15px;
             text-align: center;
+            letter-spacing: 0.5px;
         }
 
-        /* Input Styles */
         .loc-box {
             background: #fff;
             padding: 12px;
             border-radius: 15px;
-            border: 1px solid #eee;
+            border: 1px solid #f0f0f0;
             margin-bottom: 12px;
         }
 
-        .loc-box b { display: block; font-size: 0.75rem; text-transform: uppercase; color: #999; margin-bottom: 8px; }
+        .loc-box b { display: block; font-size: 0.75rem; text-transform: uppercase; color: #aaa; margin-bottom: 8px; }
         
         select, input {
             width: 100%;
             padding: 12px;
             border: 1px solid #f0f0f0;
-            border-radius: 10px;
+            border-radius: 12px;
             font-size: 1rem;
             outline: none;
             box-sizing: border-box;
@@ -99,26 +96,32 @@
             margin-bottom: 15px;
         }
 
-        /* Button UI */
+        .payment-box {
+            background: #fff9e6;
+            padding: 12px;
+            border-radius: 15px;
+            border: 1px solid #ffeeba;
+            margin-bottom: 20px;
+        }
+
         .btn-confirm {
             background: var(--dark);
             color: var(--primary);
             width: 100%;
             padding: 18px;
             border: none;
-            border-radius: 15px;
+            border-radius: 18px;
             font-weight: bold;
-            font-size: 1rem;
+            font-size: 1.1rem;
             cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
             transition: 0.3s;
         }
 
-        .btn-confirm:active { transform: scale(0.96); }
+        .btn-confirm:active { transform: scale(0.95); }
 
-        /* Marker Color helpers */
-        .pickup-label { border-left: 4px solid var(--primary); }
-        .dropoff-label { border-left: 4px solid #ff4757; }
+        .pickup-label { border-left: 5px solid var(--primary); }
+        .dropoff-label { border-left: 5px solid #ff4757; }
     </style>
 </head>
 <body>
@@ -128,10 +131,10 @@
     <div id="map"></div>
     
     <div class="order-container">
-        <div class="info-text">📍 တည်နေရာများကို မြေပုံပေါ်တွင် ရွေးချယ်ပါ</div>
+        <div class="info-text">📍 မြို့နယ်ရွေးချယ်ပြီး လိပ်စာအပြည့်အစုံ ဖြည့်စွက်ပါ</div>
 
         <div class="loc-box pickup-label">
-            <b>Pick-up (ပစ္စည်းယူရန်)</b> 
+            <b>Pick-up (ပစ္စည်းယူရန်နေရာ)</b> 
             <select id="pickup-township">
                 <option value="">မြို့နယ်ရွေးပါ</option>
                 <option value="Ahlone" data-lat="16.7875" data-lng="96.1261">အလုံ</option>
@@ -169,21 +172,29 @@
         </div>
 
         <div class="loc-box dropoff-label">
-            <b>Drop-off (ပို့ဆောင်ရန်)</b> 
+            <b>Drop-off (ပစ္စည်းပို့ဆောင်မည့်နေရာ)</b> 
             <select id="dropoff-township">
                 <option value="">မြို့နယ်ရွေးပါ</option>
             </select>
             <input type="text" id="dropoff-address" class="manual-addr" placeholder="လမ်းအမည်/အိမ်အမှတ် ရိုက်ပါ">
         </div>
 
-        <input type="text" id="item-detail" class="standard-input" placeholder="ဘာပစ္စည်းပို့မှာလဲ?">
+        <input type="text" id="item-detail" class="standard-input" placeholder="ဘာပစ္စည်းပို့မှာလဲ? (ဥပမာ- စာရွက်စာတမ်း)">
 
         <div class="input-row">
-            <input type="number" id="item-weight" placeholder="Weight (kg)">
-            <input type="number" id="item-value" placeholder="Value (KS)">
+            <input type="number" id="item-weight" placeholder="အလေးချိန် (kg)">
+            <input type="number" id="item-value" placeholder="ပစ္စည်းတန်ဖိုး (KS)">
         </div>
 
         <input type="tel" id="receiver-phone" class="standard-input" placeholder="လက်ခံမည့်သူ့ဖုန်းနံပါတ်">
+
+        <div class="payment-box">
+            <b style="font-size: 0.75rem; color: #856404; display: block; margin-bottom: 8px;">ငွေချေစနစ် (Payment Method)</b>
+            <select id="payment-method" style="background: #fff; border-color: #ffeeba;">
+                <option value="COD">Cash on Delivery (ပစ္စည်းရောက်မှငွေချေမည်)</option>
+                <option value="PickupCash">Cash at Pickup (ယူသည့်နေရာတွင် ရှင်းမည်)</option>
+            </select>
+        </div>
 
         <button id="placeOrderBtn" class="btn-confirm">ORDER NOW</button>
     </div>
