@@ -2,16 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Customer Dashboard</title>
+<title>Customer - GoBike</title>
 <link rel="stylesheet" href="../css/style.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="../js/firebase-config.js"></script>
-<script src="../js/customer.js"></script>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<style>#map{height:500px;width:100%;margin-top:10px;border-radius:8px;}button{margin-top:10px;padding:8px 12px;font-size:16px;}</style>
+<script type="module" src="../js/auth.js"></script>
+<style>#map{height:500px;width:100%;margin-top:15px;border-radius:8px;}button{margin-top:10px;padding:8px 12px;font-size:16px;}</style>
 </head>
 <body>
 <div class="app">
@@ -21,5 +21,68 @@
   <p id="info"></p>
   <button id="submitOrder" disabled>Submit Order</button>
 </div>
+
+<script type="module">
+import { checkAuth } from "../js/auth.js";
+checkAuth("customer");
+
+let map = L.map('map').setView([16.82,96.15],12);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy;OpenStreetMap'}).addTo(map);
+
+const riderIcon = L.icon({iconUrl:'../assets/bike.png',iconSize:[40,40],iconAnchor:[20,40]});
+let markers={}, routes={}, colors={}, pickupMarker=null, dropMarker=null, orderLine=null;
+
+function getRandomColor(uid){ if(colors[uid]) return colors[uid]; const c='#'+Math.floor(Math.random()*16777215).toString(16); colors[uid]=c; return c;}
+
+// Set pickup/drop
+map.on('click', e=>{
+  if(!pickupMarker){
+    pickupMarker=L.marker(e.latlng).addTo(map).bindPopup("Pickup").openPopup();
+    document.getElementById("info").innerText=`Pickup: ${e.latlng.lat.toFixed(5)},${e.latlng.lng.toFixed(5)}`;
+  } else if(!dropMarker){
+    dropMarker=L.marker(e.latlng).addTo(map).bindPopup("Drop").openPopup();
+    if(orderLine) map.removeLayer(orderLine);
+    orderLine=L.polyline([pickupMarker.getLatLng(),dropMarker.getLatLng()],{color:'blue',weight:4}).addTo(map);
+    document.getElementById("info").innerText+=` | Drop: ${e.latlng.lat.toFixed(5)},${e.latlng.lng.toFixed(5)}`;
+    document.getElementById("submitOrder").disabled=false;
+  }
+});
+
+// Live Rider markers
+db.collection("locations").where("role","==","rider").onSnapshot(snapshot=>{
+  snapshot.docs.forEach(doc=>{
+    const d=doc.data(); const uid=doc.id;
+    if(!d.lat || !d.lng) return;
+    const pos=[d.lat,d.lng];
+    const popup=`<b>${d.name||uid}</b><br>Updated: ${d.updatedAt?d.updatedAt.toDate().toLocaleTimeString():''}`;
+    if(markers[uid]){ markers[uid].setLatLng(pos).setPopupContent(popup); }
+    else{ markers[uid]=L.marker(pos,{icon:riderIcon}).addTo(map).bindPopup(popup); }
+    if(!routes[uid]) routes[uid]=L.polyline([pos],{color:getRandomColor(uid),weight:4}).addTo(map);
+    else{ const latlngs=routes[uid].getLatLngs(); latlngs.push(pos); routes[uid].setLatLngs(latlngs); }
+  });
+});
+
+// Submit order
+document.getElementById("submitOrder").onclick=()=>{
+  if(!pickupMarker||!dropMarker) return alert("Select pickup & drop");
+  const pickup=pickupMarker.getLatLng(), drop=dropMarker.getLatLng();
+  const distance=map.distance(pickup,drop)/1000;
+  const price=Math.ceil(distance*1000);
+
+  db.collection("orders").add({
+    customerId: auth.currentUser.uid,
+    pickup:{lat:pickup.lat,lng:pickup.lng},
+    drop:{lat:drop.lat,lng:drop.lng},
+    price: price,
+    status: "pending",
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(()=>{
+    alert(`Order submitted! Distance: ${distance.toFixed(2)} km, Price: ${price} Ks`);
+    if(orderLine) map.removeLayer(orderLine); map.removeLayer(pickupMarker); map.removeLayer(dropMarker);
+    pickupMarker=null; dropMarker=null; orderLine=null;
+    document.getElementById("submitOrder").disabled=true; document.getElementById("info").innerText="";
+  });
+};
+</script>
 </body>
 </html>
