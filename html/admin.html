@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <title>Admin - GoBike</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="../css/style.css">
+
+<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -11,36 +14,49 @@
 </head>
 <body>
 <div class="app">
-<h2>Admin Dashboard</h2>
-<div id="orders"></div>
+  <h2>Admin Dashboard</h2>
+  <p>Pending Orders:</p>
+  <ul id="ordersList"></ul>
 </div>
 
 <script>
-auth.onAuthStateChanged(user=>{
-  if(!user) location.href="../index.html";
-  db.collection("users").doc(user.uid).get().then(doc=>{
-    if(!doc.exists||doc.data().role!=="admin"){ auth.signOut(); location.href="../index.html"; }
-  });
+auth.onAuthStateChanged(user => {
+  if(!user) {
+    alert("Please login first!");
+    location.href="../index.html";
+    return;
+  }
 
-  const ordersDiv=document.getElementById("orders");
-  db.collection("orders").where("status","==","pending").onSnapshot(snapshot=>{
-    ordersDiv.innerHTML="";
-    snapshot.docs.forEach(doc=>{
-      const o=doc.data();
-      const div=document.createElement("div");
-      div.style.border="1px solid #ccc"; div.style.padding="5px"; div.style.margin="5px 0";
-      div.innerHTML=`<b>Customer:</b> ${o.customerId}<br>
-                     <b>Pickup:</b> ${o.pickup.lat.toFixed(5)},${o.pickup.lng.toFixed(5)}<br>
-                     <b>Drop:</b> ${o.drop.lat.toFixed(5)},${o.drop.lng.toFixed(5)}<br>
-                     <b>Price:</b> ${o.price} Ks<br>`;
-      const btn=document.createElement("button");
-      btn.innerText="Approve";
-      btn.onclick=()=>{ db.collection("orders").doc(doc.id).update({status:"approved"}); };
-      div.appendChild(btn);
-      ordersDiv.appendChild(div);
+  // 1️⃣ Check role
+  db.collection("users").doc(user.uid).get()
+    .then(doc=>{
+      if(!doc.exists || doc.data().role!=="admin"){
+        alert("Unauthorized!");
+        location.href="../index.html";
+      }
     });
-  });
+
+  // 2️⃣ Fetch pending orders
+  db.collection("orders").where("status","==","pending")
+    .onSnapshot(snapshot=>{
+      const ul=document.getElementById("ordersList");
+      ul.innerHTML="";
+      snapshot.forEach(doc=>{
+        const data=doc.data();
+        const li=document.createElement("li");
+        li.innerHTML=`Order: ${data.pickup} → ${data.drop} | Customer: ${data.customerName}
+          <button onclick="approveOrder('${doc.id}')">Approve</button>`;
+        ul.appendChild(li);
+      });
+    });
 });
+
+// 3️⃣ Approve order function
+function approveOrder(orderId){
+  db.collection("orders").doc(orderId).update({status:"approved"})
+    .then(()=>alert("Order approved!"))
+    .catch(err=>alert(err.message));
+}
 </script>
 </body>
 </html>
