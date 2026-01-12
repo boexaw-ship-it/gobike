@@ -10,7 +10,7 @@
 <!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 
-<!-- Firebase SDK -->
+<!-- Firebase SDK (COMPAT) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -22,29 +22,45 @@
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <style>
-  #map { height: 400px; width: 100%; margin-bottom: 10px; }
-  table { width: 100%; border-collapse: collapse; }
-  th, td { border: 1px solid #ccc; padding: 6px; text-align: left; }
-  th { background: #eee; }
+  #map {
+    height: 420px;
+    width: 100%;
+    margin-bottom: 15px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  th, td {
+    border: 1px solid #ccc;
+    padding: 6px;
+    text-align: left;
+  }
+  th {
+    background: #f2f2f2;
+  }
 </style>
-
 </head>
+
 <body>
 
 <div class="app">
   <h2>Admin Dashboard</h2>
 
+  <!-- Map -->
   <div id="map"></div>
 
+  <!-- Orders -->
   <h3>Orders</h3>
   <table>
     <thead>
       <tr>
         <th>Order ID</th>
-        <th>Customer</th>
+        <th>Customer UID</th>
         <th>Destination</th>
         <th>Status</th>
-        <th>Created At</th>
+        <th>Created</th>
       </tr>
     </thead>
     <tbody id="orders-list"></tbody>
@@ -52,79 +68,100 @@
 </div>
 
 <script>
-// ---------------- Leaflet Map Setup ----------------
-let map = L.map('map').setView([16.82, 96.15], 12);
+/* ================== MAP SETUP ================== */
+const map = L.map('map').setView([16.82, 96.15], 12);
+
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
 
-// Rider icon
 const riderIcon = L.icon({
   iconUrl: '../assets/bike.png',
-  iconSize: [40,40],
-  iconAnchor: [20,40],
-  popupAnchor: [0,-40]
+  iconSize: [40, 40],
+  iconAnchor: [20, 40],
+  popupAnchor: [0, -40]
 });
 
 let markers = {};
 let routes = {};
 let colors = {};
-function getRandomColor(uid) {
+
+function getColor(uid) {
   if (colors[uid]) return colors[uid];
-  const color = '#' + Math.floor(Math.random()*16777215).toString(16);
-  colors[uid] = color;
-  return color;
+  colors[uid] = '#' + Math.floor(Math.random()*16777215).toString(16);
+  return colors[uid];
 }
 
-// ---------------- Firebase Auth ----------------
-auth.signInAnonymously().then(() => {
-  // ---------------- Live Rider Locations ----------------
+/* ================== AUTH ================== */
+auth.signInAnonymously()
+.then(() => {
+  console.log("Admin logged in");
+
+  /* ================== LIVE RIDER LOCATIONS ================== */
   db.collection("locations").onSnapshot(snapshot => {
     snapshot.docs.forEach(doc => {
-      const data = doc.data();
-      const uid = doc.id;
-      if (!data.lat || !data.lng) return;
-      const pos = [data.lat, data.lng];
+      const d = doc.data();
+      if (!d.lat || !d.lng) return;
 
-      const popupContent = `<b>${data.name || uid}</b><br>Role: ${data.role}`;
+      const uid = doc.id;
+      const pos = [d.lat, d.lng];
+
+      const popup = 
+        <b>${d.name || uid}</b><br>
+        Role: ${d.role}<br>
+        ${d.updatedAt ? d.updatedAt.toDate().toLocaleTimeString() : ''}
+      ;
 
       if (markers[uid]) {
-        markers[uid].setLatLng(pos);
-        markers[uid].setPopupContent(popupContent);
+        markers[uid].setLatLng(pos).setPopupContent(popup);
       } else {
-        markers[uid] = L.marker(pos, { icon: riderIcon }).addTo(map).bindPopup(popupContent);
+        markers[uid] = L.marker(pos, { icon: riderIcon })
+          .addTo(map)
+          .bindPopup(popup);
       }
 
-      // ---------------- Polyline route ----------------
       if (!routes[uid]) {
-        routes[uid] = L.polyline([pos], { color: getRandomColor(uid), weight: 4 }).addTo(map);
+        routes[uid] = L.polyline([pos], {
+          color: getColor(uid),
+          weight: 4
+        }).addTo(map);
       } else {
-        const latlngs = routes[uid].getLatLngs();
-        latlngs.push(pos);
-        routes[uid].setLatLngs(latlngs);
+        const line = routes[uid].getLatLngs();
+        line.push(pos);
+        routes[uid].setLatLngs(line);
       }
     });
 
     // Auto follow first rider
-    const uids = snapshot.docs.map(d=>d.id);
-    if (uids.length && markers[uids[0]]) map.setView(markers[uids[0]].getLatLng(), map.getZoom());
+    const ids = snapshot.docs.map(d => d.id);
+    if (ids.length && markers[ids[0]]) {
+      map.setView(markers[ids[0]].getLatLng(), map.getZoom());
+    }
   });
 
-  // ---------------- Orders List ----------------
-  db.collection("orders").orderBy("createdAt", "desc").onSnapshot(snapshot => {
-    const tbody = document.getElementById("orders-list");
-    tbody.innerHTML = '';
-    snapshot.docs.forEach(doc => {
-      const order = doc.data();
-      const created = order.createdAt ? order.createdAt.toDate().toLocaleString() : '';
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${doc.id}</td><td>${order.customerId}</td><td>${order.destination}</td><td>${order.status}</td><td>${created}</td>`;
-      tbody.appendChild(tr);
+  /* ================== ORDERS LIST ================== */
+  db.collection("orders")
+    .orderBy("createdAt", "desc")
+    .onSnapshot(snapshot => {
+      const tbody = document.getElementById("orders-list");
+      tbody.innerHTML = '';
+
+      snapshot.docs.forEach(doc => {
+        const o = doc.data();
+        const tr = document.createElement("tr");
+        tr.innerHTML = 
+          <td>${doc.id}</td>
+          <td>${o.customerId || '-'}</td>
+          <td>${o.destination || '-'}</td>
+          <td>${o.status || 'pending'}</td>
+          <td>${o.createdAt ? o.createdAt.toDate().toLocaleString() : ''}</td>
+        ;
+        tbody.appendChild(tr);
+      });
     });
-  });
 
-}).catch(err => alert("Auth Error: " + err.message));
-
+})
+.catch(err => alert("Auth error: " + err.message));
 </script>
 
 </body>
