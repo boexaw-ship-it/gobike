@@ -3,95 +3,44 @@
 <head>
 <meta charset="UTF-8">
 <title>Admin - GoBike</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <link rel="stylesheet" href="../css/style.css">
-
-<!-- Leaflet -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
-<!-- Firebase (compat) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-
-<!-- Firebase Config -->
 <script src="../js/firebase-config.js"></script>
-
-<style>
-  #map { height: 350px; margin-top: 10px; }
-  .order { border:1px solid #ddd; padding:10px; margin-top:10px; }
-  .order button { margin-top: 6px; }
-</style>
 </head>
 <body>
-
 <div class="app">
-  <h2>Admin Panel</h2>
-
-  <div id="orders"></div>
-  <div id="map"></div>
+<h2>Admin Dashboard</h2>
+<div id="orders"></div>
 </div>
 
 <script>
-/* ---------------- Map ---------------- */
-let map = L.map('map').setView([16.82, 96.15], 12);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution:'&copy; OpenStreetMap'
-}).addTo(map);
+auth.onAuthStateChanged(user=>{
+  if(!user) location.href="../index.html";
+  db.collection("users").doc(user.uid).get().then(doc=>{
+    if(!doc.exists||doc.data().role!=="admin"){ auth.signOut(); location.href="../index.html"; }
+  });
 
-let pickupMarker, dropMarker, routeLine;
-
-function showOnMap(order){
-  if (pickupMarker) map.removeLayer(pickupMarker);
-  if (dropMarker) map.removeLayer(dropMarker);
-  if (routeLine) map.removeLayer(routeLine);
-
-  pickupMarker = L.marker(order.pickup).addTo(map).bindPopup("Pickup").openPopup();
-  dropMarker = L.marker(order.drop).addTo(map).bindPopup("Drop").openPopup();
-
-  routeLine = L.polyline([order.pickup, order.drop], { color:'blue' }).addTo(map);
-  map.fitBounds(routeLine.getBounds());
-}
-
-/* ---------------- Orders List ---------------- */
-const ordersDiv = document.getElementById("orders");
-
-db.collection("orders")
-.where("status","==","pending")
-.orderBy("createdAt","desc")
-.onSnapshot(snapshot=>{
-  ordersDiv.innerHTML = "";
-
-  snapshot.forEach(doc=>{
-    const o = doc.data();
-
-    const div = document.createElement("div");
-    div.className = "order";
-
-    div.innerHTML = `
-      <p><b>Order ID:</b> ${doc.id}</p>
-      <p><b>Price:</b> ${o.price} Ks</p>
-      <button id="view-${doc.id}">View Map</button>
-      <button id="approve-${doc.id}">Approve</button>
-    `;
-
-    ordersDiv.appendChild(div);
-
-    document.getElementById(`view-${doc.id}`).onclick = () => showOnMap(o);
-    document.getElementById(`approve-${doc.id}`).onclick = () => approveOrder(doc.id);
+  const ordersDiv=document.getElementById("orders");
+  db.collection("orders").where("status","==","pending").onSnapshot(snapshot=>{
+    ordersDiv.innerHTML="";
+    snapshot.docs.forEach(doc=>{
+      const o=doc.data();
+      const div=document.createElement("div");
+      div.style.border="1px solid #ccc"; div.style.padding="5px"; div.style.margin="5px 0";
+      div.innerHTML=`<b>Customer:</b> ${o.customerId}<br>
+                     <b>Pickup:</b> ${o.pickup.lat.toFixed(5)},${o.pickup.lng.toFixed(5)}<br>
+                     <b>Drop:</b> ${o.drop.lat.toFixed(5)},${o.drop.lng.toFixed(5)}<br>
+                     <b>Price:</b> ${o.price} Ks<br>`;
+      const btn=document.createElement("button");
+      btn.innerText="Approve";
+      btn.onclick=()=>{ db.collection("orders").doc(doc.id).update({status:"approved"}); };
+      div.appendChild(btn);
+      ordersDiv.appendChild(div);
+    });
   });
 });
-
-function approveOrder(id){
-  db.collection("orders").doc(id).update({
-    status: "approved",
-    approvedAt: firebase.firestore.FieldValue.serverTimestamp()
-  });
-  alert("Order approved");
-}
 </script>
-
 </body>
 </html>
