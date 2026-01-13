@@ -11,7 +11,10 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 const availableOrdersContainer = document.getElementById('available-orders');
 const activeOrdersList = document.getElementById('active-orders-list');
 
-// --- ၂။ Rider ရဲ့ Live Location ကို Tracking လုပ်ခြင်း ---
+// မြေပုံပေါ်က Marker တွေကို သိမ်းထားရန်
+let markers = {}; 
+
+// --- ၂။ Rider ရဲ့ Live Location Tracking ---
 if (navigator.geolocation) {
     navigator.geolocation.watchPosition(async (position) => {
         if (auth.currentUser) {
@@ -26,10 +29,10 @@ if (navigator.geolocation) {
     }, (error) => console.error("GPS Error:", error), { enableHighAccuracy: true });
 }
 
-// --- ၃။ Available Orders ကို စောင့်ကြည့်ခြင်း (Limit 7 Logic ပါဝင်သည်) ---
+// --- ၃။ Available Orders (Pending) ကို စောင့်ကြည့်ခြင်း ---
 onSnapshot(query(collection(db, "orders"), where("status", "==", "pending")), async (snapshot) => {
     
-    // Rider လက်ရှိကိုင်ထားသော Active Orders အရေအတွက်ကို စစ်ဆေးသည်
+    // Rider လက်ရှိကိုင်ထားသော အရေအတွက်ကို စစ်ဆေးသည်
     let activeCount = 0;
     if (auth.currentUser) {
         const activeQ = query(collection(db, "orders"), 
@@ -42,17 +45,28 @@ onSnapshot(query(collection(db, "orders"), where("status", "==", "pending")), as
 
     availableOrdersContainer.innerHTML = snapshot.empty ? `<p style="text-align:center; color:#888;">လောလောဆယ် Order မရှိသေးပါ</p>` : "";
     
+    // မြေပုံပေါ်က Marker အဟောင်းတွေကို အရင်ဖြုတ်သည်
+    Object.values(markers).forEach(m => map.removeLayer(m));
+    markers = {};
+
     snapshot.forEach((orderDoc) => {
         const order = orderDoc.data();
         const id = orderDoc.id;
         
+        // --- မြေပုံပေါ်မှာ Marker ပြခြင်း ---
+        if (order.pickup && order.pickup.lat) {
+            const m = L.marker([order.pickup.lat, order.pickup.lng])
+                      .addTo(map)
+                      .bindPopup(`<b>ပစ္စည်းယူရန်:</b> ${order.item}`);
+            markers[id] = m;
+        }
+
         const pickupLink = `https://www.google.com/maps?q=${order.pickup.lat},${order.pickup.lng}`;
         const dropoffLink = `https://www.google.com/maps?q=${order.dropoff.lat},${order.dropoff.lng}`;
 
         const card = document.createElement('div');
         card.className = 'order-card';
         
-        // ၇ ခုပြည့်နေလျှင် ခလုတ်များ Disable လုပ်ရန် Styling
         const btnStyle = isFull ? "background:#ccc; cursor:not-allowed; opacity:0.6;" : "";
         const btnAttr = isFull ? "disabled" : "";
 
@@ -79,7 +93,7 @@ onSnapshot(query(collection(db, "orders"), where("status", "==", "pending")), as
     });
 });
 
-// --- ၄။ Active Orders List (Rider ကိုင်ထားသော ၇ ခုစာရင်းပြရန်) ---
+// --- ၄။ Active Orders List (Rider ကိုင်ထားသော ၇ ခု) ---
 if (auth.currentUser) {
     const qActive = query(collection(db, "orders"), 
                     where("riderId", "==", auth.currentUser.uid),
@@ -97,16 +111,14 @@ if (auth.currentUser) {
 
             const card = document.createElement('div');
             card.className = 'active-order-card';
-            card.style = "background:#fff; padding:15px; border-radius:15px; margin-bottom:10px; border-left:5px solid #ffcc00; box-shadow:0 4px 10px rgba(0,0,0,0.05);";
             card.innerHTML = `
                 <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
                     <b>${statusIcon} ${statusText}</b>
                     <small style="color:#888;">#${id.slice(-5)}</small>
                 </div>
-                <p style="font-size:0.9rem; margin:5px 0;">📦 ${order.item} | 💵 ${order.deliveryFee} KS</p>
-                <p style="font-size:0.85rem; color:#555;">🏁 ${order.dropoff.address}</p>
+                <p>📦 ${order.item} | 💵 ${order.deliveryFee} KS</p>
                 <button onclick="${nextStatus === 'completed' ? `completeOrder('${id}')` : `updateStatus('${id}', '${nextStatus}')`}" 
-                        style="width:100%; background:#ffcc00; border:none; padding:10px; border-radius:8px; font-weight:bold; margin-top:10px; cursor:pointer;">
+                        style="width:100%; background:#ffcc00; border:none; padding:10px; border-radius:8px; font-weight:bold; margin-top:10px;">
                     ${btnText}
                 </button>`;
             activeOrdersList.appendChild(card);
@@ -118,7 +130,6 @@ if (auth.currentUser) {
 window.handleAccept = async (orderId, timeOption) => {
     if (!auth.currentUser) return alert("Login အရင်ဝင်ပါ");
     
-    // Double Check Limit
     const activeQ = query(collection(db, "orders"), where("riderId", "==", auth.currentUser.uid), where("status", "in", ["accepted", "on_the_way", "arrived"]));
     const activeSnap = await getDocs(activeQ);
     if (activeSnap.size >= 7) return alert("အော်ဒါ ၇ ခုပြည့်နေပါပြီ။");
@@ -161,6 +172,7 @@ window.completeOrder = async (orderId) => {
 
 async function sendDetailedTelegram(orderId, statusLabel) {
     const orderSnap = await getDocs(query(collection(db, "orders"), where("__name__", "==", orderId)));
+    if (orderSnap.empty) return;
     const order = orderSnap.docs[0].data();
     const msg = `🔔 <b>STATUS UPDATE: ${statusLabel}</b>\n` +
                 `📦 Item: ${order.item}\n` +
@@ -168,5 +180,4 @@ async function sendDetailedTelegram(orderId, statusLabel) {
                 `🚴 Rider: ${auth.currentUser.email}\n` +
                 `🏁 Destination: ${order.dropoff.address}`;
     await notifyTelegram(msg);
-}
 }
