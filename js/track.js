@@ -6,6 +6,7 @@ import {
 const params = new URLSearchParams(window.location.search);
 const orderId = params.get('id');
 
+// --- ၁။ Map Setup ---
 const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
@@ -23,7 +24,7 @@ if (orderId) {
         if (!docSnap.exists()) return;
         const data = docSnap.data();
         
-        // --- ၁။ Progress Bar Update ---
+        // --- ၂။ Progress Bar Update ---
         const steps = ["pending", "accepted", "on_the_way", "arrived"];
         const currentStatusIdx = steps.indexOf(data.status);
         
@@ -38,17 +39,21 @@ if (orderId) {
             }
         });
 
-        // --- ၂။ Status Badge ---
+        // --- ၃။ Status Badge ---
         let statusText = data.status.toUpperCase();
         if (data.status === "pending_confirmation") statusText = "CONFIRMATION NEEDED";
-        document.getElementById('status-badge').innerText = statusText.replace("_", " ");
+        const statusBadge = document.getElementById('status-badge');
+        if (statusBadge) statusBadge.innerText = statusText.replace("_", " ");
 
-        // --- ၃။ Item Detail ---
-        document.getElementById('det-item').innerText = data.item;
-        document.getElementById('det-fee').innerText = data.deliveryFee.toLocaleString();
+        // --- ၄။ Item Detail ---
+        const detItem = document.getElementById('det-item');
+        const detFee = document.getElementById('det-fee');
+        if (detItem) detItem.innerText = data.item;
+        if (detFee) detFee.innerText = data.deliveryFee ? data.deliveryFee.toLocaleString() : "0";
         
-        // --- ၄။ Rider Info & Schedule ---
+        // --- ၅။ Rider Info (နာမည်ရင်းပြသရန် ပြင်ဆင်မှု) ---
         let riderDisplay = data.riderName || 'ရှာဖွေနေဆဲ...';
+        
         if (data.status === "pending_confirmation") {
             riderDisplay = "ယာယီစောင့်ဆိုင်းဆဲ...";
         }
@@ -58,19 +63,26 @@ if (orderId) {
         } else if (data.pickupSchedule === "now") {
             riderDisplay += " (ယနေ့လာယူမည်)";
         }
-        document.getElementById('det-rider').innerText = riderDisplay;
+
+        const detRider = document.getElementById('det-rider');
+        if (detRider) detRider.innerText = riderDisplay;
         
-        // --- ၅။ Confirmation UI Logic ---
+        // --- ၆။ Confirmation UI Logic ---
         const confirmBox = document.getElementById('confirmation-ui');
-        if (data.status === "pending_confirmation") {
-            confirmBox.style.display = "block";
-            const scheduleTxt = data.pickupSchedule === "now" ? "ယနေ့ (ချက်ချင်း)" : "မနက်ဖြန်မှ";
-            document.getElementById('confirm-msg').innerHTML = `🛵 Rider <b>${data.tempRiderName}</b> က <b>${scheduleTxt}</b> လာယူရန် ကမ်းလှမ်းထားပါသည်။ အဆင်ပြေပါသလား?`;
-        } else {
-            confirmBox.style.display = "none";
+        if (confirmBox) {
+            if (data.status === "pending_confirmation") {
+                confirmBox.style.display = "block";
+                const scheduleTxt = data.pickupSchedule === "now" ? "ယနေ့ (ချက်ချင်း)" : "မနက်ဖြန်မှ";
+                const confirmMsg = document.getElementById('confirm-msg');
+                if (confirmMsg) {
+                    confirmMsg.innerHTML = `🛵 Rider <b>${data.tempRiderName || "Rider"}</b> က <b>${scheduleTxt}</b> လာယူရန် ကမ်းလှမ်းထားပါသည်။ အဆင်ပြေပါသလား?`;
+                }
+            } else {
+                confirmBox.style.display = "none";
+            }
         }
 
-        // --- ၆။ Live Tracking Logic ---
+        // --- ၇။ Live Tracking Logic (မြေပုံပေါ်တွင် Rider တည်နေရာပြခြင်း) ---
         if (data.riderId && (["accepted", "on_the_way", "arrived"].includes(data.status))) {
             if (riderUnsubscribe) riderUnsubscribe();
 
@@ -93,7 +105,7 @@ if (orderId) {
     });
 }
 
-// --- ၇။ Respond Rider Function ---
+// --- ၈။ Respond Rider Function (Customer က လက်ခံ/ငြင်းပယ်ခြင်း) ---
 window.respondRider = async (isAccepted) => {
     try {
         const orderRef = doc(db, "orders", orderId);
@@ -102,22 +114,21 @@ window.respondRider = async (isAccepted) => {
         const d = snap.data();
 
         if (isAccepted) {
-            // Customer လက်ခံလျှင် temp data များကို အတည်ပြု data များထဲသို့ ပြောင်းမည်
+            // Customer လက်ခံလျှင်
             await updateDoc(orderRef, { 
                 status: "accepted", 
                 riderId: d.tempRiderId, 
                 riderName: d.tempRiderName,
                 pickupSchedule: d.pickupSchedule, 
                 acceptedAt: serverTimestamp(),
-                lastRejectedRiderId: null // လက်ခံလိုက်ပြီဖြစ်သဖြင့် Reject History ကို ရှင်းပစ်ပါ
+                lastRejectedRiderId: null 
             });
             alert("Rider ကို အတည်ပြုပေးလိုက်ပါပြီ။");
         } else {
             // Customer ငြင်းပယ်လျှင်
-            // ယာယီ Rider ID ကို lastRejectedRiderId ထဲသို့ ထည့်ပြီး အော်ဒါကို Pending ပြန်လုပ်မည်
             await updateDoc(orderRef, { 
                 status: "pending", 
-                riderId: null, // လက်ရှိ Rider ID ကိုပါ ရှင်းပစ်ရန် ထပ်ဖြည့်ထားသည်
+                riderId: null, 
                 tempRiderId: null, 
                 tempRiderName: null,
                 pickupSchedule: null,
@@ -130,4 +141,3 @@ window.respondRider = async (isAccepted) => {
         alert("လုပ်ဆောင်ချက် မအောင်မြင်ပါ။");
     }
 };
-
