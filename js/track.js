@@ -1,53 +1,47 @@
 import { db } from './firebase-config.js';
-import { doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { doc, onSnapshot, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-const riderIcon = L.icon({
-    iconUrl: 'https://cdn-icons-png.flaticon.com/512/3198/3198336.png',
-    iconSize: [45, 45], iconAnchor: [22, 22]
-});
-
-let riderMarker = null;
 const params = new URLSearchParams(window.location.search);
 const orderId = params.get('id');
 
 if (orderId) {
     onSnapshot(doc(db, "orders", orderId), (docSnap) => {
-        if (!docSnap.exists()) return;
         const data = docSnap.data();
+        
+        // Progress Bar Logic
+        const steps = ["pending", "accepted", "on_the_way", "arrived"];
+        steps.forEach((step, idx) => {
+            const el = document.getElementById(`step-${idx + 1}`);
+            if (steps.indexOf(data.status) >= idx || data.status === "completed") el.classList.add('active');
+        });
 
-        // ဘေလ် UI Update
-        document.getElementById('fee-amount').innerText = data.deliveryFee;
-        document.getElementById('payment-type').innerText = `(${data.paymentMethod})`;
-        document.getElementById('status-badge').innerText = data.status;
+        // Detail ပြသခြင်း
+        document.getElementById('status-title').innerText = `အခြေအနေ: ${data.status.toUpperCase()}`;
+        document.getElementById('item-detail').innerHTML = `
+            📦 <b>ပစ္စည်း:</b> ${data.item} (${data.weight}kg)<br>
+            💰 <b>တန်ဖိုး:</b> ${data.itemValue} KS | 💵 <b>ပို့ခ:</b> ${data.deliveryFee} KS<br>
+            🚴 <b>Rider:</b> ${data.riderName || 'ရှာဖွေနေဆဲ'}<br>
+            📍 <b>ပို့ရမည့်နေရာ:</b> ${data.dropoff.address}
+        `;
 
-        if (data.status === "accepted") {
-            document.getElementById('status-text').innerText = "Rider လာနေပါပြီ";
-            document.getElementById('schedule-text').innerText = data.pickupSchedule === 'tomorrow' ? "📅 မနက်ဖြန်မှ လာယူပါမည်" : "🛵 ယခု လာယူနေပါပြီ";
-        }
-
-        if (data.status === "completed") {
-            document.getElementById('status-text').innerText = "ပို့ဆောင်မှု ပြီးပါပြီ";
-            document.getElementById('receipt-overlay').style.display = "block"; // Receipt UI ပြမည်
-            if(riderMarker) map.removeLayer(riderMarker);
-        }
-
-        // Rider Live Location
-        if (data.riderId && data.status === "accepted") {
-            onSnapshot(doc(db, "active_riders", data.riderId), (riderSnap) => {
-                if (riderSnap.exists()) {
-                    const loc = riderSnap.data();
-                    const pos = [loc.lat, loc.lng];
-                    if (!riderMarker) {
-                        riderMarker = L.marker(pos, { icon: riderIcon }).addTo(map);
-                    } else {
-                        riderMarker.setLatLng(pos);
-                    }
-                    map.flyTo(pos, 16);
-                }
-            });
-        }
+        // Confirmation UI (for tomorrow orders)
+        const confirmBox = document.getElementById('confirmation-ui');
+        if (data.status === "pending_confirmation") {
+            confirmBox.style.display = "block";
+            confirmBox.innerHTML = `<p>Rider <b>${data.tempRiderName}</b> က မနက်ဖြန်မှ လာယူပါမည်။</p>
+                <button onclick="respond(true)">Accept</button> <button onclick="respond(false)">Reject</button>`;
+        } else { confirmBox.style.display = "none"; }
     });
 }
+
+window.respond = async (isAccepted) => {
+    const orderRef = doc(db, "orders", orderId);
+    if (isAccepted) {
+        // Customer accept လုပ်လျှင် Rider ကို အတည်ပြုပေးလိုက်သည်
+        const snap = await getDocs(query(collection(db, "orders"), where("__name__", "==", orderId)));
+        const d = snap.docs[0].data();
+        await updateDoc(orderRef, { status: "accepted", riderId: d.tempRiderId, riderName: d.tempRiderName, acceptedAt: serverTimestamp() });
+    } else {
+        await updateDoc(orderRef, { status: "pending", tempRiderId: null, tempRiderName: null });
+    }
+};
