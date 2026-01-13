@@ -120,6 +120,40 @@
 
         .btn-confirm:active { transform: scale(0.95); }
 
+        /* My Orders Section Styling */
+        .my-orders-section {
+            margin: 25px 0 10px;
+            padding: 10px 5px;
+            border-top: 1px solid #eee;
+        }
+        .orders-list-title {
+            font-size: 0.9rem;
+            font-weight: bold;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        #orders-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .order-card {
+            background: #fafafa;
+            padding: 12px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #f0f0f0;
+            cursor: pointer;
+        }
+        .order-card:active { background: #f0f0f0; }
+        .order-info b { font-size: 0.9rem; display: block; }
+        .order-info span { font-size: 0.75rem; color: #888; }
+        .track-icon { color: var(--primary); font-size: 1.2rem; }
+
         .pickup-label { border-left: 5px solid var(--primary); }
         .dropoff-label { border-left: 5px solid #ff4757; }
     </style>
@@ -197,6 +231,13 @@
         </div>
 
         <button id="placeOrderBtn" class="btn-confirm">ORDER NOW</button>
+
+        <div class="my-orders-section">
+            <div class="orders-list-title">📦 ကျွန်ုပ်၏ အော်ဒါများ</div>
+            <div id="orders-list">
+                <p style="font-size: 0.8rem; color: #bbb; text-align: center;">တင်ထားသော အော်ဒါမရှိသေးပါ။</p>
+            </div>
+        </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
