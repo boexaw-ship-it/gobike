@@ -4,6 +4,9 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { notifyTelegram } from './telegram.js';
 
+// --- 0. Google Apps Script URL ---
+const SCRIPT_URL = "သင်၏_APPS_SCRIPT_WEB_APP_URL_ကိုဒီမှာထည့်ပါ";
+
 // --- ၁။ Map Init ---
 const map = L.map('map').setView([16.8661, 96.1951], 12); 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -27,7 +30,6 @@ if (navigator.geolocation) {
 function startTracking() {
     if (!auth.currentUser) return;
 
-    // Available Orders & Limit Logic
     onSnapshot(query(collection(db, "orders"), where("status", "==", "pending")), async (snap) => {
         const activeSnap = await getDocs(query(collection(db, "orders"), 
             where("riderId", "==", auth.currentUser.uid),
@@ -42,7 +44,6 @@ function startTracking() {
         if(container) {
             container.innerHTML = snap.empty ? "<p style='text-align:center; color:#888;'>အော်ဒါမရှိသေးပါ</p>" : "";
 
-            // Marker ဟောင်းများကို ရှင်းထုတ်ခြင်း
             Object.values(markers).forEach(m => map.removeLayer(m));
             markers = {};
 
@@ -50,11 +51,9 @@ function startTracking() {
                 const order = orderDoc.data();
                 const id = orderDoc.id;
 
-                // --- ပြင်ဆင်လိုက်သော အပိုင်း (Reject ထားသော Rider ထံ ပြန်မပြရန်) ---
                 if (order.lastRejectedRiderId === auth.currentUser.uid) {
-                    return; // ဒီ Rider ကို Customer က Reject လုပ်ခဲ့ရင် Card မဆွဲဘဲ ကျော်သွားမယ်
+                    return; 
                 }
-                // --------------------------------------------------------
 
                 if(order.pickup) {
                     markers[id] = L.marker([order.pickup.lat, order.pickup.lng]).addTo(map).bindPopup(order.item);
@@ -86,7 +85,6 @@ function startTracking() {
         }
     });
 
-    // Active Orders List
     onSnapshot(query(collection(db, "orders"), where("riderId", "==", auth.currentUser.uid), where("status", "in", ["accepted", "on_the_way", "arrived"])), (snap) => {
         const list = document.getElementById('active-orders-list');
         if(!list) return;
@@ -124,12 +122,15 @@ window.handleAccept = async (id, time) => {
         const snap = await getDoc(docRef);
         const order = snap.data();
 
+        // နာမည် Logic: Sign-up နာမည်ရှိရင်ယူ၊ မရှိရင် Gmail Name၊ မရှိရင် Gmail Rider
+        const riderDisplayName = auth.currentUser?.displayName || auth.currentUser?.email || "Gmail Rider";
+
         if(time === 'tomorrow') {
             await updateDoc(docRef, { 
                 status: "pending_confirmation", 
                 pickupSchedule: "tomorrow", 
                 tempRiderId: auth.currentUser.uid, 
-                tempRiderName: auth.currentUser.email 
+                tempRiderName: riderDisplayName 
             });
             alert("Customer ဆီ မနက်ဖြန်မှလာယူရန် အတည်ပြုချက်တောင်းလိုက်ပါပြီ။");
         } else {
@@ -137,8 +138,20 @@ window.handleAccept = async (id, time) => {
                 status: "accepted", 
                 pickupSchedule: "now",
                 riderId: auth.currentUser.uid, 
-                riderName: auth.currentUser.email, 
+                riderName: riderDisplayName, 
                 acceptedAt: serverTimestamp() 
+            });
+
+            // Google Sheets Update
+            fetch(SCRIPT_URL, {
+                method: "POST",
+                mode: "no-cors",
+                body: JSON.stringify({
+                    action: "update",
+                    orderId: id,
+                    riderName: riderDisplayName,
+                    status: "Accepted"
+                })
             });
 
             const msg = `✅ <b>Order Accepted (Today)!</b>\n` +
@@ -150,7 +163,7 @@ window.handleAccept = async (id, time) => {
                         `💳 Payment: ${order.paymentMethod}\n` +
                         `📞 ဖုန်း: ${order.phone}\n` +
                         `--------------------------\n` +
-                        `🚴 Rider: ${auth.currentUser.email}\n` +
+                        `🚴 Rider: ${riderDisplayName}\n` +
                         `📍 ယူရန်: ${order.pickup.address}`;
             await notifyTelegram(msg);
         }
@@ -164,6 +177,17 @@ window.updateStatus = async (id, status) => {
         const order = snap.data();
 
         await updateDoc(docRef, { status: status });
+
+        // Google Sheets Update Status
+        fetch(SCRIPT_URL, {
+            method: "POST",
+            mode: "no-cors",
+            body: JSON.stringify({
+                action: "update",
+                orderId: id,
+                status: status.toUpperCase()
+            })
+        });
 
         let statusText = status === "on_the_way" ? "🚚 ပစ္စည်းစယူပြီး ထွက်ခွာလာပါပြီ" : "📍 Rider ရောက်ရှိနေပါပြီ";
         
@@ -187,6 +211,17 @@ window.completeOrder = async (id) => {
 
             await updateDoc(docRef, { status: "completed", completedAt: serverTimestamp() });
 
+            // Google Sheets Update Complete
+            fetch(SCRIPT_URL, {
+                method: "POST",
+                mode: "no-cors",
+                body: JSON.stringify({
+                    action: "update",
+                    orderId: id,
+                    status: "COMPLETED"
+                })
+            });
+
             const msg = `💰 <b>Order Completed!</b>\n` +
                         `--------------------------\n` +
                         `📦 ပစ္စည်း: ${order.item}\n` +
@@ -199,4 +234,3 @@ window.completeOrder = async (id) => {
 };
 
 auth.onAuthStateChanged((user) => { if(user) startTracking(); });
-
