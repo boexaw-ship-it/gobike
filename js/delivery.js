@@ -46,14 +46,20 @@ function startTracking() {
 
     // A. အော်ဒါအသစ်များကို စောင့်ကြည့်ခြင်း (Pending Status)
     onSnapshot(query(collection(db, "orders"), where("status", "==", "pending")), async (snap) => {
+        
+        // Alarm on New Order
         snap.docChanges().forEach((change) => {
             if (change.type === "added") { alarmSound.play().catch(e => console.log(e)); }
         });
 
-        const activeSnap = await getDocs(query(collection(db, "orders"), where("riderId", "==", myUid), where("status", "in", ["accepted", "on_the_way", "arrived"])));
-        const isFull = activeSnap.size >= 7;
+        const activeSnap = await getDocs(query(collection(db, "orders"), 
+            where("riderId", "==", myUid),
+            where("status", "in", ["accepted", "on_the_way", "arrived"])));
+        
+        const count = activeSnap.size;
+        const isFull = count >= 7;
         const limitInfo = document.getElementById('rider-limit-info');
-        if(limitInfo) limitInfo.innerHTML = `လက်ရှိအော်ဒါ: <b>${activeSnap.size} / 7</b> ${isFull ? '<span style="color:red">(Full)</span>' : ''}`;
+        if(limitInfo) limitInfo.innerHTML = `လက်ရှိအော်ဒါ: <b>${count} / 7</b> ${isFull ? '<span style="color:red">(Full)</span>' : ''}`;
 
         const container = document.getElementById('available-orders');
         if(container) {
@@ -64,9 +70,15 @@ function startTracking() {
             snap.forEach(orderDoc => {
                 const order = orderDoc.data();
                 const id = orderDoc.id;
+                
+                // Firestore ထဲက နာမည်ကို သေချာဖတ်ခြင်း
+                const displayCustName = order.customerName || order.userName || "အမည်မသိသူ";
+
                 if (order.lastRejectedRiderId === myUid) return; 
 
-                if(order.pickup) { markers[id] = L.marker([order.pickup.lat, order.pickup.lng]).addTo(map).bindPopup(order.item); }
+                if(order.pickup) {
+                    markers[id] = L.marker([order.pickup.lat, order.pickup.lng]).addTo(map).bindPopup(order.item);
+                }
 
                 const card = document.createElement('div');
                 card.className = 'order-card';
@@ -83,8 +95,8 @@ function startTracking() {
                     </div>
 
                     <div style="font-size:0.8rem; background:#333; padding:10px; border-radius:8px; margin-bottom:12px; line-height:1.6;">
-                        👤 Customer: <b>${order.customerName || "အမည်မသိသူ"}</b><br>
-                        📞 ဖုန်း: <b style="color:#00ff00;">${order.phone}</b><br>
+                        👤 Customer: <b>${displayCustName}</b><br>
+                        📞 ဖုန်း: <b style="color:#00ff00;">${order.phone || "မရှိပါ"}</b><br>
                         ⚖️ အလေးချိန်: <b>${order.weight || "-"}</b> | 💎 တန်ဖိုး: <b>${order.itemValue || "-"}</b><br>
                         💳 Payment: <b>${order.paymentMethod || "-"}</b>
                     </div>
@@ -102,8 +114,7 @@ function startTracking() {
     onSnapshot(query(collection(db, "orders"), where("status", "==", "rejected"), where("tempRiderId", "==", myUid)), (snap) => {
         const rejectedContainer = document.getElementById('rejected-orders-section');
         if(!rejectedContainer) return;
-        
-        rejectedContainer.innerHTML = ""; // Clear existing list
+        rejectedContainer.innerHTML = ""; 
 
         snap.forEach(orderDoc => {
             const data = orderDoc.data();
@@ -130,6 +141,7 @@ function startTracking() {
         snap.forEach(orderDoc => {
             const data = orderDoc.data();
             const id = orderDoc.id;
+            const activeCustName = data.customerName || data.userName || "Customer";
             let btnText = "🚚 ပစ္စည်းစယူပြီ", nextStatus = "on_the_way", icon = "📦";
 
             if(data.status === "on_the_way") { btnText = "📍 ရောက်ရှိကြောင်းပို့ရန်", nextStatus = "arrived", icon = "🚴"; }
@@ -143,7 +155,7 @@ function startTracking() {
                 </div>
                 <p style="font-size:0.95rem; margin:8px 0;">📦 <b>${data.item}</b></p>
                 <div style="font-size:0.85rem; color:#aaa; margin-bottom:5px;">
-                    👤 <b>${data.customerName || "Customer"}</b> | 📞 <b style="color:#00ff00;">${data.phone}</b>
+                    👤 <b>${activeCustName}</b> | 📞 <b style="color:#00ff00;">${data.phone || "မရှိပါ"}</b>
                 </div>
                 <p style="font-size:0.8rem; color:#ccc;">🏁 ${data.dropoff?.address}</p>
                 <button class="btn-status" style="width:100%; margin-top:10px; padding:12px;" onclick="${nextStatus === 'completed' ? `completeOrder('${id}')` : `updateStatus('${id}', '${nextStatus}')`}">${btnText}</button>
@@ -153,7 +165,7 @@ function startTracking() {
     });
 }
 
-// --- ၄။ Functions (Handle Accept & Telegram) ---
+// --- ၄။ Functions ---
 
 window.handleAccept = async (id, time) => {
     try {
@@ -171,13 +183,12 @@ window.handleAccept = async (id, time) => {
 
             fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ action: "update", orderId: id, riderName: riderDisplayName, status: "Accepted" }) });
 
-            const msg = `✅ <b>Order Accepted!</b>\n--------------------------\n📝 ပစ္စည်း: <b>${order.item}</b>\n⚖️ ဝိတ်: <b>${order.weight || "-"}</b>\n💰 တန်ဖိုး: <b>${order.itemValue || "-"}</b>\n💵 ပို့ခ: <b>${order.deliveryFee?.toLocaleString()} KS</b>\n💳 Payment: <b>${order.paymentMethod || "-"}</b>\n📞 ဖုန်း: <b>${order.phone}</b>\n👤 Customer: <b>${order.customerName || "အမည်မသိသူ"}</b>\n--------------------------\n🚴 Rider: <b>${riderDisplayName}</b>\n📍 ယူရန်: ${order.pickup?.address}`;
+            const msg = `✅ <b>Order Accepted!</b>\n--------------------------\n📝 ပစ္စည်း: <b>${order.item}</b>\n⚖️ ဝိတ်: <b>${order.weight || "-"}</b>\n💵 ပို့ခ: <b>${order.deliveryFee?.toLocaleString()} KS</b>\n👤 Customer: <b>${order.customerName || order.userName || "Customer"}</b>\n🚴 Rider: <b>${riderDisplayName}</b>`;
             await notifyTelegram(msg);
         }
     } catch (err) { console.error("Accept Error:", err); }
 };
 
-// --- ၅။ Reject ဖြစ်သောအော်ဒါကို စာရင်းရှင်းပြီး Pending ပြန်ပို့ခြင်း ---
 window.clearRejectedOrder = async (id) => {
     if(confirm("ဤအော်ဒါကို စာရင်းမှဖယ်ရှားပြီး အများမြင်ကွင်းသို့ ပြန်ပို့မလား?")) {
         try {
@@ -185,7 +196,7 @@ window.clearRejectedOrder = async (id) => {
                 status: "pending", 
                 tempRiderId: null, 
                 tempRiderName: null,
-                lastRejectedRiderId: auth.currentUser.uid // မိမိဆီ အော်ဒါချက်ချင်း ပြန်မတက်အောင်
+                lastRejectedRiderId: auth.currentUser.uid 
             });
         } catch (err) { console.error(err); }
     }
@@ -223,4 +234,3 @@ window.completeOrder = async (id) => {
 };
 
 auth.onAuthStateChanged((user) => { if(user) startTracking(); });
-
