@@ -35,51 +35,56 @@ function startTracking() {
         
         const count = activeSnap.size;
         const isFull = count >= 7;
-        document.getElementById('rider-limit-info').innerHTML = `လက်ရှိအော်ဒါ: <b>${count} / 7</b> ${isFull ? '<span style="color:red">(Full)</span>' : ''}`;
+        const limitEl = document.getElementById('rider-limit-info');
+        if (limitEl) {
+            limitEl.innerHTML = `လက်ရှိအော်ဒါ: <b>${count} / 7</b> ${isFull ? '<span style="color:red">(Full)</span>' : ''}`;
+        }
 
         const container = document.getElementById('available-orders');
-        container.innerHTML = snap.empty ? "<p style='text-align:center; color:#888;'>အော်ဒါမရှိသေးပါ</p>" : "";
+        if (container) {
+            container.innerHTML = snap.empty ? "<p style='text-align:center; color:#888;'>အော်ဒါမရှိသေးပါ</p>" : "";
 
-        Object.values(markers).forEach(m => map.removeLayer(m));
-        markers = {};
+            Object.values(markers).forEach(m => map.removeLayer(m));
+            markers = {};
 
-        snap.forEach(orderDoc => {
-            const order = orderDoc.data();
-            const id = orderDoc.id;
+            snap.forEach(orderDoc => {
+                const order = orderDoc.data();
+                const id = orderDoc.id;
 
-            if(order.pickup) {
-                markers[id] = L.marker([order.pickup.lat, order.pickup.lng]).addTo(map).bindPopup(order.item);
-            }
+                if(order.pickup) {
+                    markers[id] = L.marker([order.pickup.lat, order.pickup.lng]).addTo(map).bindPopup(order.item);
+                }
 
-            const card = document.createElement('div');
-            card.className = 'order-card';
-            const btnStyle = isFull ? "background:#666; opacity:0.5; cursor:not-allowed;" : "";
-            
-            // UI ထဲတွင် KG, Value နှင့် Payment Method တို့ကို အသေးစိတ်ပြသခြင်း
-            card.innerHTML = `
-                <div style="font-size:0.8rem; color:#ffcc00; font-weight:bold;">NEW ORDER</div>
-                <b style="font-size:1.1rem;">📦 ${order.item}</b>
-                <div style="color:#00ff00; font-weight:bold; margin:5px 0;">💰 ပို့ခ: ${order.deliveryFee.toLocaleString()} KS</div>
-                <div style="font-size:0.85rem; background:#333; padding:8px; border-radius:8px; margin-bottom:10px;">
-                    ⚖️ အလေးချိန်: <b>${order.weight}</b><br>
-                    💎 တန်ဖိုး: <b>${order.itemValue}</b><br>
-                    💳 Payment: <b>${order.paymentMethod}</b>
-                </div>
-                <p style="font-size:0.85rem; color:#ccc; margin-bottom:10px;">
-                    📍 <b>From:</b> ${order.pickup.address} <br> 
-                    🏁 <b>To:</b> ${order.dropoff.address}
-                </p>
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                    <button class="btn-accept" ${isFull ? 'disabled' : ''} style="${btnStyle}" onclick="handleAccept('${id}', 'now')">ချက်ချင်းယူမည်</button>
-                    <button class="btn-accept" ${isFull ? 'disabled' : ''} style="background:#444; color:white; ${btnStyle}" onclick="handleAccept('${id}', 'tomorrow')">မနက်ဖြန်မှ</button>
-                </div>`;
-            container.appendChild(card);
-        });
+                const card = document.createElement('div');
+                card.className = 'order-card';
+                const btnStyle = isFull ? "background:#666; opacity:0.5; cursor:not-allowed;" : "";
+                
+                card.innerHTML = `
+                    <div style="font-size:0.8rem; color:#ffcc00; font-weight:bold;">NEW ORDER</div>
+                    <b style="font-size:1.1rem;">📦 ${order.item}</b>
+                    <div style="color:#00ff00; font-weight:bold; margin:5px 0;">💰 ပို့ခ: ${order.deliveryFee.toLocaleString()} KS</div>
+                    <div style="font-size:0.85rem; background:#333; padding:8px; border-radius:8px; margin-bottom:10px;">
+                        ⚖️ အလေးချိန်: <b>${order.weight}</b><br>
+                        💎 တန်ဖိုး: <b>${order.itemValue}</b><br>
+                        💳 Payment: <b>${order.paymentMethod}</b>
+                    </div>
+                    <p style="font-size:0.85rem; color:#ccc; margin-bottom:10px;">
+                        📍 <b>From:</b> ${order.pickup.address} <br> 
+                        🏁 <b>To:</b> ${order.dropoff.address}
+                    </p>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                        <button class="btn-accept" ${isFull ? 'disabled' : ''} style="${btnStyle}" onclick="handleAccept('${id}', 'now')">ချက်ချင်းယူမည်</button>
+                        <button class="btn-accept" ${isFull ? 'disabled' : ''} style="background:#444; color:white; ${btnStyle}" onclick="handleAccept('${id}', 'tomorrow')">မနက်ဖြန်မှ</button>
+                    </div>`;
+                container.appendChild(card);
+            });
+        }
     });
 
     // Active Orders List
     onSnapshot(query(collection(db, "orders"), where("riderId", "==", auth.currentUser.uid), where("status", "in", ["accepted", "on_the_way", "arrived"])), (snap) => {
         const list = document.getElementById('active-orders-list');
+        if (!list) return;
         list.innerHTML = snap.empty ? "<p style='padding:10px; color:#888;'>လက်ခံထားသော အော်ဒါမရှိပါ။</p>" : "";
         
         snap.forEach(orderDoc => {
@@ -106,22 +111,25 @@ function startTracking() {
     });
 }
 
-// --- ၄။ Functions (Telegram Data အပြည့်အစုံထည့်ထားသည်) ---
+// --- ၄။ Functions ---
 
 window.handleAccept = async (id, time) => {
     try {
         const docRef = doc(db, "orders", id);
         const snap = await getDoc(docRef);
+        if (!snap.exists()) return;
         const order = snap.data();
 
-        if(time === 'tomorrow') {
+        if (time === 'tomorrow') {
+            // Customer Website ရှိ Track JS က သိအောင် status နှင့် temp data များ ပို့လိုက်ခြင်း
             await updateDoc(docRef, { 
                 status: "pending_confirmation", 
                 tempRiderId: auth.currentUser.uid, 
                 tempRiderName: auth.currentUser.email 
             });
-            alert("Customer အတည်ပြုချက်တောင်းခံထားပါသည်။");
+            alert("Customer ဆီ မနက်ဖြန်လာယူရန် အတည်ပြုချက် တောင်းလိုက်ပါပြီ။");
         } else {
+            // ချက်ချင်းယူသည့် Logic
             await updateDoc(docRef, { 
                 status: "accepted", 
                 riderId: auth.currentUser.uid, 
@@ -129,7 +137,6 @@ window.handleAccept = async (id, time) => {
                 acceptedAt: serverTimestamp() 
             });
 
-            // Telegram သို့ သတင်းပို့ရာတွင် KG, Value, Payment, Phone အကုန်ထည့်ခြင်း
             const msg = `✅ <b>Order Accepted!</b>\n` +
                         `--------------------------\n` +
                         `📝 ပစ္စည်း: <b>${order.item}</b>\n` +
@@ -143,7 +150,7 @@ window.handleAccept = async (id, time) => {
                         `📍 ယူရန်: ${order.pickup.address}`;
             await notifyTelegram(msg);
         }
-    } catch (err) { console.error(err); }
+    } catch (err) { console.error("HandleAccept Error:", err); }
 };
 
 window.updateStatus = async (id, status) => {
@@ -164,7 +171,7 @@ window.updateStatus = async (id, status) => {
                     `🏁 ပို့ရန်: ${order.dropoff.address}\n` +
                     `📞 ဖုန်း: ${order.phone}`;
         await notifyTelegram(msg);
-    } catch (err) { console.error(err); }
+    } catch (err) { console.error("UpdateStatus Error:", err); }
 };
 
 window.completeOrder = async (id) => {
@@ -183,9 +190,8 @@ window.completeOrder = async (id) => {
                         `💰 စုစုပေါင်း: ${order.deliveryFee.toLocaleString()} KS\n` +
                         `🏁 အောင်မြင်စွာ ပို့ဆောင်ပြီးပါပြီ။`;
             await notifyTelegram(msg);
-        } catch (err) { console.error(err); }
+        } catch (err) { console.error("CompleteOrder Error:", err); }
     }
 };
 
-// Login ဝင်ပြီးမှ Tracking စရန်
 auth.onAuthStateChanged((user) => { if(user) startTracking(); });
