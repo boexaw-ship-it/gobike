@@ -15,14 +15,15 @@ let dropoffCoords = null;
 // --- ၂။ Sync Dropdown Options ---
 const pickupSelect = document.getElementById('pickup-township');
 const dropoffSelect = document.getElementById('dropoff-township');
-dropoffSelect.innerHTML = pickupSelect.innerHTML; // Township list ကို ကူးယူခြင်း
+if (pickupSelect && dropoffSelect) {
+    dropoffSelect.innerHTML = pickupSelect.innerHTML; 
+}
 
 // --- ၃။ Township Change & Map Update ---
-function updateLocation(type) {
+window.updateLocation = function(type) {
     const select = document.getElementById(`${type}-township`);
     const option = select.options[select.selectedIndex];
-    
-    if (!option.value) return;
+    if (!option || !option.value) return;
 
     const lat = parseFloat(option.getAttribute('data-lat'));
     const lng = parseFloat(option.getAttribute('data-lng'));
@@ -39,53 +40,39 @@ function updateLocation(type) {
 
     map.flyTo([lat, lng], 15);
     calculatePrice();
-}
+};
 
-pickupSelect.onchange = () => updateLocation('pickup');
-dropoffSelect.onchange = () => updateLocation('dropoff');
+if (pickupSelect) pickupSelect.onchange = () => updateLocation('pickup');
+if (dropoffSelect) dropoffSelect.onchange = () => updateLocation('dropoff');
 
-// --- ၄။ Auto Pricing Logic (အလေးချိန် နှင့် တန်ဖိုးပါ ထည့်တွက်သည်) ---
+// --- ၄။ Auto Pricing Logic ---
 function calculatePrice() {
     if (pickupCoords && dropoffCoords) {
-        // အကွာအဝေးတွက်ခြင်း
         const p1 = L.latLng(pickupCoords.lat, pickupCoords.lng);
         const p2 = L.latLng(dropoffCoords.lat, dropoffCoords.lng);
-        const dist = (p1.distanceTo(p2) / 1000).toFixed(2); // km
+        const dist = (p1.distanceTo(p2) / 1000).toFixed(2); 
         
-        // Input တန်ဖိုးများယူခြင်း
         const weight = parseFloat(document.getElementById('item-weight').value) || 0;
         const itemValue = parseFloat(document.getElementById('item-value').value) || 0;
 
-        // --- ဈေးနှုန်းသတ်မှတ်ချက် ---
-        let baseFee = 1500; // အခြေခံဈေး
-        let distanceFee = dist * 500; // ၁ ကီလိုမီတာ ၅၀၀ ကျပ်
-        let weightExtra = 0;
-        let insuranceFee = 0;
-
-        // အလေးချိန် ၅ ကီလိုထက်ကျော်လျှင် ၁ ကီလို ၂၀၀ ကျပ်နှုန်းပေါင်းမည်
-        if (weight > 5) {
-            weightExtra = (weight - 5) * 200;
-        }
-
-        // ပစ္စည်းတန်ဖိုး ၅ သောင်းထက်ကျော်ပါက ၁% အာမခံကြေးယူမည်
-        if (itemValue > 50000) {
-            insuranceFee = itemValue * 0.01; 
-        }
+        let baseFee = 1500; 
+        let distanceFee = dist * 500; 
+        let weightExtra = weight > 5 ? (weight - 5) * 200 : 0;
+        let insuranceFee = itemValue > 50000 ? itemValue * 0.01 : 0;
 
         const total = Math.round(baseFee + distanceFee + weightExtra + insuranceFee);
         
-        // Button ပေါ်တွင် ဈေးနှုန်းကို တိုက်ရိုက်ပြောင်းခြင်း
-        document.getElementById('placeOrderBtn').innerText = `ORDER NOW - ${total.toLocaleString()} KS (${dist} km)`;
+        const btn = document.getElementById('placeOrderBtn');
+        if (btn) btn.innerText = `ORDER NOW - ${total.toLocaleString()} KS (${dist} km)`;
         
         return { dist, total, insuranceFee, weightExtra };
     }
 }
 
-// Input ရိုက်တိုင်း ဈေးနှုန်းချက်ချင်းပြောင်းရန်
 document.getElementById('item-weight').oninput = calculatePrice;
 document.getElementById('item-value').oninput = calculatePrice;
 
-// --- ၅။ Submit Order ---
+// --- ၅။ Submit Order (Telegram Message ကို အချက်အလက်စုံအောင် ပြင်ထားသည်) ---
 document.getElementById('placeOrderBtn').onclick = async () => {
     const feeInfo = calculatePrice();
     const item = document.getElementById('item-detail').value;
@@ -120,9 +107,10 @@ document.getElementById('placeOrderBtn').onclick = async () => {
         };
 
         // ၁။ Firebase သို့ အော်ဒါပို့ခြင်း
-        await addDoc(collection(db, "orders"), orderData);
-        
-        // ၂။ Telegram သို့ အချက်အလက်စုံလင်စွာ ပို့ခြင်း
+        const docRef = await addDoc(collection(db, "orders"), orderData);
+        const orderId = docRef.id;
+
+        // ၂။ Telegram သို့ အချက်အလက်စုံလင်စွာ ပို့ခြင်း (ဒီအပိုင်းမှာ ပြင်ထားပါတယ်)
         const msg = `📦 <b>New Order Received!</b>\n` +
                     `--------------------------\n` +
                     `📝 ပစ္စည်း: <b>${item}</b>\n` +
@@ -134,15 +122,18 @@ document.getElementById('placeOrderBtn').onclick = async () => {
                     `📞 ဖုန်း: ${phone}\n\n` +
                     `📍 ယူရန်: ${orderData.pickup.address}\n` +
                     `🏁 ပို့ရန်: ${orderData.dropoff.address}\n\n` +
+                    `🔗 <a href="https://boexaw-ship-it.github.io/gobike/html/track.html?id=${orderId}">Track Order Here</a>\n\n` +
                     `⌛ <i>Rider များ အမြန်ဆုံးလက်ခံပေးပါရန်!</i>`;
 
         await notifyTelegram(msg);
 
-        alert("Order အောင်မြင်စွာ တင်ပြီးပါပြီ။ Telegram Messenger သို့ အကြောင်းကြားစာ ပို့လိုက်ပါပြီ။");
-        location.reload();
+        // ၃။ Tracking Page သို့ လွှဲပေးရန်
+        alert("Order အောင်မြင်စွာ တင်ပြီးပါပြီ။ Tracking Page သို့ ပို့ပေးပါမည်။");
+        window.location.href = `track.html?id=${orderId}`;
 
     } catch (e) {
-        console.error(e);
+        console.error("Order Submit Error:", e);
         alert("Error: " + e.message);
     }
 };
+
