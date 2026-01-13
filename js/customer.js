@@ -56,7 +56,7 @@ function calculatePrice() {
         const itemValue = parseFloat(document.getElementById('item-value').value) || 0;
 
         let baseFee = 1500; 
-        distanceFee = dist * 500; 
+        let distanceFee = dist * 500; 
         let weightExtra = weight > 5 ? (weight - 5) * 200 : 0;
         let insuranceFee = itemValue > 50000 ? itemValue * 0.01 : 0;
 
@@ -72,7 +72,7 @@ function calculatePrice() {
 document.getElementById('item-weight').oninput = calculatePrice;
 document.getElementById('item-value').oninput = calculatePrice;
 
-// --- ၅။ My Orders Logic (Local Storage သုံးပြီး အော်ဒါစာရင်းသိမ်းခြင်း) ---
+// --- ၅။ My Orders Logic (Updated for Clickability) ---
 function saveOrderToLocal(id, item) {
     let orders = JSON.parse(localStorage.getItem('myOrders') || "[]");
     const newOrder = {
@@ -80,8 +80,8 @@ function saveOrderToLocal(id, item) {
         item: item,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
-    orders.unshift(newOrder); // အသစ်ကို အပေါ်ဆုံးကပြ
-    if (orders.length > 5) orders = orders.slice(0, 5); // နောက်ဆုံး ၅ ခုပဲသိမ်း
+    orders.unshift(newOrder); 
+    if (orders.length > 5) orders = orders.slice(0, 5); 
     localStorage.setItem('myOrders', JSON.stringify(orders));
     displayMyOrders();
 }
@@ -93,15 +93,24 @@ function displayMyOrders() {
     const orders = JSON.parse(localStorage.getItem('myOrders') || "[]");
     
     if (orders.length > 0) {
+        // HTML structure ထဲက onclick ကို ဖြုတ်ပြီး attribute အသစ်နဲ့ ရေးပါတယ်
         listDiv.innerHTML = orders.map(order => `
-            <div class="order-card" onclick="window.location.href='track.html?id=${order.id}'">
+            <div class="order-card" data-order-id="${order.id}" style="cursor: pointer; margin-bottom: 10px; padding: 12px; background: #fafafa; border-radius: 12px; border: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
                 <div class="order-info">
-                    <b>📦 ${order.item}</b>
-                    <span>တင်ခဲ့သည့်အချိန် - ${order.time}</span>
+                    <b style="display: block; font-size: 0.9rem;">📦 ${order.item}</b>
+                    <span style="font-size: 0.75rem; color: #888;">တင်ခဲ့သည့်အချိန် - ${order.time}</span>
                 </div>
-                <div class="track-icon">📍</div>
+                <div class="track-icon" style="color: #ffcc00; font-size: 1.2rem;">📍</div>
             </div>
         `).join('');
+
+        // Card များကို နှိပ်လို့ရအောင် JS ထဲကနေ တိုက်ရိုက် Listener ထည့်ခြင်း
+        document.querySelectorAll('.order-card').forEach(card => {
+            card.onclick = function() {
+                const oid = this.getAttribute('data-order-id');
+                window.location.href = `track.html?id=${oid}`;
+            };
+        });
     }
 }
 
@@ -142,14 +151,11 @@ document.getElementById('placeOrderBtn').onclick = async () => {
             createdAt: serverTimestamp()
         };
 
-        // ၁။ Firebase သို့ အော်ဒါပို့ခြင်း
         const docRef = await addDoc(collection(db, "orders"), orderData);
         const orderId = docRef.id;
 
-        // ၂။ Local Storage တွင် သိမ်းခြင်း (အော်ဒါစာရင်းပြန်ကြည့်ရန်)
         saveOrderToLocal(orderId, item);
 
-        // ၃။ Telegram သို့ အချက်အလက်ပို့ခြင်း
         const msg = `📦 <b>New Order Received!</b>\n` +
                     `--------------------------\n` +
                     `📝 ပစ္စည်း: <b>${item}</b>\n` +
