@@ -4,6 +4,9 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { notifyTelegram } from './telegram.js';
 
+// --- 0. Google Apps Script URL ---
+const SCRIPT_URL = "သင်၏_APPS_SCRIPT_WEB_APP_URL_ကိုဒီမှာထည့်ပါ";
+
 // --- ၁။ Map Setup ---
 const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 12); 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -72,7 +75,7 @@ function calculatePrice() {
 document.getElementById('item-weight').oninput = calculatePrice;
 document.getElementById('item-value').oninput = calculatePrice;
 
-// --- ၅။ My Orders Logic (Updated for Clickability) ---
+// --- ၅။ My Orders Logic ---
 function saveOrderToLocal(id, item) {
     let orders = JSON.parse(localStorage.getItem('myOrders') || "[]");
     const newOrder = {
@@ -93,7 +96,6 @@ function displayMyOrders() {
     const orders = JSON.parse(localStorage.getItem('myOrders') || "[]");
     
     if (orders.length > 0) {
-        // HTML structure ထဲက onclick ကို ဖြုတ်ပြီး attribute အသစ်နဲ့ ရေးပါတယ်
         listDiv.innerHTML = orders.map(order => `
             <div class="order-card" data-order-id="${order.id}" style="cursor: pointer; margin-bottom: 10px; padding: 12px; background: #fafafa; border-radius: 12px; border: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
                 <div class="order-info">
@@ -104,7 +106,6 @@ function displayMyOrders() {
             </div>
         `).join('');
 
-        // Card များကို နှိပ်လို့ရအောင် JS ထဲကနေ တိုက်ရိုက် Listener ထည့်ခြင်း
         document.querySelectorAll('.order-card').forEach(card => {
             card.onclick = function() {
                 const oid = this.getAttribute('data-order-id');
@@ -113,8 +114,6 @@ function displayMyOrders() {
         });
     }
 }
-
-// စာမျက်နှာစဖွင့်ချိန်တွင် အော်ဒါဟောင်းများရှိက ပြရန်
 displayMyOrders();
 
 // --- ၆။ Submit Order ---
@@ -137,6 +136,12 @@ document.getElementById('placeOrderBtn').onclick = async () => {
         const pAddr = document.getElementById('pickup-address').value;
         const dAddr = document.getElementById('dropoff-address').value;
 
+        // --- Logic: နာမည်ဦးစားပေးစနစ် ---
+        // ၁။ Sign-up name ကိုရှာသည် (ရှိလျှင်)
+        // ၂။ မရှိလျှင် Gmail display name ကိုယူသည်
+        // ၃။ နှစ်ခုလုံးမရှိလျှင် "Gmail" ဟု သတ်မှတ်သည်
+        const customerDisplayName = auth.currentUser?.displayName || "Gmail";
+
         const orderData = {
             userId: auth.currentUser?.uid || "anonymous",
             pickup: { ...pickupCoords, address: `${pTown}, ${pAddr}` },
@@ -151,11 +156,33 @@ document.getElementById('placeOrderBtn').onclick = async () => {
             createdAt: serverTimestamp()
         };
 
+        // Firebase သို့ သိမ်းဆည်းခြင်း
         const docRef = await addDoc(collection(db, "orders"), orderData);
         const orderId = docRef.id;
 
         saveOrderToLocal(orderId, item);
 
+        // --- ၇။ Google Sheets ဆီသို့ Data ပို့ခြင်း ---
+        fetch(SCRIPT_URL, {
+            method: "POST",
+            mode: "no-cors", // Apps Script အတွက်လိုအပ်သည်
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                action: "create",
+                orderId: orderId,
+                item: item,
+                weight: weight + " kg",
+                price: itemValue + " KS",
+                deliveryFee: feeInfo.total,
+                payment: orderData.paymentMethod,
+                phone: phone,
+                address: orderData.dropoff.address,
+                customerName: customerDisplayName, // နာမည် Logic
+                riderName: "Gmail Rider" // အစပိုင်းတွင် ပုံသေထားသည်
+            })
+        }).catch(err => console.log("Google Sheets Error:", err));
+
+        // --- ၈။ Telegram သို့ အကြောင်းကြားခြင်း ---
         const msg = `📦 <b>New Order Received!</b>\n` +
                     `--------------------------\n` +
                     `📝 ပစ္စည်း: <b>${item}</b>\n` +
@@ -180,3 +207,4 @@ document.getElementById('placeOrderBtn').onclick = async () => {
         alert("Error: " + e.message);
     }
 };
+
