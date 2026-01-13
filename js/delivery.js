@@ -5,7 +5,7 @@ import {
 import { notifyTelegram } from './telegram.js';
 
 // --- 0. Google Apps Script URL ---
-const SCRIPT_URL = "သင်၏_APPS_SCRIPT_WEB_APP_URL_ကိုဒီမှာထည့်ပါ";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzoqWIjISI8MrzFYu-B7CBldle8xuo-B5jNQtCRsqHLOaLPEPelYX84W5lRXoB9RhL6uw/exec";
 
 // --- ၁။ Map Init ---
 const map = L.map('map').setView([16.8661, 96.1951], 12); 
