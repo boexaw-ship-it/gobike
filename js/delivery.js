@@ -14,7 +14,7 @@ soundBtn.style = "position:fixed; bottom:25px; right:20px; z-index:2000; padding
 document.body.appendChild(soundBtn);
 
 soundBtn.onclick = () => {
-    alarmSound.play().then(() => { soundBtn.style.display = 'none'; });
+    alarmSound.play().then(() => { soundBtn.style.display = 'none'; }).catch(e => console.log("Sound play error"));
 };
 
 // --- ၁။ Map Init ---
@@ -26,15 +26,17 @@ let markers = {};
 if (navigator.geolocation) {
     navigator.geolocation.watchPosition(async (pos) => {
         if (auth.currentUser) {
-            const userSnap = await getDoc(doc(db, "users", auth.currentUser.uid));
-            const riderDisplayName = userSnap.exists() ? userSnap.data().name : "Rider";
+            try {
+                const userSnap = await getDoc(doc(db, "users", auth.currentUser.uid));
+                const riderDisplayName = userSnap.exists() ? userSnap.data().name : "Rider";
 
-            await setDoc(doc(db, "active_riders", auth.currentUser.uid), {
-                name: riderDisplayName,
-                lat: pos.coords.latitude, 
-                lng: pos.coords.longitude, 
-                lastSeen: serverTimestamp()
-            }, { merge: true });
+                await setDoc(doc(db, "active_riders", auth.currentUser.uid), {
+                    name: riderDisplayName,
+                    lat: pos.coords.latitude, 
+                    lng: pos.coords.longitude, 
+                    lastSeen: serverTimestamp()
+                }, { merge: true });
+            } catch (err) { console.error("Location Update Error:", err); }
         }
     }, (err) => console.error(err), { enableHighAccuracy: true });
 }
@@ -60,7 +62,7 @@ function startTracking() {
 
         const container = document.getElementById('available-orders');
         if(container) {
-            container.innerHTML = snap.empty ? "<p style='text-align:center; color:#888;'>အော်ဒါမရှိသေးပါ</p>" : "";
+            container.innerHTML = snap.empty ? "<p class='empty-msg'>အော်ဒါမရှိသေးပါ</p>" : "";
             Object.values(markers).forEach(m => map.removeLayer(m));
             markers = {};
 
@@ -92,7 +94,7 @@ function startTracking() {
         }
     });
 
-    // B. Rider က မနက်ဖြန်ယူမည်ဟု ပို့ထားသော်လည်း Customer အတည်မပြုရသေးသောစာရင်း (Rider ပြန်ဖျက်နိုင်သည်)
+    // B. Waiting Confirmation Section
     onSnapshot(query(collection(db, "orders"), where("status", "==", "pending_confirmation"), where("tempRiderId", "==", myUid)), (snap) => {
         const confirmBox = document.getElementById('waiting-confirmation-section');
         if(!confirmBox) return;
@@ -112,7 +114,7 @@ function startTracking() {
         });
     });
 
-    // C. Customer က Reject လုပ်ထားသော အော်ဒါများ
+    // C. Rejected by Customer
     onSnapshot(query(collection(db, "orders"), where("status", "==", "rejected"), where("tempRiderId", "==", myUid)), (snap) => {
         const rejectedContainer = document.getElementById('rejected-orders-section');
         if(!rejectedContainer) return;
@@ -121,22 +123,21 @@ function startTracking() {
             const data = orderDoc.data();
             const id = orderDoc.id;
             const div = document.createElement('div');
-            div.className = 'active-order-card';
-            div.style = "border: 1px solid #ff4444; background: #251212; padding: 15px; border-radius: 12px; margin-bottom: 10px;";
+            div.className = 'active-order-card rejected-card';
             div.innerHTML = `
                 <div style="color:#ff4444; font-weight:bold; font-size:0.85rem;">❌ CUSTOMER REJECTED</div>
                 <p>📦 <b>${data.item}</b></p>
-                <button onclick="cancelOrder('${id}', 'rejected_by_customer')" style="width:100%; background:#444; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer;">စာရင်းမှဖယ်ရှားမည်</button>
+                <button onclick="cancelOrder('${id}', 'rejected_by_customer')" class="btn-clear-reject">စာရင်းမှဖယ်ရှားမည်</button>
             `;
             rejectedContainer.appendChild(div);
         });
     });
 
-    // D. လက်ခံထားသော Active Orders စာရင်း (Rider ပြန်ဖျက်နိုင်သည်)
+    // D. Active Orders (Reject Button ပါဝင်သည်)
     onSnapshot(query(collection(db, "orders"), where("riderId", "==", myUid), where("status", "in", ["accepted", "on_the_way", "arrived"])), (snap) => {
         const list = document.getElementById('active-orders-list');
         if(!list) return;
-        list.innerHTML = snap.empty ? "<p style='padding:10px; color:#888;'>လက်ခံထားသော အော်ဒါမရှိပါ။</p>" : "";
+        list.innerHTML = snap.empty ? "<p class='empty-msg'>လက်ခံထားသော အော်ဒါမရှိပါ။</p>" : "";
         
         snap.forEach(orderDoc => {
             const data = orderDoc.data();
@@ -149,23 +150,35 @@ function startTracking() {
             const div = document.createElement('div');
             div.className = 'active-order-card';
             div.innerHTML = `
-                <b>${icon} ${data.status.toUpperCase()}</b>
-                <p style="margin:8px 0;">📦 <b>${data.item}</b></p>
-                <div style="font-size:0.85rem; color:#aaa; margin-bottom:5px;">👤 ${data.customerName || "Customer"} | 📞 <b style="color:#00ff00;">${data.phone}</b></div>
-                <button class="btn-status" style="width:100%; margin-top:5px; padding:10px;" onclick="${nextStatus === 'completed' ? `completeOrder('${id}')` : `updateStatus('${id}', '${nextStatus}')`}">${btnText}</button>
-                <button onclick="cancelOrder('${id}', 'now')" style="width:100%; background:none; color:#ff4444; border:1px solid #ff4444; padding:8px; border-radius:8px; margin-top:10px; cursor:pointer; font-size:0.8rem;">အော်ဒါပြန်လွှတ်မည် (Cancel Order)</button>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <b>${icon} ${data.status.toUpperCase()}</b>
+                    <a href="track.html?id=${id}" style="color:var(--primary); font-size:0.8rem; text-decoration:none;">🗺️ မြေပုံကြည့်ရန်</a>
+                </div>
+                <p style="margin:8px 0; font-size:1.1rem;">📦 <b>${data.item}</b></p>
+                <div style="font-size:0.85rem; color:#aaa; margin-bottom:10px;">👤 ${data.customerName || "Customer"} | 📞 <b style="color:#00ff00;">${data.phone}</b></div>
+                
+                <button class="btn-status" onclick="updateStatus('${id}', '${nextStatus === 'completed' ? 'completed' : nextStatus}')">
+                    ${btnText}
+                </button>
+                
+                <button onclick="cancelOrder('${id}', 'now')" style="width:100%; background:none; color:#ff4444; border:1px solid #ff4444; padding:8px; border-radius:8px; margin-top:10px; cursor:pointer; font-size:0.85rem; font-weight:bold;">
+                    ❌ အော်ဒါပြန်လွှတ်မည် (Reject)
+                </button>
             `;
             list.appendChild(div);
         });
     });
 }
 
-// --- ၄။ Functions (Handle Accept, Status, Cancel) ---
+// --- ၄။ Global Functions (Window Object သို့ ချိတ်ဆက်ခြင်း) ---
 
 window.handleAccept = async (id, time) => {
     try {
         const docRef = doc(db, "orders", id);
-        const order = (await getDoc(docRef)).data();
+        const orderSnap = await getDoc(docRef);
+        if(!orderSnap.exists()) return;
+        const order = orderSnap.data();
+        
         const userSnap = await getDoc(doc(db, "users", auth.currentUser.uid));
         const riderName = userSnap.exists() ? userSnap.data().name : "Rider";
 
@@ -177,18 +190,17 @@ window.handleAccept = async (id, time) => {
             
             fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ action: "update", orderId: id, riderName: riderName, status: "Accepted" }) });
 
-            const msg = `✅ <b>Order Accepted!</b>\n--------------------------\n📦: <b>${order.item}</b>\n👤: <b>${order.customerName || "Customer"}</b>\n🚴 Rider: <b>${riderName}</b>`;
+            const msg = `✅ <b>Order Accepted!</b>\n📦: <b>${order.item}</b>\n🚴 Rider: <b>${riderName}</b>`;
             await notifyTelegram(msg);
         }
-    } catch (err) { console.error(err); }
+    } catch (err) { console.error(err); alert("Error accepting order"); }
 };
 
 window.cancelOrder = async (id, type) => {
-    const msgType = type === 'now' ? "ချက်ချင်းယူမည့်အစီအစဉ်" : "မနက်ဖြန်ယူမည့်အစီအစဉ်";
+    const msgType = type === 'now' ? "လက်ရှိယူထားသော အော်ဒါ" : "မနက်ဖြန်ယူမည့်အစီအစဉ်";
     if(confirm(`${msgType}ကို ဖျက်သိမ်းပြီး အော်ဒါကို အများမြင်ကွင်းသို့ ပြန်ပို့မလား?`)) {
         try {
             const docRef = doc(db, "orders", id);
-            const order = (await getDoc(docRef)).data();
             const userSnap = await getDoc(doc(db, "users", auth.currentUser.uid));
             const riderName = userSnap.exists() ? userSnap.data().name : "Rider";
 
@@ -200,31 +212,28 @@ window.cancelOrder = async (id, type) => {
                 lastRejectedRiderId: auth.currentUser.uid 
             });
 
-            const msg = `⚠️ <b>Order Cancelled!</b>\n--------------------------\n📦: <b>${order.item}</b>\n🚴 Rider: <b>${riderName}</b>\n💡 အခြေအနေ: Rider မှ အော်ဒါကို ပြန်လွှတ်လိုက်သဖြင့် အခြားသူများ ပြန်ယူနိုင်ပါသည်။`;
+            const msg = `⚠️ <b>Order Cancelled!</b>\n🚴 Rider: <b>${riderName}</b> မှ အော်ဒါကို ပြန်လွှတ်လိုက်ပါသည်။`;
             await notifyTelegram(msg);
             alert("အော်ဒါကို ပြန်လွှတ်လိုက်ပါပြီ။");
-        } catch (err) { console.error(err); }
+        } catch (err) { console.error(err); alert("Error cancelling order"); }
     }
 };
 
 window.updateStatus = async (id, status) => {
+    if (status === 'completed') {
+        if(!confirm("ပို့ဆောင်မှု ပြီးမြောက်ပြီလား?")) return;
+    }
+    
     try {
         const docRef = doc(db, "orders", id);
-        await updateDoc(docRef, { status: status });
+        await updateDoc(docRef, { 
+            status: status,
+            ...(status === 'completed' ? { completedAt: serverTimestamp() } : {})
+        });
+        
         fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ action: "update", orderId: id, status: status.toUpperCase() }) });
         await notifyTelegram(`🚀 <b>Status Update!</b>\n📊: ${status.toUpperCase()}`);
-    } catch (err) { console.error(err); }
-};
-
-window.completeOrder = async (id) => {
-    if(confirm("ပို့ဆောင်မှုပြီးမြောက်ပြီလား?")) {
-        try {
-            await updateDoc(doc(db, "orders", id), { status: "completed", completedAt: serverTimestamp() });
-            fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ action: "update", orderId: id, status: "COMPLETED" }) });
-            await notifyTelegram(`💰 <b>Order Completed!</b>`);
-        } catch (err) { console.error(err); }
-    }
+    } catch (err) { console.error(err); alert("Error updating status"); }
 };
 
 auth.onAuthStateChanged((user) => { if(user) startTracking(); });
-
