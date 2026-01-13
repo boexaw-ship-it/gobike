@@ -93,7 +93,7 @@ if (orderId) {
     });
 }
 
-// --- ၇။ Respond Rider Function (Updated Reject Logic) ---
+// --- ၇။ Respond Rider Function ---
 window.respondRider = async (isAccepted) => {
     try {
         const orderRef = doc(db, "orders", orderId);
@@ -114,9 +114,10 @@ window.respondRider = async (isAccepted) => {
             alert("Rider ကို အတည်ပြုပေးလိုက်ပါပြီ။");
         } else {
             // Customer ငြင်းပယ်လျှင်
-            // lastRejectedRiderId ထည့်ပေးလိုက်ခြင်းဖြင့် အဆိုပါ Rider list ထဲတွင် အော်ဒါပျောက်သွားမည်
+            // ယာယီ Rider ID ကို lastRejectedRiderId ထဲသို့ ထည့်ပြီး အော်ဒါကို Pending ပြန်လုပ်မည်
             await updateDoc(orderRef, { 
                 status: "pending", 
+                riderId: null, // လက်ရှိ Rider ID ကိုပါ ရှင်းပစ်ရန် ထပ်ဖြည့်ထားသည်
                 tempRiderId: null, 
                 tempRiderName: null,
                 pickupSchedule: null,
@@ -129,3 +130,4 @@ window.respondRider = async (isAccepted) => {
         alert("လုပ်ဆောင်ချက် မအောင်မြင်ပါ။");
     }
 };
+
