@@ -41,7 +41,7 @@ if (orderId) {
         // --- ၂။ Status Badge ---
         let statusText = data.status.toUpperCase();
         if (data.status === "pending_confirmation") statusText = "CONFIRMATION NEEDED";
-        document.getElementById('status-badge').innerText = statusText;
+        document.getElementById('status-badge').innerText = statusText.replace("_", " ");
 
         // --- ၃။ Item Detail ---
         document.getElementById('det-item').innerText = data.item;
@@ -93,11 +93,12 @@ if (orderId) {
     });
 }
 
-// --- ၇။ Respond Rider Function ---
+// --- ၇။ Respond Rider Function (Updated Reject Logic) ---
 window.respondRider = async (isAccepted) => {
     try {
         const orderRef = doc(db, "orders", orderId);
         const snap = await getDoc(orderRef);
+        if (!snap.exists()) return;
         const d = snap.data();
 
         if (isAccepted) {
@@ -106,22 +107,25 @@ window.respondRider = async (isAccepted) => {
                 status: "accepted", 
                 riderId: d.tempRiderId, 
                 riderName: d.tempRiderName,
-                pickupSchedule: d.pickupSchedule, // Rider ရွေးခဲ့သော အချိန်အတိုင်း (now/tomorrow)
-                acceptedAt: serverTimestamp() 
+                pickupSchedule: d.pickupSchedule, 
+                acceptedAt: serverTimestamp(),
+                lastRejectedRiderId: null // လက်ခံလိုက်ပြီဖြစ်သဖြင့် Reject History ကို ရှင်းပစ်ပါ
             });
             alert("Rider ကို အတည်ပြုပေးလိုက်ပါပြီ။");
         } else {
-            // Customer ငြင်းပယ်လျှင် အော်ဒါကို Pending ပြန်ပို့ပြီး temp rider data များ ဖျက်မည်
+            // Customer ငြင်းပယ်လျှင်
+            // lastRejectedRiderId ထည့်ပေးလိုက်ခြင်းဖြင့် အဆိုပါ Rider list ထဲတွင် အော်ဒါပျောက်သွားမည်
             await updateDoc(orderRef, { 
                 status: "pending", 
                 tempRiderId: null, 
                 tempRiderName: null,
-                pickupSchedule: null
+                pickupSchedule: null,
+                lastRejectedRiderId: d.tempRiderId 
             });
             alert("Rider ကို ငြင်းပယ်လိုက်ပါပြီ။ အခြား Rider များ ပြန်လည်မြင်တွေ့နိုင်ပါပြီ။");
         }
     } catch (error) { 
-        console.error(error); 
+        console.error("Respond Error:", error); 
         alert("လုပ်ဆောင်ချက် မအောင်မြင်ပါ။");
     }
 };
