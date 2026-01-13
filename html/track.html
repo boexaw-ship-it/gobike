@@ -6,43 +6,56 @@
     <title>Track Order - GoBike</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        :root { --primary: #ffcc00; --dark: #1a1a1a; }
-        body { margin: 0; font-family: sans-serif; background: #f4f7f6; }
-        .header { background: var(--primary); padding: 15px; text-align: center; font-weight: 800; }
-        #map { height: 300px; width: 100%; z-index: 1; }
+        :root { --primary: #ffcc00; --dark: #1a1a1a; --success: #2ed573; --danger: #ff4757; }
+        body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; }
+        .header { background: var(--primary); padding: 15px; text-align: center; font-weight: 800; font-size: 1.2rem; }
+        #map { height: 350px; width: 100%; z-index: 1; }
         
         .info-card {
-            background: white; padding: 20px; margin: -30px 15px 20px;
+            background: white; padding: 20px; margin: -40px 15px 20px;
             border-radius: 25px; position: relative; z-index: 100;
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
         }
 
-        /* Progress Bar Styling */
+        /* Progress Bar */
         .progress-container { margin: 20px 0; display: flex; justify-content: space-between; position: relative; }
-        .progress-step { width: 25%; text-align: center; font-size: 0.7rem; color: #ccc; position: relative; }
+        .progress-step { width: 25%; text-align: center; font-size: 0.75rem; color: #ccc; position: relative; }
         .progress-step.active { color: var(--dark); font-weight: bold; }
         .progress-step::before {
-            content: ""; width: 12px; height: 12px; background: #ccc;
-            border-radius: 50%; display: block; margin: 0 auto 5px;
+            content: ""; width: 15px; height: 15px; background: #ccc;
+            border-radius: 50%; display: block; margin: 0 auto 8px;
         }
         .progress-step.active::before { background: var(--primary); box-shadow: 0 0 10px var(--primary); }
 
-        /* Confirmation Box */
+        /* Confirmation Box Styling */
         #confirmation-ui {
-            display: none; background: #fff3cd; padding: 15px; 
-            border-radius: 15px; border: 1px solid #ffeeba; margin: 15px 0;
-            text-align: center; animation: fadeIn 0.5s;
+            display: none; background: #fffdf0; padding: 20px; 
+            border-radius: 20px; border: 2px dashed var(--primary); margin: 15px 0;
+            text-align: center; animation: slideIn 0.4s ease-out;
         }
-        .btn-group { display: flex; gap: 10px; margin-top: 10px; }
-        .btn-confirm { flex: 1; padding: 10px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        .btn-yes { background: #2ed573; color: white; }
-        .btn-no { background: #ff4757; color: white; }
+        #confirm-msg { font-size: 0.95rem; line-height: 1.5; color: #333; margin-bottom: 15px; }
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .btn-confirm { padding: 12px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 0.9rem; transition: 0.3s; }
+        .btn-yes { background: var(--success); color: white; }
+        .btn-no { background: var(--danger); color: white; }
+        .btn-confirm:active { transform: scale(0.95); }
 
-        .detail-box { border-top: 1px solid #eee; margin-top: 15px; padding-top: 15px; font-size: 0.9rem; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .status-badge {
+            text-align: center; font-weight: bold; font-size: 0.9rem;
+            color: var(--primary); background: var(--dark); 
+            padding: 8px; border-radius: 12px; margin-bottom: 15px;
+        }
+
+        .detail-box p { margin: 10px 0; color: #555; font-size: 0.95rem; border-bottom: 1px solid #f9f9f9; padding-bottom: 8px; }
+        
+        @keyframes slideIn {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
     </style>
 </head>
 <body>
+
     <div class="header">TRACKING ORDER</div>
     <div id="map"></div>
 
@@ -54,10 +67,11 @@
             <div class="progress-step" id="step-4">Arrived</div>
         </div>
 
-        <div id="status-badge" style="text-align:center; font-weight:bold; color:var(--primary); background:var(--dark); padding:5px; border-radius:10px;">Finding Rider...</div>
+        <div id="status-badge" class="status-badge">FINDING RIDER...</div>
 
         <div id="confirmation-ui">
-            <p id="confirm-msg"></p>
+            <div style="font-size: 1.5rem; margin-bottom: 10px;">🛵</div>
+            <p id="confirm-msg">Rider တစ်ဦးက သင့်အော်ဒါကို လက်ခံလိုပါသည်။</p>
             <div class="btn-group">
                 <button class="btn-confirm btn-yes" onclick="respondRider(true)">အိုကေ (Accept)</button>
                 <button class="btn-confirm btn-no" onclick="respondRider(false)">မရပါ (Reject)</button>
@@ -68,11 +82,11 @@
             <p>📦 <b>ပစ္စည်း:</b> <span id="det-item">-</span></p>
             <p>💵 <b>ပို့ခ:</b> <span id="det-fee">0</span> KS</p>
             <p>🚴 <b>Rider:</b> <span id="det-rider">ရှာဖွေနေဆဲ...</span></p>
-            <p id="det-phone" style="display:none;">📞 <b>ဖုန်း:</b> <a id="call-rider" href="">Call Rider</a></p>
         </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script type="module" src="../js/track.js"></script>
+
 </body>
 </html>
