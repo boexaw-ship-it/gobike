@@ -75,7 +75,7 @@ function calculatePrice() {
 document.getElementById('item-weight').oninput = calculatePrice;
 document.getElementById('item-value').oninput = calculatePrice;
 
-// --- ၅။ My Orders Logic ---
+// --- ၅။ My Orders Logic (With Delete Function) ---
 function saveOrderToLocal(id, item) {
     let orders = JSON.parse(localStorage.getItem('myOrders') || "[]");
     const newOrder = {
@@ -89,30 +89,39 @@ function saveOrderToLocal(id, item) {
     displayMyOrders();
 }
 
+window.deleteLocalOrder = function(id, event) {
+    event.stopPropagation(); // Card Click မဖြစ်အောင် တားသည်
+    if(confirm("ဤအော်ဒါမှတ်တမ်းကို ဖျက်လိုပါသလား?")) {
+        let orders = JSON.parse(localStorage.getItem('myOrders') || "[]");
+        orders = orders.filter(o => o.id !== id);
+        localStorage.setItem('myOrders', JSON.stringify(orders));
+        displayMyOrders();
+    }
+}
+
 function displayMyOrders() {
     const listDiv = document.getElementById('orders-list');
     if (!listDiv) return;
     
     const orders = JSON.parse(localStorage.getItem('myOrders') || "[]");
     
-    if (orders.length > 0) {
-        listDiv.innerHTML = orders.map(order => `
-            <div class="order-card" data-order-id="${order.id}" style="cursor: pointer; margin-bottom: 10px; padding: 12px; background: #fafafa; border-radius: 12px; border: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
-                <div class="order-info">
-                    <b style="display: block; font-size: 0.9rem;">📦 ${order.item}</b>
-                    <span style="font-size: 0.75rem; color: #888;">တင်ခဲ့သည့်အချိန် - ${order.time}</span>
-                </div>
-                <div class="track-icon" style="color: #ffcc00; font-size: 1.2rem;">📍</div>
-            </div>
-        `).join('');
-
-        document.querySelectorAll('.order-card').forEach(card => {
-            card.onclick = function() {
-                const oid = this.getAttribute('data-order-id');
-                window.location.href = `track.html?id=${oid}`;
-            };
-        });
+    if (orders.length === 0) {
+        listDiv.innerHTML = "<p style='text-align:center; color:#888; font-size:0.8rem;'>မှတ်တမ်းမရှိသေးပါ</p>";
+        return;
     }
+
+    listDiv.innerHTML = orders.map(order => `
+        <div class="order-card" onclick="window.location.href='track.html?id=${order.id}'" style="cursor: pointer; margin-bottom: 10px; padding: 12px; background: #fafafa; border-radius: 12px; border: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+            <div class="order-info">
+                <b style="display: block; font-size: 0.9rem;">📦 ${order.item}</b>
+                <span style="font-size: 0.75rem; color: #888;">${order.time}</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div class="track-icon" style="color: #ffcc00; font-size: 1.2rem;">📍</div>
+                <div onclick="deleteLocalOrder('${order.id}', event)" style="color: #ff4444; font-size: 1.1rem; padding: 5px;">🗑️</div>
+            </div>
+        </div>
+    `).join('');
 }
 displayMyOrders();
 
@@ -136,14 +145,12 @@ document.getElementById('placeOrderBtn').onclick = async () => {
         const pAddr = document.getElementById('pickup-address').value;
         const dAddr = document.getElementById('dropoff-address').value;
 
-        // --- Logic: နာမည်ဦးစားပေးစနစ် ---
-        // ၁။ Sign-up name ကိုရှာသည် (ရှိလျှင်)
-        // ၂။ မရှိလျှင် Gmail display name ကိုယူသည်
-        // ၃။ နှစ်ခုလုံးမရှိလျှင် "Gmail" ဟု သတ်မှတ်သည်
-        const customerDisplayName = auth.currentUser?.displayName || "Gmail";
+        // --- Logic: Signup Name ကို ဦးစားပေးယူခြင်း ---
+        const customerDisplayName = auth.currentUser?.displayName || "Customer";
 
         const orderData = {
             userId: auth.currentUser?.uid || "anonymous",
+            customerName: customerDisplayName, // နာမည်ရင်းကို Database ထဲသိမ်းသည်
             pickup: { ...pickupCoords, address: `${pTown}, ${pAddr}` },
             dropoff: { ...dropoffCoords, address: `${dTown}, ${dAddr}` },
             item: item,
@@ -156,17 +163,15 @@ document.getElementById('placeOrderBtn').onclick = async () => {
             createdAt: serverTimestamp()
         };
 
-        // Firebase သို့ သိမ်းဆည်းခြင်း
         const docRef = await addDoc(collection(db, "orders"), orderData);
         const orderId = docRef.id;
 
         saveOrderToLocal(orderId, item);
 
-        // --- ၇။ Google Sheets ဆီသို့ Data ပို့ခြင်း ---
+        // --- ၇။ Google Sheets ပို့ခြင်း ---
         fetch(SCRIPT_URL, {
             method: "POST",
-            mode: "no-cors", // Apps Script အတွက်လိုအပ်သည်
-            headers: { "Content-Type": "application/json" },
+            mode: "no-cors",
             body: JSON.stringify({
                 action: "create",
                 orderId: orderId,
@@ -177,29 +182,29 @@ document.getElementById('placeOrderBtn').onclick = async () => {
                 payment: orderData.paymentMethod,
                 phone: phone,
                 address: orderData.dropoff.address,
-                customerName: customerDisplayName, // နာမည် Logic
-                riderName: "Gmail Rider" // အစပိုင်းတွင် ပုံသေထားသည်
+                customerName: customerDisplayName,
+                riderName: "-" 
             })
-        }).catch(err => console.log("Google Sheets Error:", err));
+        });
 
-        // --- ၈။ Telegram သို့ အကြောင်းကြားခြင်း ---
+        // --- ၈။ Telegram Notification ---
         const msg = `📦 <b>New Order Received!</b>\n` +
                     `--------------------------\n` +
+                    `👤 Customer: <b>${customerDisplayName}</b>\n` + // နာမည်ရင်းပြသည်
                     `📝 ပစ္စည်း: <b>${item}</b>\n` +
                     `⚖️ အလေးချိန်: ${weight} kg\n` +
                     `💰 ပစ္စည်းတန်ဖိုး: ${itemValue} KS\n` +
                     `--------------------------\n` +
                     `💵 <b>စုစုပေါင်းပို့ခ: ${feeInfo.total.toLocaleString()} KS</b>\n` +
-                    `💳 ငွေပေးချေမှု: ${orderData.paymentMethod}\n` +
+                    `💳 Payment: ${orderData.paymentMethod}\n` +
                     `📞 ဖုန်း: ${phone}\n\n` +
                     `📍 ယူရန်: ${orderData.pickup.address}\n` +
                     `🏁 ပို့ရန်: ${orderData.dropoff.address}\n\n` +
-                    `🔗 <a href="https://boexaw-ship-it.github.io/gobike/html/track.html?id=${orderId}">Track Order Here</a>\n\n` +
-                    `⌛ <i>Rider များ အမြန်ဆုံးလက်ခံပေးပါရန်!</i>`;
+                    `🔗 <a href="https://boexaw-ship-it.github.io/gobike/html/track.html?id=${orderId}">Track Order</a>`;
 
         await notifyTelegram(msg);
 
-        alert("Order အောင်မြင်စွာ တင်ပြီးပါပြီ။ Tracking Page သို့ ပို့ပေးပါမည်။");
+        alert("Order အောင်မြင်စွာ တင်ပြီးပါပြီ။");
         window.location.href = `track.html?id=${orderId}`;
 
     } catch (e) {
@@ -208,3 +213,4 @@ document.getElementById('placeOrderBtn').onclick = async () => {
     }
 };
 
+auth.onAuthStateChanged((user) => { if(user) displayMyOrders(); });
