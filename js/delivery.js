@@ -35,13 +35,11 @@ function startTracking() {
         
         const count = activeSnap.size;
         const isFull = count >= 7;
-        const limitEl = document.getElementById('rider-limit-info');
-        if (limitEl) {
-            limitEl.innerHTML = `လက်ရှိအော်ဒါ: <b>${count} / 7</b> ${isFull ? '<span style="color:red">(Full)</span>' : ''}`;
-        }
+        const limitInfo = document.getElementById('rider-limit-info');
+        if(limitInfo) limitInfo.innerHTML = `လက်ရှိအော်ဒါ: <b>${count} / 7</b> ${isFull ? '<span style="color:red">(Full)</span>' : ''}`;
 
         const container = document.getElementById('available-orders');
-        if (container) {
+        if(container) {
             container.innerHTML = snap.empty ? "<p style='text-align:center; color:#888;'>အော်ဒါမရှိသေးပါ</p>" : "";
 
             Object.values(markers).forEach(m => map.removeLayer(m));
@@ -84,7 +82,7 @@ function startTracking() {
     // Active Orders List
     onSnapshot(query(collection(db, "orders"), where("riderId", "==", auth.currentUser.uid), where("status", "in", ["accepted", "on_the_way", "arrived"])), (snap) => {
         const list = document.getElementById('active-orders-list');
-        if (!list) return;
+        if(!list) return;
         list.innerHTML = snap.empty ? "<p style='padding:10px; color:#888;'>လက်ခံထားသော အော်ဒါမရှိပါ။</p>" : "";
         
         snap.forEach(orderDoc => {
@@ -111,33 +109,35 @@ function startTracking() {
     });
 }
 
-// --- ၄။ Functions ---
+// --- ၄။ Functions (Handle Accept & Status Updates) ---
 
 window.handleAccept = async (id, time) => {
     try {
         const docRef = doc(db, "orders", id);
         const snap = await getDoc(docRef);
-        if (!snap.exists()) return;
         const order = snap.data();
 
-        if (time === 'tomorrow') {
-            // Customer Website ရှိ Track JS က သိအောင် status နှင့် temp data များ ပို့လိုက်ခြင်း
+        if(time === 'tomorrow') {
+            // Customer ဘက်မှ အတည်ပြုရန် status ကို pending_confirmation ပြောင်းပြီး အချိန်မှတ်သားမည်
             await updateDoc(docRef, { 
                 status: "pending_confirmation", 
+                pickupSchedule: "tomorrow", 
                 tempRiderId: auth.currentUser.uid, 
                 tempRiderName: auth.currentUser.email 
             });
-            alert("Customer ဆီ မနက်ဖြန်လာယူရန် အတည်ပြုချက် တောင်းလိုက်ပါပြီ။");
+            alert("Customer ဆီ မနက်ဖြန်မှလာယူရန် အတည်ပြုချက်တောင်းလိုက်ပါပြီ။");
         } else {
-            // ချက်ချင်းယူသည့် Logic
+            // ချက်ချင်းလက်ခံပါက status ကို accepted ပြောင်းပြီး အချိန်မှတ်သားမည်
             await updateDoc(docRef, { 
                 status: "accepted", 
+                pickupSchedule: "now",
                 riderId: auth.currentUser.uid, 
                 riderName: auth.currentUser.email, 
                 acceptedAt: serverTimestamp() 
             });
 
-            const msg = `✅ <b>Order Accepted!</b>\n` +
+            // Telegram သို့ အကြောင်းကြားခြင်း
+            const msg = `✅ <b>Order Accepted (Today)!</b>\n` +
                         `--------------------------\n` +
                         `📝 ပစ္စည်း: <b>${order.item}</b>\n` +
                         `⚖️ အလေးချိန်: ${order.weight}\n` +
@@ -150,7 +150,7 @@ window.handleAccept = async (id, time) => {
                         `📍 ယူရန်: ${order.pickup.address}`;
             await notifyTelegram(msg);
         }
-    } catch (err) { console.error("HandleAccept Error:", err); }
+    } catch (err) { console.error("Accept Error:", err); }
 };
 
 window.updateStatus = async (id, status) => {
@@ -171,7 +171,7 @@ window.updateStatus = async (id, status) => {
                     `🏁 ပို့ရန်: ${order.dropoff.address}\n` +
                     `📞 ဖုန်း: ${order.phone}`;
         await notifyTelegram(msg);
-    } catch (err) { console.error("UpdateStatus Error:", err); }
+    } catch (err) { console.error("Status Error:", err); }
 };
 
 window.completeOrder = async (id) => {
@@ -190,7 +190,7 @@ window.completeOrder = async (id) => {
                         `💰 စုစုပေါင်း: ${order.deliveryFee.toLocaleString()} KS\n` +
                         `🏁 အောင်မြင်စွာ ပို့ဆောင်ပြီးပါပြီ။`;
             await notifyTelegram(msg);
-        } catch (err) { console.error("CompleteOrder Error:", err); }
+        } catch (err) { console.error("Complete Error:", err); }
     }
 };
 
