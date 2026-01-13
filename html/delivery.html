@@ -5,68 +5,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GoBike - Rider Dashboard</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="../css/style.css">
     <style>
-        body { background: #1a1a1a; color: white; display: block; padding: 0; }
-        .header { background: #ffcc00; padding: 15px; text-align: center; color: black; font-weight: bold; }
-        
+        body { background: #1a1a1a; color: white; margin: 0; font-family: sans-serif; }
+        .header { background: #ffcc00; padding: 15px; text-align: center; color: black; font-weight: bold; position: sticky; top: 0; z-index: 1000; }
         #map { height: 250px; width: 100%; }
-
-        .order-list-container {
-            padding: 20px;
-        }
-
-        .order-card {
-            background: #2d2d2d;
-            border-radius: 15px;
-            padding: 15px;
-            margin-bottom: 15px;
-            border-left: 5px solid #ffcc00;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-        }
-
-        .order-info { font-size: 0.9rem; margin-bottom: 8px; }
-        .order-info b { color: #ffcc00; }
-
-        .btn-accept {
-            background: #ffcc00;
-            color: black;
-            border: none;
-            width: 100%;
-            padding: 12px;
-            border-radius: 10px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-
-        .status-tag {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 5px;
-            font-size: 0.75rem;
-            background: #444;
-            color: #ffcc00;
-            margin-bottom: 10px;
-        }
+        .container { padding: 15px; }
+        h4 { color: #ffcc00; border-bottom: 1px solid #333; padding-bottom: 5px; margin-top: 20px; }
+        
+        .order-card { background: #2d2d2d; border-radius: 15px; padding: 15px; margin-bottom: 15px; border-left: 5px solid #ffcc00; }
+        .active-order-card { background: #222; border: 1px solid #444; border-radius: 15px; padding: 15px; margin-bottom: 10px; }
+        
+        .btn-accept { background: #ffcc00; color: black; border: none; width: 100%; padding: 12px; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 5px; }
+        .btn-status { background: #2ed573; color: white; border: none; width: 100%; padding: 10px; border-radius: 8px; margin-top: 10px; cursor: pointer; }
+        
+        .limit-info { background: #333; padding: 10px; border-radius: 10px; text-align: center; font-size: 0.8rem; margin-bottom: 10px; }
     </style>
 </head>
 <body>
-
-    <div class="header">Rider Dashboard (Orders List)</div>
-
+    <div class="header">GoBike Rider Dashboard</div>
     <div id="map"></div>
-    
-    <div class="order-list-container">
-        <h4 style="margin-bottom: 15px;">📥 ရရှိနိုင်သော Order များ</h4>
-        <div id="available-orders">
-            <p style="text-align: center; color: #888;">Order အသစ်များကို စောင့်ဆိုင်းနေပါသည်...</p>
+
+    <div class="container">
+        <div id="rider-limit-info" class="limit-info">Loading order status...</div>
+
+        <h4>📥 အော်ဒါအသစ်များ (Available)</h4>
+        <div id="available-orders"></div>
+
+        <h4>🚴 ပို့ဆောင်နေဆဲအော်ဒါများ (Active Max: 7)</h4>
+        <div id="active-orders-list">
+            <p style="color: #666; font-size: 0.9rem;">လက်ခံထားသော အော်ဒါမရှိသေးပါ။</p>
         </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
     <script type="module" src="../js/delivery.js"></script>
-
 </body>
 </html>
