@@ -42,12 +42,19 @@ function startTracking() {
         if(container) {
             container.innerHTML = snap.empty ? "<p style='text-align:center; color:#888;'>အော်ဒါမရှိသေးပါ</p>" : "";
 
+            // Marker ဟောင်းများကို ရှင်းထုတ်ခြင်း
             Object.values(markers).forEach(m => map.removeLayer(m));
             markers = {};
 
             snap.forEach(orderDoc => {
                 const order = orderDoc.data();
                 const id = orderDoc.id;
+
+                // --- ပြင်ဆင်လိုက်သော အပိုင်း (Reject ထားသော Rider ထံ ပြန်မပြရန်) ---
+                if (order.lastRejectedRiderId === auth.currentUser.uid) {
+                    return; // ဒီ Rider ကို Customer က Reject လုပ်ခဲ့ရင် Card မဆွဲဘဲ ကျော်သွားမယ်
+                }
+                // --------------------------------------------------------
 
                 if(order.pickup) {
                     markers[id] = L.marker([order.pickup.lat, order.pickup.lng]).addTo(map).bindPopup(order.item);
@@ -118,7 +125,6 @@ window.handleAccept = async (id, time) => {
         const order = snap.data();
 
         if(time === 'tomorrow') {
-            // Customer ဘက်မှ အတည်ပြုရန် status ကို pending_confirmation ပြောင်းပြီး အချိန်မှတ်သားမည်
             await updateDoc(docRef, { 
                 status: "pending_confirmation", 
                 pickupSchedule: "tomorrow", 
@@ -127,7 +133,6 @@ window.handleAccept = async (id, time) => {
             });
             alert("Customer ဆီ မနက်ဖြန်မှလာယူရန် အတည်ပြုချက်တောင်းလိုက်ပါပြီ။");
         } else {
-            // ချက်ချင်းလက်ခံပါက status ကို accepted ပြောင်းပြီး အချိန်မှတ်သားမည်
             await updateDoc(docRef, { 
                 status: "accepted", 
                 pickupSchedule: "now",
@@ -136,7 +141,6 @@ window.handleAccept = async (id, time) => {
                 acceptedAt: serverTimestamp() 
             });
 
-            // Telegram သို့ အကြောင်းကြားခြင်း
             const msg = `✅ <b>Order Accepted (Today)!</b>\n` +
                         `--------------------------\n` +
                         `📝 ပစ္စည်း: <b>${order.item}</b>\n` +
@@ -195,3 +199,4 @@ window.completeOrder = async (id) => {
 };
 
 auth.onAuthStateChanged((user) => { if(user) startTracking(); });
+
