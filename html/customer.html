@@ -120,7 +120,6 @@
 
         .btn-confirm:active { transform: scale(0.95); }
 
-        /* My Orders Section Styling */
         .my-orders-section {
             margin: 25px 0 10px;
             padding: 10px 5px;
@@ -164,81 +163,83 @@
 
     <div id="map"></div>
     
-    <div class="order-container">
-        <div class="info-text">📍 မြို့နယ်ရွေးချယ်ပြီး လိပ်စာအပြည့်အစုံ ဖြည့်စွက်ပါ</div>
+    <form id="orderForm" onsubmit="return false;">
+        <div class="order-container">
+            <div class="info-text">📍 မြို့နယ်ရွေးချယ်ပြီး လိပ်စာအပြည့်အစုံ ဖြည့်စွက်ပါ</div>
 
-        <div class="loc-box pickup-label">
-            <b>Pick-up (ပစ္စည်းယူရန်နေရာ)</b> 
-            <select id="pickup-township">
-                <option value="">မြို့နယ်ရွေးပါ</option>
-                <option value="Ahlone" data-lat="16.7875" data-lng="96.1261">အလုံ</option>
-                <option value="Bahan" data-lat="16.8115" data-lng="96.1518">ဗဟန်း</option>
-                <option value="Botahtaung" data-lat="16.7818" data-lng="96.1706">ဗိုလ်တထောင်</option>
-                <option value="Dagon" data-lat="16.7971" data-lng="96.1475">ဒဂုံ</option>
-                <option value="Dagon_East" data-lat="16.9061" data-lng="96.2239">ဒဂုံမြို့သစ်(အရှေ့ပိုင်း)</option>
-                <option value="Dagon_North" data-lat="16.9042" data-lng="96.1917">ဒဂုံမြို့သစ်(မြောက်ပိုင်း)</option>
-                <option value="Dagon_South" data-lat="16.8572" data-lng="96.2161">ဒဂုံမြို့သစ်(တောင်ပိုင်း)</option>
-                <option value="Dagon_Seikkan" data-lat="16.8517" data-lng="96.2558">ဒဂုံမြို့သစ်(ဆိပ်ကမ်း)</option>
-                <option value="Dawbon" data-lat="16.7864" data-lng="96.1889">ဒေါပုံ</option>
-                <option value="Hlaing" data-lat="16.8409" data-lng="96.1264">လှိုင်</option>
-                <option value="Hlaingthaya" data-lat="16.8681" data-lng="96.0594">လှိုင်သာယာ</option>
-                <option value="Insein" data-lat="16.8892" data-lng="96.1031">အင်းစိန်</option>
-                <option value="Kamayut" data-lat="16.8286" data-lng="96.1284">ကမာရွတ်</option>
-                <option value="Kyauktada" data-lat="16.7744" data-lng="96.1594">ကျောက်တံတား</option>
-                <option value="Kyimyindaing" data-lat="16.8042" data-lng="96.1158">ကြည့်မြင်တိုင်</option>
-                <option value="Lanmadaw" data-lat="16.7818" data-lng="96.1424">လမ်းမတော်</option>
-                <option value="Latha" data-lat="16.7766" data-lng="96.1505">လသာ</option>
-                <option value="Mayangone" data-lat="16.8697" data-lng="96.1436">မရမ်းကုန်း</option>
-                <option value="Mingaladon" data-lat="16.9497" data-lng="96.1364">မင်္ဂလာဒုံ</option>
-                <option value="MingalaTaungnyunt" data-lat="16.7917" data-lng="96.1706">မင်္ဂလာတောင်ညွန့်</option>
-                <option value="NorthOkkalapa" data-lat="16.9083" data-lng="96.1667">မြောက်ဥက္ကလာပ</option>
-                <option value="Pabedan" data-lat="16.7778" data-lng="96.1547">ပန်းဘဲတန်း</option>
-                <option value="Pazundaung" data-lat="16.7900" data-lng="96.1700">ပုဇွန်တောင်</option>
-                <option value="Sanchaung" data-lat="16.8080" data-lng="96.1345">စမ်းချောင်း</option>
-                <option value="SouthOkkalapa" data-lat="16.8522" data-lng="96.1758">တောင်ဥက္ကလာပ</option>
-                <option value="Tamwe" data-lat="16.8111" data-lng="96.1750">တာမွေ</option>
-                <option value="Tharkayta" data-lat="16.7961" data-lng="96.2081">သာကေတ</option>
-                <option value="Thingangyun" data-lat="16.8322" data-lng="96.1969">သင်္ဃန်းကျွန်း</option>
-                <option value="Yankin" data-lat="16.8353" data-lng="96.1583">ရန်ကင်း</option>
-                <option value="Shwepyitha" data-lat="16.9744" data-lng="96.0964">ရွှေပြည်သာ</option>
-            </select>
-            <input type="text" id="pickup-address" class="manual-addr" placeholder="လမ်းအမည်/အိမ်အမှတ် ရိုက်ပါ">
-        </div>
+            <div class="loc-box pickup-label">
+                <b>Pick-up (ပစ္စည်းယူရန်နေရာ)</b> 
+                <select id="pickup-township" required>
+                    <option value="">မြို့နယ်ရွေးပါ</option>
+                    <option value="Ahlone" data-lat="16.7875" data-lng="96.1261">အလုံ</option>
+                    <option value="Bahan" data-lat="16.8115" data-lng="96.1518">ဗဟန်း</option>
+                    <option value="Botahtaung" data-lat="16.7818" data-lng="96.1706">ဗိုလ်တထောင်</option>
+                    <option value="Dagon" data-lat="16.7971" data-lng="96.1475">ဒဂုံ</option>
+                    <option value="Dagon_East" data-lat="16.9061" data-lng="96.2239">ဒဂုံမြို့သစ်(အရှေ့ပိုင်း)</option>
+                    <option value="Dagon_North" data-lat="16.9042" data-lng="96.1917">ဒဂုံမြို့သစ်(မြောက်ပိုင်း)</option>
+                    <option value="Dagon_South" data-lat="16.8572" data-lng="96.2161">ဒဂုံမြို့သစ်(တောင်ပိုင်း)</option>
+                    <option value="Dagon_Seikkan" data-lat="16.8517" data-lng="96.2558">ဒဂုံမြို့သစ်(ဆိပ်ကမ်း)</option>
+                    <option value="Dawbon" data-lat="16.7864" data-lng="96.1889">ဒေါပုံ</option>
+                    <option value="Hlaing" data-lat="16.8409" data-lng="96.1264">လှိုင်</option>
+                    <option value="Hlaingthaya" data-lat="16.8681" data-lng="96.0594">လှိုင်သာယာ</option>
+                    <option value="Insein" data-lat="16.8892" data-lng="96.1031">အင်းစိန်</option>
+                    <option value="Kamayut" data-lat="16.8286" data-lng="96.1284">ကမာရွတ်</option>
+                    <option value="Kyauktada" data-lat="16.7744" data-lng="96.1594">ကျောက်တံတား</option>
+                    <option value="Kyimyindaing" data-lat="16.8042" data-lng="96.1158">ကြည့်မြင်တိုင်</option>
+                    <option value="Lanmadaw" data-lat="16.7818" data-lng="96.1424">လမ်းမတော်</option>
+                    <option value="Latha" data-lat="16.7766" data-lng="96.1505">လသာ</option>
+                    <option value="Mayangone" data-lat="16.8697" data-lng="96.1436">မရမ်းကုန်း</option>
+                    <option value="Mingaladon" data-lat="16.9497" data-lng="96.1364">မင်္ဂလာဒုံ</option>
+                    <option value="MingalaTaungnyunt" data-lat="16.7917" data-lng="96.1706">မင်္ဂလာတောင်ညွန့်</option>
+                    <option value="NorthOkkalapa" data-lat="16.9083" data-lng="96.1667">မြောက်ဥက္ကလာပ</option>
+                    <option value="Pabedan" data-lat="16.7778" data-lng="96.1547">ပန်းဘဲတန်း</option>
+                    <option value="Pazundaung" data-lat="16.7900" data-lng="96.1700">ပုဇွန်တောင်</option>
+                    <option value="Sanchaung" data-lat="16.8080" data-lng="96.1345">စမ်းချောင်း</option>
+                    <option value="SouthOkkalapa" data-lat="16.8522" data-lng="96.1758">တောင်ဥက္ကလာပ</option>
+                    <option value="Tamwe" data-lat="16.8111" data-lng="96.1750">တာမွေ</option>
+                    <option value="Tharkayta" data-lat="16.7961" data-lng="96.2081">သာကေတ</option>
+                    <option value="Thingangyun" data-lat="16.8322" data-lng="96.1969">သင်္ဃန်းကျွန်း</option>
+                    <option value="Yankin" data-lat="16.8353" data-lng="96.1583">ရန်ကင်း</option>
+                    <option value="Shwepyitha" data-lat="16.9744" data-lng="96.0964">ရွှေပြည်သာ</option>
+                </select>
+                <input type="text" id="pickup-address" class="manual-addr" placeholder="လမ်းအမည်/အိမ်အမှတ် ရိုက်ပါ" required>
+            </div>
 
-        <div class="loc-box dropoff-label">
-            <b>Drop-off (ပစ္စည်းပို့ဆောင်မည့်နေရာ)</b> 
-            <select id="dropoff-township">
-                <option value="">မြို့နယ်ရွေးပါ</option>
-            </select>
-            <input type="text" id="dropoff-address" class="manual-addr" placeholder="လမ်းအမည်/အိမ်အမှတ် ရိုက်ပါ">
-        </div>
+            <div class="loc-box dropoff-label">
+                <b>Drop-off (ပစ္စည်းပို့ဆောင်မည့်နေရာ)</b> 
+                <select id="dropoff-township" required>
+                    <option value="">မြို့နယ်ရွေးပါ</option>
+                </select>
+                <input type="text" id="dropoff-address" class="manual-addr" placeholder="လမ်းအမည်/အိမ်အမှတ် ရိုက်ပါ" required>
+            </div>
 
-        <input type="text" id="item-detail" class="standard-input" placeholder="ဘာပစ္စည်းပို့မှာလဲ? (ဥပမာ- စာရွက်စာတမ်း)">
+            <input type="text" id="item-detail" class="standard-input" placeholder="ဘာပစ္စည်းပို့မှာလဲ? (ဥပမာ- စာရွက်စာတမ်း)" required>
 
-        <div class="input-row">
-            <input type="number" id="item-weight" placeholder="အလေးချိန် (kg)">
-            <input type="number" id="item-value" placeholder="ပစ္စည်းတန်ဖိုး (KS)">
-        </div>
+            <div class="input-row">
+                <input type="number" id="item-weight" placeholder="အလေးချိန် (kg)" required>
+                <input type="number" id="item-value" placeholder="ပစ္စည်းတန်ဖိုး (KS)" required>
+            </div>
 
-        <input type="tel" id="receiver-phone" class="standard-input" placeholder="လက်ခံမည့်သူ့ဖုန်းနံပါတ်">
+            <input type="tel" id="receiver-phone" class="standard-input" placeholder="လက်ခံမည့်သူ့ဖုန်းနံပါတ်" required>
 
-        <div class="payment-box">
-            <b style="font-size: 0.75rem; color: #856404; display: block; margin-bottom: 8px;">ငွေချေစနစ် (Payment Method)</b>
-            <select id="payment-method" style="background: #fff; border-color: #ffeeba;">
-                <option value="COD">Cash on Delivery (ပစ္စည်းရောက်မှငွေချေမည်)</option>
-                <option value="PickupCash">Cash at Pickup (ယူသည့်နေရာတွင် ရှင်းမည်)</option>
-            </select>
-        </div>
+            <div class="payment-box">
+                <b style="font-size: 0.75rem; color: #856404; display: block; margin-bottom: 8px;">ငွေချေစနစ် (Payment Method)</b>
+                <select id="payment-method" style="background: #fff; border-color: #ffeeba;">
+                    <option value="COD">Cash on Delivery (ပစ္စည်းရောက်မှငွေချေမည်)</option>
+                    <option value="PickupCash">Cash at Pickup (ယူသည့်နေရာတွင် ရှင်းမည်)</option>
+                </select>
+            </div>
 
-        <button id="placeOrderBtn" class="btn-confirm">ORDER NOW</button>
+            <button id="placeOrderBtn" type="button" class="btn-confirm">ORDER NOW</button>
 
-        <div class="my-orders-section">
-            <div class="orders-list-title">📦 ကျွန်ုပ်၏ အော်ဒါများ</div>
-            <div id="orders-list">
-                <p style="font-size: 0.8rem; color: #bbb; text-align: center;">တင်ထားသော အော်ဒါမရှိသေးပါ။</p>
+            <div class="my-orders-section">
+                <div class="orders-list-title">📦 ကျွန်ုပ်၏ အော်ဒါများ</div>
+                <div id="orders-list">
+                    <p style="font-size: 0.8rem; color: #bbb; text-align: center;">တင်ထားသော အော်ဒါမရှိသေးပါ။</p>
+                </div>
             </div>
         </div>
-    </div>
+    </form>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script type="module" src="../js/customer.js"></script>
