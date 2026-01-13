@@ -56,7 +56,7 @@ function calculatePrice() {
         const itemValue = parseFloat(document.getElementById('item-value').value) || 0;
 
         let baseFee = 1500; 
-        let distanceFee = dist * 500; 
+        distanceFee = dist * 500; 
         let weightExtra = weight > 5 ? (weight - 5) * 200 : 0;
         let insuranceFee = itemValue > 50000 ? itemValue * 0.01 : 0;
 
@@ -72,7 +72,43 @@ function calculatePrice() {
 document.getElementById('item-weight').oninput = calculatePrice;
 document.getElementById('item-value').oninput = calculatePrice;
 
-// --- ၅။ Submit Order (Telegram Message ကို အချက်အလက်စုံအောင် ပြင်ထားသည်) ---
+// --- ၅။ My Orders Logic (Local Storage သုံးပြီး အော်ဒါစာရင်းသိမ်းခြင်း) ---
+function saveOrderToLocal(id, item) {
+    let orders = JSON.parse(localStorage.getItem('myOrders') || "[]");
+    const newOrder = {
+        id: id,
+        item: item,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    orders.unshift(newOrder); // အသစ်ကို အပေါ်ဆုံးကပြ
+    if (orders.length > 5) orders = orders.slice(0, 5); // နောက်ဆုံး ၅ ခုပဲသိမ်း
+    localStorage.setItem('myOrders', JSON.stringify(orders));
+    displayMyOrders();
+}
+
+function displayMyOrders() {
+    const listDiv = document.getElementById('orders-list');
+    if (!listDiv) return;
+    
+    const orders = JSON.parse(localStorage.getItem('myOrders') || "[]");
+    
+    if (orders.length > 0) {
+        listDiv.innerHTML = orders.map(order => `
+            <div class="order-card" onclick="window.location.href='track.html?id=${order.id}'">
+                <div class="order-info">
+                    <b>📦 ${order.item}</b>
+                    <span>တင်ခဲ့သည့်အချိန် - ${order.time}</span>
+                </div>
+                <div class="track-icon">📍</div>
+            </div>
+        `).join('');
+    }
+}
+
+// စာမျက်နှာစဖွင့်ချိန်တွင် အော်ဒါဟောင်းများရှိက ပြရန်
+displayMyOrders();
+
+// --- ၆။ Submit Order ---
 document.getElementById('placeOrderBtn').onclick = async () => {
     const feeInfo = calculatePrice();
     const item = document.getElementById('item-detail').value;
@@ -110,7 +146,10 @@ document.getElementById('placeOrderBtn').onclick = async () => {
         const docRef = await addDoc(collection(db, "orders"), orderData);
         const orderId = docRef.id;
 
-        // ၂။ Telegram သို့ အချက်အလက်စုံလင်စွာ ပို့ခြင်း (ဒီအပိုင်းမှာ ပြင်ထားပါတယ်)
+        // ၂။ Local Storage တွင် သိမ်းခြင်း (အော်ဒါစာရင်းပြန်ကြည့်ရန်)
+        saveOrderToLocal(orderId, item);
+
+        // ၃။ Telegram သို့ အချက်အလက်ပို့ခြင်း
         const msg = `📦 <b>New Order Received!</b>\n` +
                     `--------------------------\n` +
                     `📝 ပစ္စည်း: <b>${item}</b>\n` +
@@ -127,7 +166,6 @@ document.getElementById('placeOrderBtn').onclick = async () => {
 
         await notifyTelegram(msg);
 
-        // ၃။ Tracking Page သို့ လွှဲပေးရန်
         alert("Order အောင်မြင်စွာ တင်ပြီးပါပြီ။ Tracking Page သို့ ပို့ပေးပါမည်။");
         window.location.href = `track.html?id=${orderId}`;
 
@@ -136,4 +174,3 @@ document.getElementById('placeOrderBtn').onclick = async () => {
         alert("Error: " + e.message);
     }
 };
-
