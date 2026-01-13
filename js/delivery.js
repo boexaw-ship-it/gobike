@@ -40,7 +40,6 @@ function startTracking() {
         const container = document.getElementById('available-orders');
         container.innerHTML = snap.empty ? "<p style='text-align:center; color:#888;'>အော်ဒါမရှိသေးပါ</p>" : "";
 
-        // မြေပုံရှင်းလင်းရေး
         Object.values(markers).forEach(m => map.removeLayer(m));
         markers = {};
 
@@ -56,10 +55,16 @@ function startTracking() {
             card.className = 'order-card';
             const btnStyle = isFull ? "background:#666; opacity:0.5; cursor:not-allowed;" : "";
             
+            // UI ထဲတွင် KG, Value နှင့် Payment Method တို့ကို အသေးစိတ်ပြသခြင်း
             card.innerHTML = `
                 <div style="font-size:0.8rem; color:#ffcc00; font-weight:bold;">NEW ORDER</div>
                 <b style="font-size:1.1rem;">📦 ${order.item}</b>
-                <div style="color:#00ff00; font-weight:bold; margin:5px 0;">💰 ${order.deliveryFee} KS</div>
+                <div style="color:#00ff00; font-weight:bold; margin:5px 0;">💰 ပို့ခ: ${order.deliveryFee.toLocaleString()} KS</div>
+                <div style="font-size:0.85rem; background:#333; padding:8px; border-radius:8px; margin-bottom:10px;">
+                    ⚖️ အလေးချိန်: <b>${order.weight}</b><br>
+                    💎 တန်ဖိုး: <b>${order.itemValue}</b><br>
+                    💳 Payment: <b>${order.paymentMethod}</b>
+                </div>
                 <p style="font-size:0.85rem; color:#ccc; margin-bottom:10px;">
                     📍 <b>From:</b> ${order.pickup.address} <br> 
                     🏁 <b>To:</b> ${order.dropoff.address}
@@ -91,7 +96,8 @@ function startTracking() {
                 <div style="border-bottom:1px solid #444; padding-bottom:5px; margin-bottom:5px;">
                     <b>${icon} ${data.status.toUpperCase()}</b> <small style="float:right; color:#888;">#${id.slice(-5)}</small>
                 </div>
-                <p style="font-size:0.9rem; margin:5px 0;">📦 <b>${data.item}</b> | 💰 <b>${data.deliveryFee} KS</b></p>
+                <p style="font-size:0.9rem; margin:5px 0;">📦 <b>${data.item}</b> | 💰 <b>${data.deliveryFee.toLocaleString()} KS</b></p>
+                <p style="font-size:0.85rem; color:#ffcc00; margin:5px 0;">📞 Phone: <b>${data.phone}</b></p>
                 <p style="font-size:0.8rem; color:#aaa;">🏁 ${data.dropoff.address}</p>
                 <button class="btn-status" style="width:100%; margin-top:10px;" onclick="${nextStatus === 'completed' ? `completeOrder('${id}')` : `updateStatus('${id}', '${nextStatus}')`}">${btnText}</button>
             `;
@@ -123,10 +129,16 @@ window.handleAccept = async (id, time) => {
                 acceptedAt: serverTimestamp() 
             });
 
+            // Telegram သို့ သတင်းပို့ရာတွင် KG, Value, Payment, Phone အကုန်ထည့်ခြင်း
             const msg = `✅ <b>Order Accepted!</b>\n` +
                         `--------------------------\n` +
-                        `📦 ပစ္စည်း: ${order.item}\n` +
-                        `💰 ပို့ခ: ${order.deliveryFee} KS\n` +
+                        `📝 ပစ္စည်း: <b>${order.item}</b>\n` +
+                        `⚖️ အလေးချိန်: ${order.weight}\n` +
+                        `💰 ပစ္စည်းတန်ဖိုး: ${order.itemValue}\n` +
+                        `💵 ပို့ခ: <b>${order.deliveryFee.toLocaleString()} KS</b>\n` +
+                        `💳 Payment: ${order.paymentMethod}\n` +
+                        `📞 ဖုန်း: ${order.phone}\n` +
+                        `--------------------------\n` +
                         `🚴 Rider: ${auth.currentUser.email}\n` +
                         `📍 ယူရန်: ${order.pickup.address}`;
             await notifyTelegram(msg);
@@ -147,8 +159,10 @@ window.updateStatus = async (id, status) => {
         const msg = `🚀 <b>Status Update!</b>\n` +
                     `--------------------------\n` +
                     `📦 ပစ္စည်း: ${order.item}\n` +
+                    `⚖️ အလေးချိန်: ${order.weight}\n` +
                     `📊 အခြေအနေ: ${statusText}\n` +
-                    `🏁 ပို့ရန်: ${order.dropoff.address}`;
+                    `🏁 ပို့ရန်: ${order.dropoff.address}\n` +
+                    `📞 ဖုန်း: ${order.phone}`;
         await notifyTelegram(msg);
     } catch (err) { console.error(err); }
 };
@@ -165,7 +179,8 @@ window.completeOrder = async (id) => {
             const msg = `💰 <b>Order Completed!</b>\n` +
                         `--------------------------\n` +
                         `📦 ပစ္စည်း: ${order.item}\n` +
-                        `💰 စုစုပေါင်း: ${order.deliveryFee} KS\n` +
+                        `⚖️ အလေးချိန်: ${order.weight}\n` +
+                        `💰 စုစုပေါင်း: ${order.deliveryFee.toLocaleString()} KS\n` +
                         `🏁 အောင်မြင်စွာ ပို့ဆောင်ပြီးပါပြီ။`;
             await notifyTelegram(msg);
         } catch (err) { console.error(err); }
