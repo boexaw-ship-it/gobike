@@ -4,7 +4,6 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { notifyTelegram } from './telegram.js';
 
-// --- 0. Google Apps Script URL ---
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzoqWIjISI8MrzFYu-B7CBldle8xuo-B5jNQtCRsqHLOaLPEPelYX84W5lRXoB9RhL6uw/exec";
 
 // --- ၁။ Map Init ---
@@ -12,12 +11,13 @@ const map = L.map('map').setView([16.8661, 96.1951], 12);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 let markers = {}; 
 
-// --- ၂။ Live Location ---
+// --- ၂။ Live Location (Rider Name အမှန်သိမ်းခြင်း) ---
 if (navigator.geolocation) {
     navigator.geolocation.watchPosition(async (pos) => {
         if (auth.currentUser) {
+            const riderDisplayName = auth.currentUser.displayName || "Rider";
             await setDoc(doc(db, "active_riders", auth.currentUser.uid), {
-                name: auth.currentUser.email,
+                name: riderDisplayName,
                 lat: pos.coords.latitude, 
                 lng: pos.coords.longitude, 
                 lastSeen: serverTimestamp()
@@ -26,7 +26,7 @@ if (navigator.geolocation) {
     }, (err) => console.error(err), { enableHighAccuracy: true });
 }
 
-// --- ၃။ Order စောင့်ကြည့်ခြင်း (New & Active) ---
+// --- ၃။ Order စောင့်ကြည့်ခြင်း ---
 function startTracking() {
     if (!auth.currentUser) return;
 
@@ -43,17 +43,13 @@ function startTracking() {
         const container = document.getElementById('available-orders');
         if(container) {
             container.innerHTML = snap.empty ? "<p style='text-align:center; color:#888;'>အော်ဒါမရှိသေးပါ</p>" : "";
-
             Object.values(markers).forEach(m => map.removeLayer(m));
             markers = {};
 
             snap.forEach(orderDoc => {
                 const order = orderDoc.data();
                 const id = orderDoc.id;
-
-                if (order.lastRejectedRiderId === auth.currentUser.uid) {
-                    return; 
-                }
+                if (order.lastRejectedRiderId === auth.currentUser.uid) return; 
 
                 if(order.pickup) {
                     markers[id] = L.marker([order.pickup.lat, order.pickup.lng]).addTo(map).bindPopup(order.item);
@@ -68,8 +64,8 @@ function startTracking() {
                     <b style="font-size:1.1rem;">📦 ${order.item}</b>
                     <div style="color:#00ff00; font-weight:bold; margin:5px 0;">💰 ပို့ခ: ${order.deliveryFee.toLocaleString()} KS</div>
                     <div style="font-size:0.85rem; background:#333; padding:8px; border-radius:8px; margin-bottom:10px;">
-                        ⚖️ အလေးချိန်: <b>${order.weight}</b><br>
-                        💎 တန်ဖိုး: <b>${order.itemValue}</b><br>
+                        👤 Customer: <b>${order.customerName || "အမည်မသိသူ"}</b><br>
+                        ⚖️ Weight: <b>${order.weight}</b> | 💎 Value: <b>${order.itemValue}</b><br>
                         💳 Payment: <b>${order.paymentMethod}</b>
                     </div>
                     <p style="font-size:0.85rem; color:#ccc; margin-bottom:10px;">
@@ -104,7 +100,7 @@ function startTracking() {
                 <div style="border-bottom:1px solid #444; padding-bottom:5px; margin-bottom:5px;">
                     <b>${icon} ${data.status.toUpperCase()}</b> <small style="float:right; color:#888;">#${id.slice(-5)}</small>
                 </div>
-                <p style="font-size:0.9rem; margin:5px 0;">📦 <b>${data.item}</b> | 💰 <b>${data.deliveryFee.toLocaleString()} KS</b></p>
+                <p style="font-size:0.9rem; margin:5px 0;">📦 <b>${data.item}</b> | 👤 <b>${data.customerName || "Customer"}</b></p>
                 <p style="font-size:0.85rem; color:#ffcc00; margin:5px 0;">📞 Phone: <b>${data.phone}</b></p>
                 <p style="font-size:0.8rem; color:#aaa;">🏁 ${data.dropoff.address}</p>
                 <button class="btn-status" style="width:100%; margin-top:10px;" onclick="${nextStatus === 'completed' ? `completeOrder('${id}')` : `updateStatus('${id}', '${nextStatus}')`}">${btnText}</button>
@@ -121,9 +117,7 @@ window.handleAccept = async (id, time) => {
         const docRef = doc(db, "orders", id);
         const snap = await getDoc(docRef);
         const order = snap.data();
-
-        // နာမည် Logic: Sign-up နာမည်ရှိရင်ယူ၊ မရှိရင် Gmail Name၊ မရှိရင် Gmail Rider
-        const riderDisplayName = auth.currentUser?.displayName || auth.currentUser?.email || "Gmail Rider";
+        const riderDisplayName = auth.currentUser.displayName || "Rider";
 
         if(time === 'tomorrow') {
             await updateDoc(docRef, { 
@@ -132,7 +126,7 @@ window.handleAccept = async (id, time) => {
                 tempRiderId: auth.currentUser.uid, 
                 tempRiderName: riderDisplayName 
             });
-            alert("Customer ဆီ မနက်ဖြန်မှလာယူရန် အတည်ပြုချက်တောင်းလိုက်ပါပြီ။");
+            alert(`Rider ${riderDisplayName} အနေနဲ့ မနက်ဖြန်မှ လာယူမယ့်အကြောင်း Customer ဆီ ပို့လိုက်ပါပြီ။`);
         } else {
             await updateDoc(docRef, { 
                 status: "accepted", 
@@ -144,26 +138,25 @@ window.handleAccept = async (id, time) => {
 
             // Google Sheets Update
             fetch(SCRIPT_URL, {
-                method: "POST",
-                mode: "no-cors",
+                method: "POST", mode: "no-cors",
                 body: JSON.stringify({
-                    action: "update",
-                    orderId: id,
-                    riderName: riderDisplayName,
-                    status: "Accepted"
+                    action: "update", orderId: id,
+                    riderName: riderDisplayName, status: "Accepted"
                 })
             });
 
+            // Telegram Notification (အလေးချိန် နှင့် ပစ္စည်းတန်ဖိုး အစုံအလင်)
             const msg = `✅ <b>Order Accepted (Today)!</b>\n` +
                         `--------------------------\n` +
                         `📝 ပစ္စည်း: <b>${order.item}</b>\n` +
-                        `⚖️ အလေးချိန်: ${order.weight}\n` +
-                        `💰 ပစ္စည်းတန်ဖိုး: ${order.itemValue}\n` +
+                        `⚖️ အလေးချိန်: <b>${order.weight || "-"}</b>\n` +
+                        `💰 ပစ္စည်းတန်ဖိုး: <b>${order.itemValue || "-"}</b>\n` +
                         `💵 ပို့ခ: <b>${order.deliveryFee.toLocaleString()} KS</b>\n` +
-                        `💳 Payment: ${order.paymentMethod}\n` +
-                        `📞 ဖုန်း: ${order.phone}\n` +
+                        `💳 Payment: <b>${order.paymentMethod}</b>\n` +
+                        `📞 ဖုန်း: <b>${order.phone}</b>\n` +
+                        `👤 Customer: <b>${order.customerName || "အမည်မသိသူ"}</b>\n` +
                         `--------------------------\n` +
-                        `🚴 Rider: ${riderDisplayName}\n` +
+                        `🚴 Rider: <b>${riderDisplayName}</b>\n` +
                         `📍 ယူရန်: ${order.pickup.address}`;
             await notifyTelegram(msg);
         }
@@ -175,18 +168,13 @@ window.updateStatus = async (id, status) => {
         const docRef = doc(db, "orders", id);
         const snap = await getDoc(docRef);
         const order = snap.data();
+        const riderName = auth.currentUser.displayName || "Rider";
 
         await updateDoc(docRef, { status: status });
 
-        // Google Sheets Update Status
         fetch(SCRIPT_URL, {
-            method: "POST",
-            mode: "no-cors",
-            body: JSON.stringify({
-                action: "update",
-                orderId: id,
-                status: status.toUpperCase()
-            })
+            method: "POST", mode: "no-cors",
+            body: JSON.stringify({ action: "update", orderId: id, status: status.toUpperCase() })
         });
 
         let statusText = status === "on_the_way" ? "🚚 ပစ္စည်းစယူပြီး ထွက်ခွာလာပါပြီ" : "📍 Rider ရောက်ရှိနေပါပြီ";
@@ -194,8 +182,8 @@ window.updateStatus = async (id, status) => {
         const msg = `🚀 <b>Status Update!</b>\n` +
                     `--------------------------\n` +
                     `📦 ပစ္စည်း: ${order.item}\n` +
-                    `⚖️ အလေးချိန်: ${order.weight}\n` +
                     `📊 အခြေအနေ: ${statusText}\n` +
+                    `🚴 Rider: <b>${riderName}</b>\n` +
                     `🏁 ပို့ရန်: ${order.dropoff.address}\n` +
                     `📞 ဖုန်း: ${order.phone}`;
         await notifyTelegram(msg);
@@ -208,25 +196,20 @@ window.completeOrder = async (id) => {
             const docRef = doc(db, "orders", id);
             const snap = await getDoc(docRef);
             const order = snap.data();
+            const riderName = auth.currentUser.displayName || "Rider";
 
             await updateDoc(docRef, { status: "completed", completedAt: serverTimestamp() });
 
-            // Google Sheets Update Complete
             fetch(SCRIPT_URL, {
-                method: "POST",
-                mode: "no-cors",
-                body: JSON.stringify({
-                    action: "update",
-                    orderId: id,
-                    status: "COMPLETED"
-                })
+                method: "POST", mode: "no-cors",
+                body: JSON.stringify({ action: "update", orderId: id, status: "COMPLETED" })
             });
 
             const msg = `💰 <b>Order Completed!</b>\n` +
                         `--------------------------\n` +
                         `📦 ပစ္စည်း: ${order.item}\n` +
-                        `⚖️ အလေးချိန်: ${order.weight}\n` +
-                        `💰 စုစုပေါင်း: ${order.deliveryFee.toLocaleString()} KS\n` +
+                        `🚴 Rider: <b>${riderName}</b>\n` +
+                        `💰 စုစုပေါင်းပို့ခ: ${order.deliveryFee.toLocaleString()} KS\n` +
                         `🏁 အောင်မြင်စွာ ပို့ဆောင်ပြီးပါပြီ။`;
             await notifyTelegram(msg);
         } catch (err) { console.error("Complete Error:", err); }
