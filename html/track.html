@@ -48,6 +48,17 @@
 
         .detail-box p { margin: 10px 0; color: #555; font-size: 0.95rem; border-bottom: 1px solid #f9f9f9; padding-bottom: 8px; }
         
+        /* New Order Button Styling */
+        .new-order-btn {
+            width: 100%; padding: 15px; background: var(--dark); color: white;
+            border: none; border-radius: 15px; font-weight: bold;
+            cursor: pointer; margin-top: 20px; transition: 0.3s;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+        }
+        .new-order-btn:hover { background: #333; transform: translateY(-2px); }
+        .new-order-btn:active { transform: translateY(0); }
+
         @keyframes slideIn {
             from { transform: translateY(20px); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
@@ -83,6 +94,13 @@
             <p>💵 <b>ပို့ခ:</b> <span id="det-fee">0</span> KS</p>
             <p>🚴 <b>Rider:</b> <span id="det-rider">ရှာဖွေနေဆဲ...</span></p>
         </div>
+
+        <button class="new-order-btn" onclick="window.location.href='customer.html'">
+            <span>➕</span> နောက်ထပ် အော်ဒါအသစ်တင်မည်
+        </button>
+        <p style="text-align:center; font-size:0.75rem; color:#888; margin-top:10px;">
+            လက်ရှိအော်ဒါကို ဤစာမျက်နှာ သို့မဟုတ် Telegram link မှတဆင့် ဆက်လက်စောင့်ကြည့်နိုင်ပါသည်။
+        </p>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
