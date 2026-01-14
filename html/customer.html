@@ -45,7 +45,9 @@
             font-size: 0.75rem;
             font-weight: bold;
             cursor: pointer;
+            transition: 0.2s;
         }
+        .logout-btn:active { transform: scale(0.9); background: var(--danger); color: white; }
 
         .header { 
             background: var(--primary); 
@@ -56,11 +58,7 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         }
 
-        #map { 
-            height: 250px; 
-            width: 100%; 
-            z-index: 1;
-        }
+        #map { height: 250px; width: 100%; z-index: 1; }
 
         .order-container {
             padding: 15px;
@@ -74,105 +72,42 @@
             box-shadow: 0 -5px 25px rgba(0,0,0,0.08);
         }
 
-        .info-text {
-            font-size: 0.8rem;
-            color: #888;
-            margin-bottom: 15px;
-            text-align: center;
-            letter-spacing: 0.5px;
-        }
+        .info-text { font-size: 0.8rem; color: #888; margin-bottom: 15px; text-align: center; }
 
         .loc-box {
-            background: #fff;
-            padding: 12px;
-            border-radius: 15px;
-            border: 1px solid #f0f0f0;
-            margin-bottom: 12px;
+            background: #fff; padding: 12px; border-radius: 15px;
+            border: 1px solid #f0f0f0; margin-bottom: 12px;
         }
-
         .loc-box b { display: block; font-size: 0.75rem; text-transform: uppercase; color: #aaa; margin-bottom: 8px; }
         
         select, input {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #f0f0f0;
-            border-radius: 12px;
-            font-size: 1rem;
-            outline: none;
-            box-sizing: border-box;
-            background: #fafafa;
+            width: 100%; padding: 12px; border: 1px solid #f0f0f0;
+            border-radius: 12px; font-size: 1rem; outline: none;
+            box-sizing: border-box; background: #fafafa;
         }
+        .manual-addr { margin-top: 10px; font-size: 0.9rem; border-style: dashed; }
 
-        .manual-addr {
-            margin-top: 10px;
-            font-size: 0.9rem;
-            border-style: dashed;
-        }
-
-        .input-row { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr; 
-            gap: 10px; 
-            margin-bottom: 15px;
-        }
-
-        .standard-input {
-            margin-bottom: 15px;
-        }
+        .input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .standard-input { margin-bottom: 15px; }
 
         .payment-box {
-            background: #fff9e6;
-            padding: 12px;
-            border-radius: 15px;
-            border: 1px solid #ffeeba;
-            margin-bottom: 20px;
+            background: #fff9e6; padding: 12px; border-radius: 15px;
+            border: 1px solid #ffeeba; margin-bottom: 20px;
         }
 
         .btn-confirm {
-            background: var(--dark);
-            color: var(--primary);
-            width: 100%;
-            padding: 18px;
-            border: none;
-            border-radius: 18px;
-            font-weight: bold;
-            font-size: 1.1rem;
-            cursor: pointer;
+            background: var(--dark); color: var(--primary); width: 100%;
+            padding: 18px; border: none; border-radius: 18px;
+            font-weight: bold; font-size: 1.1rem; cursor: pointer;
             box-shadow: 0 10px 20px rgba(0,0,0,0.15);
-            transition: 0.3s;
         }
 
-        .btn-confirm:active { transform: scale(0.95); }
-
-        .my-orders-section {
-            margin: 25px 0 10px;
-            padding: 10px 5px;
-            border-top: 1px solid #eee;
-        }
-        .orders-list-title {
-            font-size: 0.9rem;
-            font-weight: bold;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        #orders-list {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
+        .my-orders-section { margin: 25px 0 10px; padding: 10px 5px; border-top: 1px solid #eee; }
         .order-card {
-            background: #fafafa;
-            padding: 12px;
-            border-radius: 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border: 1px solid #f0f0f0;
-            cursor: pointer;
+            background: #fafafa; padding: 12px; border-radius: 12px;
+            display: flex; justify-content: space-between; align-items: center;
+            border: 1px solid #f0f0f0; margin-bottom: 10px;
         }
-        .order-card:active { background: #f0f0f0; }
 
         .pickup-label { border-left: 5px solid var(--primary); }
         .dropoff-label { border-left: 5px solid #ff4757; }
@@ -185,7 +120,7 @@
             <span id="display-role">Customer</span>
             <b id="display-name">Loading...</b>
         </div>
-        <button class="logout-btn" id="logoutBtn">Logout</button>
+        <button class="logout-btn" onclick="handleLogout()">Logout</button>
     </div>
 
     <div class="header">GO-BIKE DELIVERY</div>
@@ -264,7 +199,7 @@
             <div class="my-orders-section">
                 <div class="orders-list-title">📦 ကျွန်ုပ်၏ အော်ဒါများ</div>
                 <div id="orders-list">
-                    <p style="font-size: 0.8rem; color: #bbb; text-align: center;">တင်ထားသော အော်ဒါမရှိသေးပါ။</p>
+                    <p style="font-size: 0.8rem; color: #bbb; text-align: center;">မှတ်တမ်းမရှိသေးပါ။</p>
                 </div>
             </div>
         </div>
