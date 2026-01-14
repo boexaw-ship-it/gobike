@@ -1,6 +1,6 @@
 import { db, auth } from './firebase-config.js';
 import { 
-    collection, addDoc, serverTimestamp 
+    collection, addDoc, serverTimestamp, query, where, onSnapshot, doc, updateDoc 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { notifyTelegram } from './telegram.js';
@@ -14,39 +14,28 @@ onAuthStateChanged(auth, (user) => {
     const roleDisplay = document.getElementById('display-role');
 
     if (user) {
-        // Login ဝင်ထားလျှင် နာမည်ပြမည်
         if (nameDisplay) nameDisplay.innerText = user.displayName || "User";
         if (roleDisplay) roleDisplay.innerText = "Customer Account";
+        // Firestore မှ Real-time အော်ဒါမှတ်တမ်းကို စောင့်ကြည့်မည်
         displayMyOrders(); 
     } else {
-        // Login မဝင်ထားလျှင် Login Page (index.html) သို့ ပြန်ပို့မည်
-        window.location.href = "../index.html";
+        // အမှန်တကယ် Logout လုပ်မှသာ index ကို ပြန်ပို့မည် (Complete ဖြစ်ရုံနဲ့ Redirect မလုပ်စေရန်)
+        if (!window.location.pathname.includes('index.html')) {
+            window.location.href = "../index.html";
+        }
     }
 });
 
-/**
- * Logout Function
- * window.handleLogout ထဲထည့်ပေးမှ HTML onclick က သိမှာဖြစ်ပါတယ်
- */
 window.handleLogout = async () => {
     if (confirm("အကောင့်မှ ထွက်မှာ သေချာပါသလား?")) {
         try {
             await signOut(auth);
-            // signOut ပြီးရင် onAuthStateChanged က redirection လုပ်ပေးပါလိမ့်မယ်
         } catch (error) {
             console.error("Logout Error:", error);
             alert("Logout လုပ်၍ မရပါ။");
         }
     }
 };
-
-// Event Listener ပုံစံဖြင့်လည်း Logout ကို ချိတ်ထားပေးပါတယ်
-document.addEventListener('DOMContentLoaded', () => {
-    const logoutBtn = document.getElementById('logoutBtn');
-    if (logoutBtn) {
-        logoutBtn.onclick = window.handleLogout;
-    }
-});
 
 // --- ၂။ Map Setup ---
 const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 12); 
@@ -116,56 +105,58 @@ function calculatePrice() {
 document.getElementById('item-weight').oninput = calculatePrice;
 document.getElementById('item-value').oninput = calculatePrice;
 
-// --- ၆။ My Orders Logic (Local Record) ---
-function saveOrderToLocal(id, item) {
-    let orders = JSON.parse(localStorage.getItem('myOrders') || "[]");
-    const newOrder = {
-        id: id,
-        item: item,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-    orders.unshift(newOrder); 
-    if (orders.length > 5) orders = orders.slice(0, 5); 
-    localStorage.setItem('myOrders', JSON.stringify(orders));
-    displayMyOrders();
-}
-
-window.deleteLocalOrder = function(id, event) {
-    event.stopPropagation(); 
-    if(confirm("ဤအော်ဒါမှတ်တမ်းကို ဖျက်လိုပါသလား?")) {
-        let orders = JSON.parse(localStorage.getItem('myOrders') || "[]");
-        orders = orders.filter(o => o.id !== id);
-        localStorage.setItem('myOrders', JSON.stringify(orders));
-        displayMyOrders();
-    }
-}
-
+// --- ၆။ My Orders Logic (Firestore-based) ---
 function displayMyOrders() {
     const listDiv = document.getElementById('orders-list');
-    if (!listDiv) return;
-    
-    const orders = JSON.parse(localStorage.getItem('myOrders') || "[]");
-    
-    if (orders.length === 0) {
-        listDiv.innerHTML = "<p style='text-align:center; color:#888; font-size:0.8rem;'>မှတ်တမ်းမရှိသေးပါ</p>";
-        return;
-    }
+    if (!listDiv || !auth.currentUser) return;
 
-    listDiv.innerHTML = orders.map(order => `
-        <div class="order-card" onclick="window.location.href='track.html?id=${order.id}'" style="cursor: pointer;">
-            <div class="order-info">
-                <b>📦 ${order.item}</b>
-                <span>${order.time}</span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 15px;">
-                <div class="track-icon" style="color:#ffcc00;">📍</div>
-                <div onclick="deleteLocalOrder('${order.id}', event)" style="color: #ff4444; font-size: 1.1rem; padding: 5px;">🗑️</div>
-            </div>
-        </div>
-    `).join('');
+    const q = query(collection(db, "orders"), where("userId", "==", auth.currentUser.uid));
+    
+    onSnapshot(q, (snap) => {
+        listDiv.innerHTML = "";
+        if (snap.empty) {
+            listDiv.innerHTML = "<p style='text-align:center; color:#888; font-size:0.8rem;'>မှတ်တမ်းမရှိသေးပါ</p>";
+            return;
+        }
+
+        snap.forEach((orderDoc) => {
+            const order = orderDoc.data();
+            const id = orderDoc.id;
+
+            if (order.customerHide === true) return;
+
+            const card = document.createElement('div');
+            card.className = "order-card";
+            card.style = "cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 12px; margin-bottom: 10px; background: #2a2a2a; border-radius: 8px; border-left: 4px solid ${order.status === 'completed' ? '#00ff00' : '#ffcc00'};";
+            card.onclick = () => window.location.href = `track.html?id=${id}`;
+
+            card.innerHTML = `
+                <div class="order-info">
+                    <b style="color: #fff;">📦 ${order.item}</b><br>
+                    <span style="font-size: 0.75rem; color: #aaa;">Status: ${order.status.toUpperCase()}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <span style="color:#ffcc00; font-size: 1.2rem;">📍</span>
+                    <span onclick="deleteOrderPermanently('${id}', event)" style="color: #ff4444; font-size: 1.1rem; cursor: pointer;">🗑️</span>
+                </div>
+            `;
+            listDiv.appendChild(card);
+        });
+    });
 }
 
-// --- ၇။ Submit Order ---
+window.deleteOrderPermanently = async (id, event) => {
+    event.stopPropagation(); 
+    if(confirm("ဤအော်ဒါမှတ်တမ်းကို ဖယ်ထုတ်လိုပါသလား?")) {
+        try {
+            await updateDoc(doc(db, "orders", id), { customerHide: true });
+        } catch (err) {
+            console.error(err);
+        }
+    }
+}
+
+// --- ၇။ Submit Order (With Full Telegram Info) ---
 document.getElementById('placeOrderBtn').onclick = async () => {
     const feeInfo = calculatePrice();
     const item = document.getElementById('item-detail').value;
@@ -193,19 +184,18 @@ document.getElementById('placeOrderBtn').onclick = async () => {
             pickup: { ...pickupCoords, address: `${pTown}, ${pAddr}` },
             dropoff: { ...dropoffCoords, address: `${dTown}, ${dAddr}` },
             item: item,
-            weight: weight + " kg",
-            itemValue: itemValue + " KS",
+            weight: weight,
+            itemValue: itemValue,
             phone: phone,
             paymentMethod: payment === "COD" ? "Cash on Delivery (ပို့ခအိမ်ရောက်ချေ)" : "Cash at Pickup (ပို့ခကြိုပေး)",
             deliveryFee: feeInfo.total,
             status: "pending",
+            customerHide: false,
             createdAt: serverTimestamp()
         };
 
         const docRef = await addDoc(collection(db, "orders"), orderData);
         const orderId = docRef.id;
-
-        saveOrderToLocal(orderId, item);
 
         // Google Sheets Sync
         fetch(SCRIPT_URL, {
@@ -226,17 +216,17 @@ document.getElementById('placeOrderBtn').onclick = async () => {
             })
         });
 
-        // Telegram Notification
+        // 🔥 Telegram Notification (သင်တောင်းဆိုထားသော အချက်အလက်အပြည့်အစုံ)
         const msg = `📦 <b>New Order Received!</b>\n` +
                     `--------------------------\n` +
                     `👤 Customer: <b>${customerDisplayName}</b>\n` +
                     `📝 ပစ္စည်း: <b>${item}</b>\n` +
-                    `⚖️ အလေးချိန်: ${weight} kg\n` +
-                    `💰 ပစ္စည်းတန်ဖိုး: ${itemValue} KS\n` +
+                    `⚖️ အလေးချိန်: <b>${weight} kg</b>\n` +
+                    `💰 ပစ္စည်းတန်ဖိုး: <b>${itemValue} KS</b>\n` +
                     `--------------------------\n` +
                     `💵 <b>စုစုပေါင်းပို့ခ: ${feeInfo.total.toLocaleString()} KS</b>\n` +
-                    `💳 Payment: ${orderData.paymentMethod}\n` +
-                    `📞 ဖုန်း: ${phone}\n\n` +
+                    `💳 Payment: <b>${orderData.paymentMethod}</b>\n` +
+                    `📞 ဖုန်း: <b>${phone}</b>\n\n` +
                     `📍 ယူရန်: ${orderData.pickup.address}\n` +
                     `🏁 ပို့ရန်: ${orderData.dropoff.address}\n\n` +
                     `🔗 <a href="https://boexaw-ship-it.github.io/gobike/html/track.html?id=${orderId}">Track Order</a>`;
