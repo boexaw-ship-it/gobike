@@ -24,12 +24,10 @@ onAuthStateChanged(auth, (user) => {
     }
 });
 
-/**
- * Logout Function (SweetAlert2 ဖြင့် အလှပြင်ထားသည်)
- */
+// Logout (SweetAlert2 version)
 window.handleLogout = async () => {
     Swal.fire({
-        title: 'အကောင့်မှ ထွက်မှာ သေချာပါသလား?',
+        title: 'အကောင့်မှ ထွက်မလား?',
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#ffcc00',
@@ -37,7 +35,7 @@ window.handleLogout = async () => {
         confirmButtonText: 'ထွက်မည်',
         cancelButtonText: 'မထွက်တော့ပါ',
         background: '#1a1a1a',
-        color: '#fff'
+        color: '#ffffff'
     }).then(async (result) => {
         if (result.isConfirmed) {
             try {
@@ -117,7 +115,7 @@ function calculatePrice() {
 document.getElementById('item-weight').oninput = calculatePrice;
 document.getElementById('item-value').oninput = calculatePrice;
 
-// --- ၆။ My Orders Logic (Firestore-based) ---
+// --- ၆။ My Orders Logic (Delete Fix Included) ---
 function displayMyOrders() {
     const listDiv = document.getElementById('orders-list');
     if (!listDiv || !auth.currentUser) return;
@@ -140,28 +138,32 @@ function displayMyOrders() {
             const card = document.createElement('div');
             card.className = "order-card";
             card.style = `cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 12px; margin-bottom: 10px; background: #2a2a2a; border-radius: 8px; border-left: 4px solid ${order.status === 'completed' ? '#00ff00' : '#ffcc00'};`;
-            card.onclick = () => window.location.href = `track.html?id=${id}`;
-
+            
             card.innerHTML = `
-                <div class="order-info">
+                <div class="order-info" onclick="window.location.href = 'track.html?id=${id}'" style="flex-grow:1;">
                     <b style="color: #fff;">📦 ${order.item}</b><br>
                     <span style="font-size: 0.75rem; color: #aaa;">Status: ${order.status.toUpperCase()}</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <span style="color:#ffcc00; font-size: 1.2rem;">📍</span>
-                    <span onclick="deleteOrderPermanently('${id}', event)" style="color: #ff4444; font-size: 1.1rem; cursor: pointer;">🗑️</span>
+                    <span style="color:#ffcc00; font-size: 1.2rem;" onclick="window.location.href = 'track.html?id=${id}'">📍</span>
+                    <span id="del-btn-${id}" style="color: #ff4444; font-size: 1.1rem; cursor: pointer;">🗑️</span>
                 </div>
             `;
             listDiv.appendChild(card);
+
+            // Delete Event
+            document.getElementById(`del-btn-${id}`).onclick = (e) => {
+                e.stopPropagation();
+                window.deleteOrderPermanently(id);
+            };
         });
     });
 }
 
-window.deleteOrderPermanently = async (id, event) => {
-    event.stopPropagation(); 
+window.deleteOrderPermanently = async (id) => {
     Swal.fire({
-        title: 'အော်ဒါဖယ်ထုတ်မလား?',
-        text: "ဤအော်ဒါမှတ်တမ်းကို Dashboard မှ ဖယ်ထုတ်ပါလိမ့်မည်။",
+        title: 'ဖယ်ထုတ်မလား?',
+        text: 'ဤအော်ဒါမှတ်တမ်းကို Dashboard မှ ဖယ်ထုတ်ပါလိမ့်မည်။',
         icon: 'question',
         showCancelButton: true,
         confirmButtonColor: '#ffcc00',
@@ -171,16 +173,12 @@ window.deleteOrderPermanently = async (id, event) => {
         color: '#fff'
     }).then(async (result) => {
         if (result.isConfirmed) {
-            try {
-                await updateDoc(doc(db, "orders", id), { customerHide: true });
-            } catch (err) {
-                console.error(err);
-            }
+            await updateDoc(doc(db, "orders", id), { customerHide: true });
         }
     });
-}
+};
 
-// --- ၇။ Submit Order (With Full Telegram Info & Popup) ---
+// --- ၇။ Submit Order (Full Telegram & Google Sync) ---
 document.getElementById('placeOrderBtn').onclick = async () => {
     const feeInfo = calculatePrice();
     const item = document.getElementById('item-detail').value;
@@ -190,14 +188,7 @@ document.getElementById('placeOrderBtn').onclick = async () => {
     const itemValue = document.getElementById('item-value').value;
 
     if (!feeInfo || !item || !phone || !weight) {
-        Swal.fire({
-            icon: 'error',
-            title: 'လိုအပ်ချက်',
-            text: 'ကျေးဇူးပြု၍ အချက်အလက်များကို ပြည့်စုံအောင် ဖြည့်ပေးပါခင်ဗျာ။',
-            background: '#1a1a1a',
-            color: '#fff',
-            confirmButtonColor: '#ffcc00'
-        });
+        Swal.fire({ icon: 'error', title: 'အချက်အလက်မစုံလင်ပါ', text: 'ကျေးဇူးပြု၍ အချက်အလက်များ ပြည့်စုံအောင် ဖြည့်ပေးပါခင်ဗျာ။', background: '#1a1a1a', color: '#fff' });
         return;
     }
 
@@ -218,7 +209,7 @@ document.getElementById('placeOrderBtn').onclick = async () => {
             weight: weight,
             itemValue: itemValue,
             phone: phone,
-            paymentMethod: payment === "COD" ? "Cash on Delivery (ပို့ခအိမ်ရောက်ချေ)" : "Cash at Pickup (ပို့ခကြိုပေး)",
+            paymentMethod: payment === "COD" ? "Cash on Delivery" : "Cash at Pickup",
             deliveryFee: feeInfo.total,
             status: "pending",
             customerHide: false,
@@ -228,7 +219,7 @@ document.getElementById('placeOrderBtn').onclick = async () => {
         const docRef = await addDoc(collection(db, "orders"), orderData);
         const orderId = docRef.id;
 
-        // Google Sheets Sync
+        // 1. Google Sheets Sync
         fetch(SCRIPT_URL, {
             method: "POST",
             mode: "no-cors",
@@ -247,7 +238,8 @@ document.getElementById('placeOrderBtn').onclick = async () => {
             })
         });
 
-        // 🔥 Telegram Notification
+        // 2. 🔥 Telegram Notification (အလှပြင်ပြီးသား)
+        const trackUrl = `https://boexaw-ship-it.github.io/gobike/html/track.html?id=${orderId}`;
         const msg = `📦 <b>New Order Received!</b>\n` +
                     `━━━━━━━━━━━━━━━━━━\n` +
                     `👤 Customer: <b>${customerDisplayName}</b>\n` +
@@ -260,14 +252,14 @@ document.getElementById('placeOrderBtn').onclick = async () => {
                     `📞 ဖုန်း: <b>${phone}</b>\n\n` +
                     `📍 ယူရန်: ${orderData.pickup.address}\n` +
                     `🏁 ပို့ရန်: ${orderData.dropoff.address}\n\n` +
-                    `✨ <a href="https://boexaw-ship-it.github.io/gobike/html/track.html?id=${orderId}"><b>📍 အော်ဒါခြေရာခံရန် နှိပ်ပါ</b></a>`;
+                    `✨ <a href="${trackUrl}"><b>📍 အော်ဒါခြေရာခံရန် နှိပ်ပါ</b></a>`;
 
         await notifyTelegram(msg);
 
-        // ✅ အောင်မြင်ကြောင်း Popup ပြခြင်း
+        // 3. Success Popup
         Swal.fire({
             title: 'အော်ဒါတင်ပြီးပါပြီ!',
-            html: `<b>${item}</b> အတွက် ပို့ဆောင်ခ <b>${feeInfo.total.toLocaleString()} KS</b> ဖြစ်ပါတယ်။<br>Rider ဆက်သွယ်လာသည်အထိ ခေတ္တစောင့်ပေးပါဗျာ။`,
+            html: `Rider မှ ဆက်သွယ်လာသည်အထိ ခေတ္တစောင့်ပေးပါဗျာ။`,
             icon: 'success',
             confirmButtonColor: '#ffcc00',
             confirmButtonText: '📍 ခြေရာခံမည်',
@@ -278,14 +270,6 @@ document.getElementById('placeOrderBtn').onclick = async () => {
         });
 
     } catch (e) {
-        console.error("Order Submit Error:", e);
-        Swal.fire({
-            icon: 'error',
-            title: 'အမှားအယွင်း',
-            text: e.message,
-            background: '#1a1a1a',
-            color: '#fff'
-        });
+        Swal.fire({ icon: 'error', title: 'Error', text: e.message, background: '#1a1a1a', color: '#fff' });
     }
 };
-
