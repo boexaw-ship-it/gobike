@@ -16,25 +16,37 @@ onAuthStateChanged(auth, (user) => {
     if (user) {
         if (nameDisplay) nameDisplay.innerText = user.displayName || "User";
         if (roleDisplay) roleDisplay.innerText = "Customer Account";
-        // Firestore မှ Real-time အော်ဒါမှတ်တမ်းကို စောင့်ကြည့်မည်
         displayMyOrders(); 
     } else {
-        // အမှန်တကယ် Logout လုပ်မှသာ index ကို ပြန်ပို့မည် (Complete ဖြစ်ရုံနဲ့ Redirect မလုပ်စေရန်)
         if (!window.location.pathname.includes('index.html')) {
             window.location.href = "../index.html";
         }
     }
 });
 
+/**
+ * Logout Function (SweetAlert2 ဖြင့် အလှပြင်ထားသည်)
+ */
 window.handleLogout = async () => {
-    if (confirm("အကောင့်မှ ထွက်မှာ သေချာပါသလား?")) {
-        try {
-            await signOut(auth);
-        } catch (error) {
-            console.error("Logout Error:", error);
-            alert("Logout လုပ်၍ မရပါ။");
+    Swal.fire({
+        title: 'အကောင့်မှ ထွက်မှာ သေချာပါသလား?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ffcc00',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'ထွက်မည်',
+        cancelButtonText: 'မထွက်တော့ပါ',
+        background: '#1a1a1a',
+        color: '#fff'
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            try {
+                await signOut(auth);
+            } catch (error) {
+                console.error("Logout Error:", error);
+            }
         }
-    }
+    });
 };
 
 // --- ၂။ Map Setup ---
@@ -127,7 +139,7 @@ function displayMyOrders() {
 
             const card = document.createElement('div');
             card.className = "order-card";
-            card.style = "cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 12px; margin-bottom: 10px; background: #2a2a2a; border-radius: 8px; border-left: 4px solid ${order.status === 'completed' ? '#00ff00' : '#ffcc00'};";
+            card.style = `cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 12px; margin-bottom: 10px; background: #2a2a2a; border-radius: 8px; border-left: 4px solid ${order.status === 'completed' ? '#00ff00' : '#ffcc00'};`;
             card.onclick = () => window.location.href = `track.html?id=${id}`;
 
             card.innerHTML = `
@@ -147,16 +159,28 @@ function displayMyOrders() {
 
 window.deleteOrderPermanently = async (id, event) => {
     event.stopPropagation(); 
-    if(confirm("ဤအော်ဒါမှတ်တမ်းကို ဖယ်ထုတ်လိုပါသလား?")) {
-        try {
-            await updateDoc(doc(db, "orders", id), { customerHide: true });
-        } catch (err) {
-            console.error(err);
+    Swal.fire({
+        title: 'အော်ဒါဖယ်ထုတ်မလား?',
+        text: "ဤအော်ဒါမှတ်တမ်းကို Dashboard မှ ဖယ်ထုတ်ပါလိမ့်မည်။",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#ffcc00',
+        confirmButtonText: 'ဖယ်မည်',
+        cancelButtonText: 'မဖယ်ပါ',
+        background: '#1a1a1a',
+        color: '#fff'
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            try {
+                await updateDoc(doc(db, "orders", id), { customerHide: true });
+            } catch (err) {
+                console.error(err);
+            }
         }
-    }
+    });
 }
 
-// --- ၇။ Submit Order (With Full Telegram Info) ---
+// --- ၇။ Submit Order (With Full Telegram Info & Popup) ---
 document.getElementById('placeOrderBtn').onclick = async () => {
     const feeInfo = calculatePrice();
     const item = document.getElementById('item-detail').value;
@@ -166,7 +190,14 @@ document.getElementById('placeOrderBtn').onclick = async () => {
     const itemValue = document.getElementById('item-value').value;
 
     if (!feeInfo || !item || !phone || !weight) {
-        alert("ကျေးဇူးပြု၍ အချက်အလက်များကို ပြည့်စုံအောင် ဖြည့်ပေးပါခင်ဗျာ။");
+        Swal.fire({
+            icon: 'error',
+            title: 'လိုအပ်ချက်',
+            text: 'ကျေးဇူးပြု၍ အချက်အလက်များကို ပြည့်စုံအောင် ဖြည့်ပေးပါခင်ဗျာ။',
+            background: '#1a1a1a',
+            color: '#fff',
+            confirmButtonColor: '#ffcc00'
+        });
         return;
     }
 
@@ -216,29 +247,45 @@ document.getElementById('placeOrderBtn').onclick = async () => {
             })
         });
 
-        // 🔥 Telegram Notification (သင်တောင်းဆိုထားသော အချက်အလက်အပြည့်အစုံ)
+        // 🔥 Telegram Notification
         const msg = `📦 <b>New Order Received!</b>\n` +
-                    `--------------------------\n` +
+                    `━━━━━━━━━━━━━━━━━━\n` +
                     `👤 Customer: <b>${customerDisplayName}</b>\n` +
                     `📝 ပစ္စည်း: <b>${item}</b>\n` +
                     `⚖️ အလေးချိန်: <b>${weight} kg</b>\n` +
                     `💰 ပစ္စည်းတန်ဖိုး: <b>${itemValue} KS</b>\n` +
-                    `--------------------------\n` +
+                    `━━━━━━━━━━━━━━━━━━\n` +
                     `💵 <b>စုစုပေါင်းပို့ခ: ${feeInfo.total.toLocaleString()} KS</b>\n` +
                     `💳 Payment: <b>${orderData.paymentMethod}</b>\n` +
                     `📞 ဖုန်း: <b>${phone}</b>\n\n` +
                     `📍 ယူရန်: ${orderData.pickup.address}\n` +
                     `🏁 ပို့ရန်: ${orderData.dropoff.address}\n\n` +
-                    `🔗 <a href="https://boexaw-ship-it.github.io/gobike/html/track.html?id=${orderId}">Track Order</a>`;
+                    `✨ <a href="https://boexaw-ship-it.github.io/gobike/html/track.html?id=${orderId}"><b>📍 အော်ဒါခြေရာခံရန် နှိပ်ပါ</b></a>`;
 
         await notifyTelegram(msg);
 
-        alert("Order အောင်မြင်စွာ တင်ပြီးပါပြီ။");
-        window.location.href = `track.html?id=${orderId}`;
+        // ✅ အောင်မြင်ကြောင်း Popup ပြခြင်း
+        Swal.fire({
+            title: 'အော်ဒါတင်ပြီးပါပြီ!',
+            html: `<b>${item}</b> အတွက် ပို့ဆောင်ခ <b>${feeInfo.total.toLocaleString()} KS</b> ဖြစ်ပါတယ်။<br>Rider ဆက်သွယ်လာသည်အထိ ခေတ္တစောင့်ပေးပါဗျာ။`,
+            icon: 'success',
+            confirmButtonColor: '#ffcc00',
+            confirmButtonText: '📍 ခြေရာခံမည်',
+            background: '#1a1a1a',
+            color: '#fff'
+        }).then(() => {
+            window.location.href = `track.html?id=${orderId}`;
+        });
 
     } catch (e) {
         console.error("Order Submit Error:", e);
-        alert("Error: " + e.message);
+        Swal.fire({
+            icon: 'error',
+            title: 'အမှားအယွင်း',
+            text: e.message,
+            background: '#1a1a1a',
+            color: '#fff'
+        });
     }
 };
 
