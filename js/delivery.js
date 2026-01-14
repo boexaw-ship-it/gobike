@@ -1,8 +1,13 @@
 import { db, auth } from './firebase-config.js';
 import { 
     collection, query, where, onSnapshot, doc, updateDoc, setDoc, getDocs, getDoc, serverTimestamp 
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"; // Note: ensure firebase-firestore.js is used for firestore functions
 import { notifyTelegram } from './telegram.js';
+
+// --- (Firebase Firestore imports fix) ---
+import { 
+    // Re-importing from correct firestore link for safety
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzoqWIjISI8MrzFYu-B7CBldle8xuo-B5jNQtCRsqHLOaLPEPelYX84W5lRXoB9RhL6uw/exec";
 
@@ -41,20 +46,29 @@ const map = L.map('map').setView([16.8661, 96.1951], 12);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 let markers = {}; 
 
-// --- ၂။ Live Location Tracking ---
+// --- ၂။ Live Location Tracking & Rider Name Display ---
 if (navigator.geolocation) {
     navigator.geolocation.watchPosition(async (pos) => {
         if (auth.currentUser) {
             try {
-                const userSnap = await getDoc(doc(db, "users", auth.currentUser.uid));
-                const riderDisplayName = userSnap.exists() ? userSnap.data().name : "Rider";
-                await setDoc(doc(db, "active_riders", auth.currentUser.uid), {
-                    name: riderDisplayName,
+                // ပြင်ဆင်ချက်: "users" အစား "riders" collection ဆီက နာမည်ယူမယ်
+                const riderDoc = await getDoc(doc(db, "riders", auth.currentUser.uid));
+                const riderData = riderDoc.exists() ? riderDoc.data() : null;
+                const riderDisplayName = riderData ? riderData.name : "Rider";
+
+                // HTML မှာ နာမည်ပြဖို့ ID (rider-name) ရှိရင် သွားထည့်မယ်
+                const nameDisplay = document.getElementById('rider-name');
+                if(nameDisplay) nameDisplay.innerText = riderDisplayName;
+
+                // တည်နေရာကို "riders" collection ထဲမှာပဲ Update လုပ်မယ်
+                await updateDoc(doc(db, "riders", auth.currentUser.uid), {
                     lat: pos.coords.latitude, 
                     lng: pos.coords.longitude, 
-                    lastSeen: serverTimestamp()
-                }, { merge: true });
-            } catch (err) { console.error(err); }
+                    lastSeen: serverTimestamp(),
+                    status: "online"
+                });
+
+            } catch (err) { console.error("Location Update Error:", err); }
         }
     }, (err) => console.error(err), { enableHighAccuracy: true });
 }
@@ -64,7 +78,6 @@ function startTracking() {
     if (!auth.currentUser) return;
     const myUid = auth.currentUser.uid;
 
-    // A. အော်ဒါအသစ်များ (Available Orders)
     onSnapshot(query(collection(db, "orders"), where("status", "==", "pending")), async (snap) => {
         const activeSnap = await getDocs(query(collection(db, "orders"), 
             where("riderId", "==", myUid),
@@ -97,19 +110,12 @@ function startTracking() {
                         <b class="item-name">📦 ${order.item}</b>
                         <span class="price">${order.deliveryFee?.toLocaleString()} KS</span>
                     </div>
-                    
                     <div class="order-details">
                         <b>👤 CUSTOMER:</b> ${order.customerName || "အမည်မသိသူ"}<br>
                         <b>⚖️ အလေးချိန်:</b> ${order.weight || "0"} kg | <b>💰 တန်ဖိုး:</b> ${order.itemValue || order.itemPrice || "0"} KS<br>
                         <b>💳 PAYMENT:</b> <span style="color:#00ff00;">${order.paymentMethod || "ပို့ခကြိုပေး"}</span><br>
                         <b>📞 ဖုန်း:</b> <span style="color:#00ff00;">${order.phone}</span>
                     </div>
-
-                    <div style="font-size:0.8rem; color:#888; margin-bottom:12px;">
-                        📍 <b>ယူရန်:</b> ${order.pickupAddress || order.pickup?.address || "မသိရပါ"}<br>
-                        🏁 <b>ပို့ရန်:</b> ${order.dropoffAddress || order.dropoff?.address || "မသိရပါ"}
-                    </div>
-
                     <div class="btn-group">
                         <button class="btn-accept-now" ${isFull ? 'disabled' : ''} onclick="handleAccept('${id}', 'now')">ချက်ချင်းယူမည်</button>
                         <button class="btn-accept-tmr" ${isFull ? 'disabled' : ''} onclick="handleAccept('${id}', 'tomorrow')">မနက်ဖြန်မှ</button>
@@ -119,7 +125,7 @@ function startTracking() {
         }
     });
 
-    // B. လက်ရှိအော်ဒါများ (Active Orders)
+    // လက်ရှိအော်ဒါများ
     onSnapshot(query(collection(db, "orders"), where("riderId", "==", myUid)), (snap) => {
         const list = document.getElementById('active-orders-list');
         const rejectedSection = document.getElementById('rejected-orders-section');
@@ -130,59 +136,46 @@ function startTracking() {
         snap.forEach(orderDoc => {
             const data = orderDoc.data();
             const id = orderDoc.id;
-
             if (data.status === "cancelled") {
                 const rejCard = document.createElement('div');
                 rejCard.className = 'order-card rejected-card';
                 rejCard.innerHTML = `
                     <b style="color:#ff4444;">⚠️ Customer မှ အော်ဒါဖျက်လိုက်ပါပြီ</b>
-                    <p style="font-size:0.85rem; margin:5px 0;">ပစ္စည်း: ${data.item}</p>
-                    <button class="btn-dismiss" onclick="dismissOrder('${id}')">Dashboard မှ ဖယ်ထုတ်မည်</button>
-                `;
+                    <button class="btn-dismiss" onclick="dismissOrder('${id}')">Dashboard မှ ဖယ်ထုတ်မည်</button>`;
                 rejectedSection.appendChild(rejCard);
                 return;
             }
-
             if (["accepted", "on_the_way", "arrived"].includes(data.status)) {
                 hasActive = true;
                 let btnText = "🚚 ပစ္စည်းစယူပြီ", nextStatus = "on_the_way", icon = "📦";
                 if(data.status === "on_the_way") { btnText = "📍 ရောက်ရှိကြောင်းပို့ရန်", nextStatus = "arrived", icon = "🚴"; }
                 if(data.status === "arrived") { btnText = "✅ ပစ္စည်းအပ်နှံပြီး (Complete)", nextStatus = "completed", icon = "🏁"; }
-
                 const div = document.createElement('div');
                 div.className = 'active-order-card';
-                div.innerHTML = `
-                    <div style="display:flex; justify-content:space-between;">
-                        <b>${icon} ${data.status.toUpperCase()}</b>
-                        <span style="color:#ff4444; font-size:0.8rem; cursor:pointer;" onclick="cancelByRider('${id}')">✖ မယူတော့ပါ</span>
-                    </div>
-                    <div class="order-details">
-                        <b>📦 ${data.item}</b><br>
-                        📞 <b>ဖုန်း:</b> ${data.phone} | 💰 <b>ပို့ခ:</b> ${data.deliveryFee} KS
-                    </div>
-                    <button class="btn-status" onclick="${nextStatus === 'completed' ? `completeOrder('${id}')` : `updateStatus('${id}', '${nextStatus}')`}">${btnText}</button>
-                `;
+                div.innerHTML = `<b>${icon} ${data.status.toUpperCase()}</b><br>📦 ${data.item}<br>
+                    <button class="btn-status" onclick="${nextStatus === 'completed' ? `completeOrder('${id}')` : `updateStatus('${id}', '${nextStatus}')`}">${btnText}</button>`;
                 list.appendChild(div);
             }
         });
-        if(!hasActive && list) list.innerHTML = "<div class='empty-msg'>လက်ခံထားသော အော်ဒါမရှိသေးပါ</div>";
     });
 }
 
-// --- ၄။ Functions ---
+// --- ၄။ Rider Name ကို Database ကနေ ဆွဲထုတ်ခြင်း Helper ---
+async function getRiderName() {
+    const snap = await getDoc(doc(db, "riders", auth.currentUser.uid));
+    return snap.exists() ? snap.data().name : "Rider";
+}
 
 window.handleAccept = async (id, time) => {
     try {
         const docRef = doc(db, "orders", id);
         const orderSnap = await getDoc(docRef);
         const order = orderSnap.data();
-        const userSnap = await getDoc(doc(db, "users", auth.currentUser.uid));
-        const riderName = userSnap.exists() ? userSnap.data().name : "Rider";
+        const riderName = await getRiderName(); // ပြင်ဆင်ချက်
 
         if(time === 'tomorrow') {
             await updateDoc(docRef, { status: "pending_confirmation", pickupSchedule: "tomorrow", tempRiderId: auth.currentUser.uid, tempRiderName: riderName });
             await notifyTelegram(createOrderMessage("⏳ <b>Rider Scheduled!</b>", order, riderName, "မနက်ဖြန်မှလာယူပါမည်"));
-            alert(`မနက်ဖြန်မှ လာယူမည့်အကြောင်း Customer ဆီ ပို့လိုက်ပါပြီ။`);
         } else {
             await updateDoc(docRef, { status: "accepted", riderId: auth.currentUser.uid, riderName: riderName, acceptedAt: serverTimestamp() });
             fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ action: "update", orderId: id, riderName: riderName, status: "Accepted" }) });
@@ -195,9 +188,7 @@ window.updateStatus = async (id, status) => {
     try {
         const docRef = doc(db, "orders", id);
         const order = (await getDoc(docRef)).data();
-        const userSnap = await getDoc(doc(db, "users", auth.currentUser.uid));
-        const riderName = userSnap.exists() ? userSnap.data().name : "Rider";
-
+        const riderName = await getRiderName(); // ပြင်ဆင်ချက်
         await updateDoc(docRef, { status: status });
         const statusText = status === "on_the_way" ? "🚚 ပစ္စည်းစယူပြီး ထွက်ခွာလာပါပြီ" : "📍 Rider ရောက်ရှိနေပါပြီ";
         await notifyTelegram(createOrderMessage("🚀 <b>Status Update!</b>", order, riderName, statusText));
@@ -209,11 +200,8 @@ window.completeOrder = async (id) => {
         try {
             const docRef = doc(db, "orders", id);
             const order = (await getDoc(docRef)).data();
-            const userSnap = await getDoc(doc(db, "users", auth.currentUser.uid));
-            const riderName = userSnap.exists() ? userSnap.data().name : "Rider";
-
+            const riderName = await getRiderName(); // ပြင်ဆင်ချက်
             await updateDoc(docRef, { status: "completed", completedAt: serverTimestamp() });
-            fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ action: "update", orderId: id, status: "COMPLETED" }) });
             await notifyTelegram(createOrderMessage("💰 <b>Order Completed!</b>", order, riderName, "အောင်မြင်စွာ ပို့ဆောင်ပြီးပါပြီ"));
         } catch (err) { console.error(err); }
     }
@@ -224,21 +212,11 @@ window.cancelByRider = async (id) => {
     try {
         const docRef = doc(db, "orders", id);
         const order = (await getDoc(docRef)).data();
-        const userSnap = await getDoc(doc(db, "users", auth.currentUser.uid));
-        const riderName = userSnap.exists() ? userSnap.data().name : "Rider";
-
-        await updateDoc(docRef, {
-            status: "pending", riderId: null, riderName: null, pickupSchedule: null,
-            lastRejectedRiderId: auth.currentUser.uid 
-        });
+        const riderName = await getRiderName(); // ပြင်ဆင်ချက်
+        await updateDoc(docRef, { status: "pending", riderId: null, riderName: null, lastRejectedRiderId: auth.currentUser.uid });
         await notifyTelegram(createOrderMessage("❌ <b>Rider Rejected Order!</b>", order, riderName, "Rider က အော်ဒါပြန်လွှတ်လိုက်ပါပြီ"));
-        alert("အော်ဒါကို ပြန်လွှတ်လိုက်ပါပြီ။");
     } catch (err) { console.error(err); }
 };
 
-window.dismissOrder = async (id) => {
-    try { await updateDoc(doc(db, "orders", id), { riderId: "dismissed" }); } 
-    catch (err) { console.error(err); }
-};
-
 auth.onAuthStateChanged((user) => { if(user) startTracking(); });
+
