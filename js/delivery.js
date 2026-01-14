@@ -2,6 +2,7 @@ import { db, auth } from './firebase-config.js';
 import { 
     collection, query, where, onSnapshot, doc, updateDoc, setDoc, getDocs, getDoc, serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { notifyTelegram } from './telegram.js';
 
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzoqWIjISI8MrzFYu-B7CBldle8xuo-B5jNQtCRsqHLOaLPEPelYX84W5lRXoB9RhL6uw/exec";
@@ -17,7 +18,52 @@ soundBtn.onclick = () => {
     alarmSound.play().then(() => { soundBtn.style.display = 'none'; }).catch(e => console.log("Sound enabled"));
 };
 
-// --- Helper: Create Detailed Telegram Message ---
+// --- ၁။ Auth & Profile & Logout Logic ---
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        console.log("Rider Logged In:", user.uid);
+        await getRiderData(); // Profile နာမည်ဆွဲထုတ်ပြရန်
+        startTracking(); // အော်ဒါများ စောင့်ကြည့်ရန်
+    } else {
+        // အကောင့်မရှိရင် login page ကို ပြန်ပို့ (index.html သည် root မှာရှိ၍ ../ သုံးသည်)
+        window.location.href = "../index.html";
+    }
+});
+
+// Logout Function (HTML onclick ကနေ ခေါ်နိုင်ရန် window ထဲ ထည့်သည်)
+window.handleLogout = async () => {
+    if (confirm("Rider အကောင့်မှ ထွက်မှာ သေချာပါသလား?")) {
+        try {
+            await signOut(auth);
+        } catch (error) {
+            console.error("Logout Error:", error);
+            alert("Logout လုပ်၍ မရပါ။");
+        }
+    }
+};
+
+// Helper: Get Rider Data from 'riders' collection
+async function getRiderData() {
+    if (!auth.currentUser) return "Rider";
+    try {
+        const riderSnap = await getDoc(doc(db, "riders", auth.currentUser.uid));
+        const nameDisplay = document.getElementById('display-name');
+        
+        if (riderSnap.exists()) {
+            const data = riderSnap.data();
+            if (nameDisplay) nameDisplay.innerText = data.name;
+            return data.name;
+        } else {
+            if (nameDisplay) nameDisplay.innerText = "Rider (No Name)";
+            return "Rider";
+        }
+    } catch (err) {
+        console.error("Error fetching rider data:", err);
+        return "Rider";
+    }
+}
+
+// --- ၂။ Helper: Create Detailed Telegram Message ---
 const createOrderMessage = (title, order, riderName, statusText = "") => {
     let msg = `${title}\n`;
     if (statusText) msg += `📊 Status: <b>${statusText}</b>\n`;
@@ -36,32 +82,17 @@ const createOrderMessage = (title, order, riderName, statusText = "") => {
     return msg;
 };
 
-// --- ၁။ Map Init ---
+// --- ၃။ Map Init ---
 const map = L.map('map').setView([16.8661, 96.1951], 12); 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 let markers = {}; 
 
-// --- Helper: Get Rider Data (အသစ်ထည့်သွင်းထားသော Function) ---
-async function getRiderData() {
-    if (!auth.currentUser) return "Rider";
-    // users အစား riders collection ထဲမှာ ရှာပါမယ်
-    const riderSnap = await getDoc(doc(db, "riders", auth.currentUser.uid));
-    if (riderSnap.exists()) {
-        const data = riderSnap.data();
-        // HTML မှာ Rider Name ပြဖို့ (ID: rider-display-name)
-        const nameEl = document.getElementById('rider-display-name');
-        if (nameEl) nameEl.innerText = data.name;
-        return data.name;
-    }
-    return "Rider";
-}
-
-// --- ၂။ Live Location Tracking ---
+// --- ၄။ Live Location Tracking ---
 if (navigator.geolocation) {
     navigator.geolocation.watchPosition(async (pos) => {
         if (auth.currentUser) {
             try {
-                const riderName = await getRiderData(); // riders collection ထဲက နာမည်ယူခြင်း
+                const riderName = await getRiderName(); 
                 await setDoc(doc(db, "active_riders", auth.currentUser.uid), {
                     name: riderName,
                     lat: pos.coords.latitude, 
@@ -73,7 +104,7 @@ if (navigator.geolocation) {
     }, (err) => console.error(err), { enableHighAccuracy: true });
 }
 
-// --- ၃။ Order စောင့်ကြည့်ခြင်း (Core Logic) ---
+// --- ၅။ Order စောင့်ကြည့်ခြင်း (Core Logic) ---
 function startTracking() {
     if (!auth.currentUser) return;
     const myUid = auth.currentUser.uid;
@@ -178,14 +209,14 @@ function startTracking() {
     });
 }
 
-// --- ၄။ Functions ---
+// --- ၆။ Functions ---
 
 window.handleAccept = async (id, time) => {
     try {
         const docRef = doc(db, "orders", id);
         const orderSnap = await getDoc(docRef);
         const order = orderSnap.data();
-        const riderName = await getRiderName(); // ပြင်ဆင်ထားသော Function သုံးခြင်း
+        const riderName = await getRiderName();
 
         if(time === 'tomorrow') {
             await updateDoc(docRef, { status: "pending_confirmation", pickupSchedule: "tomorrow", tempRiderId: auth.currentUser.uid, tempRiderName: riderName });
@@ -241,8 +272,8 @@ window.cancelByRider = async (id) => {
     } catch (err) { console.error(err); }
 };
 
-// --- Helper: Rider နာမည်ကို Riders Collection ထဲကပဲ ယူဖို့ သီးသန့် Function ---
 async function getRiderName() {
+    if (!auth.currentUser) return "Rider";
     const snap = await getDoc(doc(db, "riders", auth.currentUser.uid));
     return snap.exists() ? snap.data().name : "Rider";
 }
@@ -252,4 +283,3 @@ window.dismissOrder = async (id) => {
     catch (err) { console.error(err); }
 };
 
-auth.onAuthStateChanged((user) => { if(user) { getRiderData(); startTracking(); } });
