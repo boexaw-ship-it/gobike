@@ -17,28 +17,36 @@ onAuthStateChanged(auth, (user) => {
         // Login ဝင်ထားလျှင် နာမည်ပြမည်
         if (nameDisplay) nameDisplay.innerText = user.displayName || "User";
         if (roleDisplay) roleDisplay.innerText = "Customer Account";
-        displayMyOrders(); // အော်ဒါမှတ်တမ်းပြရန်
+        displayMyOrders(); 
     } else {
         // Login မဝင်ထားလျှင် Login Page (index.html) သို့ ပြန်ပို့မည်
-        // html/ folder ထဲမှာ ရှိနေသဖြင့် ../index.html ကို သုံးရပါသည်
         window.location.href = "../index.html";
     }
 });
 
-// Logout Function
+/**
+ * Logout Function
+ * window.handleLogout ထဲထည့်ပေးမှ HTML onclick က သိမှာဖြစ်ပါတယ်
+ */
 window.handleLogout = async () => {
     if (confirm("အကောင့်မှ ထွက်မှာ သေချာပါသလား?")) {
         try {
             await signOut(auth);
-            // signOut ပြီးလျှင် onAuthStateChanged မှ အလိုအလျောက် redirect လုပ်သွားပါမည်
+            // signOut ပြီးရင် onAuthStateChanged က redirection လုပ်ပေးပါလိမ့်မယ်
         } catch (error) {
             console.error("Logout Error:", error);
+            alert("Logout လုပ်၍ မရပါ။");
         }
     }
 };
 
-// Logout Button Event Listener
-document.getElementById('logoutBtn')?.addEventListener('click', handleLogout);
+// Event Listener ပုံစံဖြင့်လည်း Logout ကို ချိတ်ထားပေးပါတယ်
+document.addEventListener('DOMContentLoaded', () => {
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.onclick = window.handleLogout;
+    }
+});
 
 // --- ၂။ Map Setup ---
 const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 12); 
@@ -144,13 +152,13 @@ function displayMyOrders() {
     }
 
     listDiv.innerHTML = orders.map(order => `
-        <div class="order-card" onclick="window.location.href='track.html?id=${order.id}'">
+        <div class="order-card" onclick="window.location.href='track.html?id=${order.id}'" style="cursor: pointer;">
             <div class="order-info">
                 <b>📦 ${order.item}</b>
                 <span>${order.time}</span>
             </div>
             <div style="display: flex; align-items: center; gap: 15px;">
-                <div class="track-icon">📍</div>
+                <div class="track-icon" style="color:#ffcc00;">📍</div>
                 <div onclick="deleteLocalOrder('${order.id}', event)" style="color: #ff4444; font-size: 1.1rem; padding: 5px;">🗑️</div>
             </div>
         </div>
