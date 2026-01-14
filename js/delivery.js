@@ -1,6 +1,6 @@
 import { db, auth } from './firebase-config.js';
 import { 
-    collection, query, where, onSnapshot, doc, updateDoc, setDoc, getDocs, getDoc, serverTimestamp 
+    collection, query, where, onSnapshot, doc, updateDoc, setDoc, getDocs, getDoc, deleteDoc, serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { notifyTelegram } from './telegram.js';
 
@@ -20,16 +20,34 @@ soundBtn.onclick = () => {
     });
 };
 
+// --- Helper: Create Detailed Telegram Message ---
+const createOrderMessage = (title, order, riderName, statusText = "") => {
+    let msg = `${title}\n`;
+    if (statusText) msg += `📊 Status: <b>${statusText}</b>\n`;
+    msg += `--------------------------\n` +
+           `📝 ပစ္စည်း: <b>${order.item}</b>\n` +
+           `⚖️ အလေးချိန်: <b>${order.weight || "-"}</b>\n` +
+           `💰 ပစ္စည်းတန်ဖိုး: <b>${order.itemValue || "-"}</b>\n` +
+           `💵 ပို့ခ: <b>${order.deliveryFee?.toLocaleString()} KS</b>\n` +
+           `💳 Payment: <b>${order.paymentMethod || "-"}</b>\n` +
+           `📞 ဖုန်း: <b>${order.phone}</b>\n` +
+           `👤 Customer: <b>${order.customerName || "အမည်မသိသူ"}</b>\n` +
+           `--------------------------\n` +
+           `🚴 Rider: <b>${riderName}</b>\n` +
+           `📍 ယူရန်: ${order.pickup?.address || "မသိရပါ"}\n` +
+           `🏁 ပို့ရန်: ${order.dropoff?.address || "မသိရပါ"}`;
+    return msg;
+};
+
 // --- ၁။ Map Init ---
 const map = L.map('map').setView([16.8661, 96.1951], 12); 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 let markers = {}; 
 
-// --- ၂။ Live Location & Update Profile Name ---
+// --- ၂။ Live Location ---
 if (navigator.geolocation) {
     navigator.geolocation.watchPosition(async (pos) => {
         if (auth.currentUser) {
-            // Firestore users collection ထဲက Rider နာမည်ရင်းကို ယူခြင်း
             const userSnap = await getDoc(doc(db, "users", auth.currentUser.uid));
             const riderDisplayName = userSnap.exists() ? userSnap.data().name : "Rider";
 
@@ -48,8 +66,6 @@ function startTracking() {
     if (!auth.currentUser) return;
 
     onSnapshot(query(collection(db, "orders"), where("status", "==", "pending")), async (snap) => {
-        
-        // --- Alarm on New Order ---
         snap.docChanges().forEach((change) => {
             if (change.type === "added") {
                 alarmSound.play().catch(e => console.log("Sound error:", e));
@@ -62,12 +78,14 @@ function startTracking() {
         
         const count = activeSnap.size;
         const isFull = count >= 7;
-        const limitInfo = document.getElementById('rider-limit-info');
-        if(limitInfo) limitInfo.innerHTML = `လက်ရှိအော်ဒါ: <b>${count} / 7</b> ${isFull ? '<span style="color:red">(Full)</span>' : ''}`;
+
+        const activeCountEl = document.getElementById('active-count');
+        if(activeCountEl) activeCountEl.innerText = `${count} / 7`;
+        if(isFull && activeCountEl) activeCountEl.style.color = "red";
 
         const container = document.getElementById('available-orders');
         if(container) {
-            container.innerHTML = snap.empty ? "<p style='text-align:center; color:#888;'>အော်ဒါမရှိသေးပါ</p>" : "";
+            container.innerHTML = snap.empty ? "<div class='empty-msg'>အော်ဒါသစ်မရှိသေးပါ</div>" : "";
             Object.values(markers).forEach(m => map.removeLayer(m));
             markers = {};
 
@@ -82,78 +100,116 @@ function startTracking() {
 
                 const card = document.createElement('div');
                 card.className = 'order-card';
-                const btnStyle = isFull ? "background:#666; opacity:0.5; cursor:not-allowed;" : "";
-                
-                // Rider View Card - ရှင်းလင်းအောင် ပြင်ဆင်ထားသည်
+                const btnDisabled = isFull ? "disabled" : "";
+                const btnOpacity = isFull ? "opacity:0.5; cursor:not-allowed;" : "";
+
                 card.innerHTML = `
-                    <div style="font-size:0.8rem; color:#ffcc00; font-weight:bold;">ORDER #${id.slice(-5)}</div>
-                    <b style="font-size:1.2rem; display:block; margin:5px 0;">📦 ${order.item}</b>
-                    <div style="color:#00ff00; font-size:1.1rem; font-weight:bold; margin-bottom:8px;">💰 ပို့ခ: ${order.deliveryFee?.toLocaleString()} KS</div>
-                    
-                    <div style="font-size:0.85rem; background:#222; padding:10px; border-radius:8px; border-left:4px solid #ffcc00; margin-bottom:10px;">
-                        📍 <b>ယူရန်:</b> ${order.pickup?.address} <br> 
-                        🏁 <b>ပို့ရန်:</b> ${order.dropoff?.address}
+                    <div class="item-info">
+                        <b>📦 ${order.item}</b>
+                        <span class="price">${order.deliveryFee?.toLocaleString()} KS</span>
                     </div>
-
-                    <div style="font-size:0.8rem; background:#333; padding:10px; border-radius:8px; margin-bottom:12px; line-height:1.6;">
-                        👤 Customer: <b>${order.customerName || "အမည်မသိသူ"}</b><br>
-                        📞 ဖုန်း: <b style="color:#00ff00;">${order.phone}</b><br>
-                        ⚖️ အလေးချိန်: <b>${order.weight || "-"}</b> | 💎 တန်ဖိုး: <b>${order.itemValue || "-"}</b><br>
-                        💳 Payment: <b>${order.paymentMethod || "-"}</b>
+                    <div style="font-size:0.8rem; color:#aaa; margin-bottom:10px;">
+                        📍 ${order.pickup?.address.slice(0,35)}...
                     </div>
-
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                        <button class="btn-accept" ${isFull ? 'disabled' : ''} style="${btnStyle}" onclick="handleAccept('${id}', 'now')">ချက်ချင်းယူမည်</button>
-                        <button class="btn-accept" ${isFull ? 'disabled' : ''} style="background:#444; color:white; ${btnStyle}" onclick="handleAccept('${id}', 'tomorrow')">မနက်ဖြန်မှ</button>
+                    <div class="btn-group">
+                        <button class="btn-accept-now" ${btnDisabled} style="${btnOpacity}" onclick="handleAccept('${id}', 'now')">ချက်ချင်းယူမည်</button>
+                        <button class="btn-accept-tmr" ${btnDisabled} style="${btnOpacity}" onclick="handleAccept('${id}', 'tomorrow')">မနက်ဖြန်မှ</button>
                     </div>`;
                 container.appendChild(card);
             });
         }
     });
 
-    // လက်ခံထားသော Active Orders စာရင်း
-    onSnapshot(query(collection(db, "orders"), where("riderId", "==", auth.currentUser.uid), where("status", "in", ["accepted", "on_the_way", "arrived"])), (snap) => {
-        const list = document.getElementById('active-orders-list');
-        if(!list) return;
-        list.innerHTML = snap.empty ? "<p style='padding:10px; color:#888;'>လက်ခံထားသော အော်ဒါမရှိပါ။</p>" : "";
+    onSnapshot(query(collection(db, "orders"), where("riderId", "==", auth.currentUser.uid)), (snap) => {
+        const activeList = document.getElementById('active-orders-list');
+        const rejectedSection = document.getElementById('rejected-orders-section');
         
+        if(activeList) activeList.innerHTML = "";
+        if(rejectedSection) rejectedSection.innerHTML = "";
+        let hasActive = false;
+
         snap.forEach(orderDoc => {
             const data = orderDoc.data();
             const id = orderDoc.id;
-            let btnText = "🚚 ပစ္စည်းစယူပြီ", nextStatus = "on_the_way", icon = "📦";
 
-            if(data.status === "on_the_way") { btnText = "📍 ရောက်ရှိကြောင်းပို့ရန်", nextStatus = "arrived", icon = "🚴"; }
-            if(data.status === "arrived") { btnText = "✅ ပစ္စည်းအပ်နှံပြီး (Complete)", nextStatus = "completed", icon = "🏁"; }
+            if (data.status === "cancelled") {
+                const rejCard = document.createElement('div');
+                rejCard.className = 'order-card rejected-card';
+                rejCard.innerHTML = `
+                    <span class="rejected-label">CANCELLED</span>
+                    <b style="color:#ff4444;">⚠️ Customer မှ အော်ဒါဖျက်လိုက်ပါပြီ</b>
+                    <p style="font-size:0.85rem; margin:5px 0;">ပစ္စည်း: ${data.item}</p>
+                    <button class="btn-dismiss" onclick="dismissOrder('${id}')">Dashboard မှ ဖယ်ထုတ်မည်</button>
+                `;
+                rejectedSection.appendChild(rejCard);
+                return;
+            }
 
-            const div = document.createElement('div');
-            div.className = 'active-order-card';
-            div.innerHTML = `
-                <div style="border-bottom:1px solid #444; padding-bottom:5px; margin-bottom:5px;">
-                    <b>${icon} ${data.status.toUpperCase()}</b>
-                </div>
-                <p style="font-size:0.95rem; margin:8px 0;">📦 <b>${data.item}</b></p>
-                <div style="font-size:0.85rem; color:#aaa; margin-bottom:5px;">
-                    👤 <b>${data.customerName || "Customer"}</b> | 📞 <b style="color:#00ff00;">${data.phone}</b>
-                </div>
-                <p style="font-size:0.8rem; color:#ccc;">🏁 ${data.dropoff?.address}</p>
-                <button class="btn-status" style="width:100%; margin-top:10px; padding:12px;" onclick="${nextStatus === 'completed' ? `completeOrder('${id}')` : `updateStatus('${id}', '${nextStatus}')`}">${btnText}</button>
-            `;
-            list.appendChild(div);
+            if (["accepted", "on_the_way", "arrived"].includes(data.status)) {
+                hasActive = true;
+                let btnText = "🚚 ပစ္စည်းစယူပြီ", nextStatus = "on_the_way", icon = "📦";
+
+                if(data.status === "on_the_way") { btnText = "📍 ရောက်ရှိကြောင်းပို့ရန်", nextStatus = "arrived", icon = "🚴"; }
+                if(data.status === "arrived") { btnText = "✅ ပစ္စည်းအပ်နှံပြီး (Complete)", nextStatus = "completed", icon = "🏁"; }
+
+                const div = document.createElement('div');
+                div.className = 'active-order-card';
+                div.innerHTML = `
+                    <div style="display:flex; justify-content:space-between;">
+                        <b>${icon} ${data.status.toUpperCase()}</b>
+                        <span style="color:#ffcc00; font-size:0.8rem; cursor:pointer;" onclick="cancelByRider('${id}')">✖ မယူတော့ပါ</span>
+                    </div>
+                    <p style="margin:10px 0;"><b>${data.item}</b></p>
+                    <div style="font-size:0.85rem; color:#aaa; margin-bottom:10px;">
+                        📞 ${data.phone} | 👤 ${data.customerName || "Customer"}
+                    </div>
+                    <button class="btn-status" onclick="${nextStatus === 'completed' ? `completeOrder('${id}')` : `updateStatus('${id}', '${nextStatus}')`}">${btnText}</button>
+                `;
+                activeList.appendChild(div);
+            }
         });
+        if(!hasActive && activeList) activeList.innerHTML = "<div class='empty-msg'>လက်ခံထားသော အော်ဒါမရှိသေးပါ</div>";
     });
 }
 
-// --- ၄။ Functions (Handle Accept & Telegram) ---
+// --- ၄။ Functions ---
+
+window.cancelByRider = async (id) => {
+    if(!confirm("ဤအော်ဒါကို မယူတော့ဘဲ ပြန်လွှတ်မည်မှာ သေချာပါသလား?")) return;
+    try {
+        const docRef = doc(db, "orders", id);
+        const snap = await getDoc(docRef);
+        const order = snap.data();
+        const userSnap = await getDoc(doc(db, "users", auth.currentUser.uid));
+        const riderName = userSnap.exists() ? userSnap.data().name : "Rider";
+
+        await updateDoc(docRef, {
+            status: "pending",
+            riderId: null,
+            riderName: null,
+            acceptedAt: null,
+            pickupSchedule: null
+        });
+
+        const msg = createOrderMessage("❌ <b>Rider Rejected Order!</b>", order, riderName, "အော်ဒါပြန်လွှတ်လိုက်ပါပြီ (Reject)");
+        await notifyTelegram(msg);
+        alert("အော်ဒါကို ပြန်လွှတ်လိုက်ပါပြီ။");
+    } catch (err) { console.error(err); }
+};
+
+window.dismissOrder = async (id) => {
+    try {
+        await updateDoc(doc(db, "orders", id), { riderId: "dismissed" }); 
+    } catch (err) { console.error(err); }
+};
 
 window.handleAccept = async (id, time) => {
     try {
         const docRef = doc(db, "orders", id);
         const snap = await getDoc(docRef);
         const order = snap.data();
-
-        // Firestore ထဲက Rider Name အမှန်ကို ယူခြင်း
         const userSnap = await getDoc(doc(db, "users", auth.currentUser.uid));
-        const riderDisplayName = userSnap.exists() ? userSnap.data().name : (auth.currentUser.displayName || "Rider");
+        const riderDisplayName = userSnap.exists() ? userSnap.data().name : "Rider";
 
         if(time === 'tomorrow') {
             await updateDoc(docRef, { 
@@ -162,6 +218,8 @@ window.handleAccept = async (id, time) => {
                 tempRiderId: auth.currentUser.uid, 
                 tempRiderName: riderDisplayName 
             });
+            const msg = createOrderMessage("⏳ <b>Rider Scheduled!</b>", order, riderDisplayName, "မနက်ဖြန်မှလာယူပါမည်");
+            await notifyTelegram(msg);
             alert(`မနက်ဖြန်မှ လာယူမည့်အကြောင်း Customer ဆီ ပို့လိုက်ပါပြီ။`);
         } else {
             await updateDoc(docRef, { 
@@ -172,28 +230,12 @@ window.handleAccept = async (id, time) => {
                 acceptedAt: serverTimestamp() 
             });
 
-            // Google Sheets Update
             fetch(SCRIPT_URL, {
                 method: "POST", mode: "no-cors",
-                body: JSON.stringify({
-                    action: "update", orderId: id,
-                    riderName: riderDisplayName, status: "Accepted"
-                })
+                body: JSON.stringify({ action: "update", orderId: id, riderName: riderDisplayName, status: "Accepted" })
             });
 
-            // Telegram Notification (အချက်အလက်အစုံအလင်)
-            const msg = `✅ <b>Order Accepted!</b>\n` +
-                        `--------------------------\n` +
-                        `📝 ပစ္စည်း: <b>${order.item}</b>\n` +
-                        `⚖️ အလေးချိန်: <b>${order.weight || "-"}</b>\n` +
-                        `💰 ပစ္စည်းတန်ဖိုး: <b>${order.itemValue || "-"}</b>\n` +
-                        `💵 ပို့ခ: <b>${order.deliveryFee?.toLocaleString()} KS</b>\n` +
-                        `💳 Payment: <b>${order.paymentMethod || "-"}</b>\n` +
-                        `📞 ဖုန်း: <b>${order.phone}</b>\n` +
-                        `👤 Customer: <b>${order.customerName || "အမည်မသိသူ"}</b>\n` +
-                        `--------------------------\n` +
-                        `🚴 Rider: <b>${riderDisplayName}</b>\n` +
-                        `📍 ယူရန်: ${order.pickup?.address}`;
+            const msg = createOrderMessage("✅ <b>Order Accepted!</b>", order, riderDisplayName, "Rider လက်ခံလိုက်ပါပြီ");
             await notifyTelegram(msg);
         }
     } catch (err) { console.error("Accept Error:", err); }
@@ -202,18 +244,15 @@ window.handleAccept = async (id, time) => {
 window.updateStatus = async (id, status) => {
     try {
         const docRef = doc(db, "orders", id);
+        const snap = await getDoc(docRef);
+        const order = snap.data();
         const userSnap = await getDoc(doc(db, "users", auth.currentUser.uid));
         const riderName = userSnap.exists() ? userSnap.data().name : "Rider";
 
         await updateDoc(docRef, { status: status });
 
-        fetch(SCRIPT_URL, {
-            method: "POST", mode: "no-cors",
-            body: JSON.stringify({ action: "update", orderId: id, status: status.toUpperCase() })
-        });
-
         const statusText = status === "on_the_way" ? "🚚 ပစ္စည်းစယူပြီး ထွက်ခွာလာပါပြီ" : "📍 Rider ရောက်ရှိနေပါပြီ";
-        const msg = `🚀 <b>Status Update!</b>\n--------------------------\n📊: ${statusText}\n🚴 Rider: <b>${riderName}</b>`;
+        const msg = createOrderMessage("🚀 <b>Status Update!</b>", order, riderName, statusText);
         await notifyTelegram(msg);
     } catch (err) { console.error(err); }
 };
@@ -222,6 +261,8 @@ window.completeOrder = async (id) => {
     if(confirm("ပို့ဆောင်မှုပြီးမြောက်ပြီလား?")) {
         try {
             const docRef = doc(db, "orders", id);
+            const snap = await getDoc(docRef);
+            const order = snap.data();
             const userSnap = await getDoc(doc(db, "users", auth.currentUser.uid));
             const riderName = userSnap.exists() ? userSnap.data().name : "Rider";
 
@@ -232,7 +273,7 @@ window.completeOrder = async (id) => {
                 body: JSON.stringify({ action: "update", orderId: id, status: "COMPLETED" })
             });
 
-            const msg = `💰 <b>Order Completed!</b>\n--------------------------\n🚴 Rider: <b>${riderName}</b>\n🏁 အောင်မြင်စွာ ပို့ဆောင်ပြီးပါပြီ။`;
+            const msg = createOrderMessage("💰 <b>Order Completed!</b>", order, riderName, "အောင်မြင်စွာ ပို့ဆောင်ပြီးပါပြီ");
             await notifyTelegram(msg);
         } catch (err) { console.error(err); }
     }
