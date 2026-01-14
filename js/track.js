@@ -7,7 +7,6 @@ const params = new URLSearchParams(window.location.search);
 const orderId = params.get('id');
 
 // --- ၁။ Map Setup ---
-// မြေပုံကို ချက်ချင်း Load ဖြစ်အောင် ထားပါမယ်
 const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
@@ -30,12 +29,14 @@ if (orderId) {
         
         const data = docSnap.data();
 
-        // (က) Rider က Reject လုပ်လိုက်လို့ သို့မဟုတ် Customer ကိုယ်တိုင် ငြင်းလိုက်လို့ Pending ပြန်ဖြစ်သွားရင်
-        if (data.status === "pending") {
+        // (က) Status Check & Rider Marker Cleanup
+        if (data.status === "pending" || data.status === "cancelled") {
             const detRider = document.getElementById('det-rider');
-            if (detRider) detRider.innerHTML = "<span style='color:#ffcc00; font-weight:bold;'>Rider အသစ် ထပ်မံရှာဖွေနေပါသည်...</span>";
-            
-            // မြေပုံပေါ်က Rider ကို ဖယ်ထုတ်မယ်
+            if (detRider) {
+                detRider.innerHTML = data.status === "cancelled" ? 
+                    "<span style='color:red;'>အော်ဒါဖျက်သိမ်းပြီးပါပြီ</span>" : 
+                    "<span style='color:#ffcc00; font-weight:bold;'>Rider အသစ် ထပ်မံရှာဖွေနေပါသည်...</span>";
+            }
             if (riderMarker) { map.removeLayer(riderMarker); riderMarker = null; }
             if (riderUnsubscribe) { riderUnsubscribe(); riderUnsubscribe = null; }
         }
@@ -47,7 +48,6 @@ if (orderId) {
         steps.forEach((step, idx) => {
             const el = document.getElementById(`step-${idx + 1}`);
             if (el) {
-                // Completed ဆိုရင် အကုန်လုံးကို အစိမ်းရောင်ပြမယ်
                 if (data.status === "completed" || currentStatusIdx >= idx) {
                     el.classList.add('active');
                 } else {
@@ -56,15 +56,16 @@ if (orderId) {
             }
         });
 
-        // (ဂ) Status Badge & Details
-        let statusText = data.status ? data.status.replace("_", " ").toUpperCase() : "LOADING...";
-        const statusBadge = document.getElementById('status-badge');
-        if (statusBadge) statusBadge.innerText = statusText;
+        // (ဂ) Details Display (Rider ဆီရောက်မဲ့ အချက်အလက်များပါ စစ်ဆေးရန်)
+        if (document.getElementById('status-badge')) {
+            document.getElementById('status-badge').innerText = (data.status || "LOADING").replace("_", " ").toUpperCase();
+        }
 
-        const detItem = document.getElementById('det-item');
-        const detFee = document.getElementById('det-fee');
-        if (detItem) detItem.innerText = data.item || "-";
-        if (detFee) detFee.innerText = data.deliveryFee ? data.deliveryFee.toLocaleString() : "0";
+        // ဤနေရာတွင် Rider မြင်ရမည့် Order Details များကို UI မှာ ပြသခြင်း
+        if (document.getElementById('det-item')) document.getElementById('det-item').innerText = data.item || "-";
+        if (document.getElementById('det-fee')) {
+            document.getElementById('det-fee').innerText = data.deliveryFee ? data.deliveryFee.toLocaleString() + " KS" : "0 KS";
+        }
 
         // (ဃ) Rider Information Display
         let riderDisplay = data.riderName || 'ရှာဖွေနေဆဲ...';
@@ -76,7 +77,7 @@ if (orderId) {
         const detRider = document.getElementById('det-rider');
         if (detRider) detRider.innerText = riderDisplay;
 
-        // (င) Confirmation UI (မနက်ဖြန်/ယနေ့ ခလုတ်များ)
+        // (င) Confirmation UI Logic
         const confirmBox = document.getElementById('confirmation-ui');
         if (confirmBox) {
             confirmBox.style.display = (data.status === "pending_confirmation") ? "block" : "none";
@@ -87,9 +88,8 @@ if (orderId) {
             }
         }
 
-        // --- ၃။ Live Rider Tracking (Rider တည်နေရာပြခြင်း) ---
+        // --- ၃။ Live Rider Tracking ---
         if (data.riderId && ["accepted", "on_the_way", "arrived"].includes(data.status)) {
-            // အဟောင်းရှိရင် ရှင်းထုတ်ပြီး အသစ်ပြန်နားထောင်မယ်
             if (riderUnsubscribe) riderUnsubscribe();
 
             riderUnsubscribe = onSnapshot(doc(db, "active_riders", data.riderId), (riderLocSnap) => {
@@ -102,12 +102,12 @@ if (orderId) {
                     } else {
                         riderMarker.setLatLng(pos);
                     }
-                    map.setView(pos, 15); // Rider ဆီကို မြေပုံ ညွှန်ပြမယ်
+                    map.setView(pos, 15);
                 }
             }, (err) => console.error("Tracking Error:", err));
         }
 
-        // (စ) ပို့ဆောင်မှု ပြီးဆုံးသွားလျှင်
+        // (စ) Completion Logic
         if (data.status === "completed") {
             setTimeout(() => {
                 alert("လူကြီးမင်း၏ ပါဆယ်ပို့ဆောင်မှု အောင်မြင်ပြီးဆုံးပါပြီ။");
@@ -121,7 +121,7 @@ if (orderId) {
 
 // --- ၄။ Functions ---
 
-// Rider ကို လက်ခံခြင်း/ငြင်းပယ်ခြင်း
+// Customer က Rider ကို လက်ခံလိုက်တဲ့အခါ Data တွေ Rider ဆီ သေချာရောက်အောင် Update လုပ်ခြင်း
 window.respondRider = async (isAccepted) => {
     try {
         const orderRef = doc(db, "orders", orderId);
@@ -129,6 +129,7 @@ window.respondRider = async (isAccepted) => {
         const d = snap.data();
 
         if (isAccepted) {
+            // Rider ဆီသို့ Details အပြည့်အစုံ ရောက်ရှိစေရန် riderId နှင့် riderName ကို သေချာသွင်းပါ
             await updateDoc(orderRef, { 
                 status: "accepted", 
                 riderId: d.tempRiderId, 
@@ -136,9 +137,8 @@ window.respondRider = async (isAccepted) => {
                 pickupSchedule: d.pickupSchedule, 
                 acceptedAt: serverTimestamp()
             });
-            alert("Rider ကို အတည်ပြုလိုက်ပါပြီ။");
+            alert("Rider ကို အတည်ပြုလိုက်ပါပြီ။ Rider Dashboard တွင် Order Details များ ပေါ်လာပါလိမ့်မည်။");
         } else {
-            // Customer က ငြင်းလိုက်ရင် Rider အသစ်ပြန်ရှာမယ်
             await updateDoc(orderRef, { 
                 status: "pending", 
                 riderId: null, 
@@ -149,10 +149,9 @@ window.respondRider = async (isAccepted) => {
             });
             alert("Rider ကို ငြင်းပယ်လိုက်ပါပြီ။");
         }
-    } catch (error) { console.error(error); }
+    } catch (error) { console.error("Respond Error:", error); }
 };
 
-// Customer ကိုယ်တိုင် Cancel လုပ်ခြင်း
 window.cancelOrder = async () => {
     if (confirm("အော်ဒါကို ဖျက်သိမ်းမှာ သေချာပါသလား?")) {
         try {
