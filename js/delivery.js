@@ -1,13 +1,9 @@
 import { db, auth } from './firebase-config.js';
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { 
-    collection, query, where, onSnapshot, doc, updateDoc, setDoc, getDocs, getDoc, serverTimestamp 
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"; // Note: ensure firebase-firestore.js is used for firestore functions
-import { notifyTelegram } from './telegram.js';
-
-// --- (Firebase Firestore imports fix) ---
-import { 
-    // Re-importing from correct firestore link for safety
+    collection, query, where, onSnapshot, doc, updateDoc, getDocs, getDoc, serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { notifyTelegram } from './telegram.js';
 
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzoqWIjISI8MrzFYu-B7CBldle8xuo-B5jNQtCRsqHLOaLPEPelYX84W5lRXoB9RhL6uw/exec";
 
@@ -22,7 +18,7 @@ soundBtn.onclick = () => {
     alarmSound.play().then(() => { soundBtn.style.display = 'none'; }).catch(e => console.log("Sound enabled"));
 };
 
-// --- Helper: Create Detailed Telegram Message ---
+// --- Helper: Create Detailed Telegram Message (ပြန်ထည့်ပေးထားပါတယ်) ---
 const createOrderMessage = (title, order, riderName, statusText = "") => {
     let msg = `${title}\n`;
     if (statusText) msg += `📊 Status: <b>${statusText}</b>\n`;
@@ -42,40 +38,40 @@ const createOrderMessage = (title, order, riderName, statusText = "") => {
 };
 
 // --- ၁။ Map Init ---
-const map = L.map('map').setView([16.8661, 96.1951], 12); 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+let map;
+if (document.getElementById('map')) {
+    map = L.map('map').setView([16.8661, 96.1951], 12); 
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+}
 let markers = {}; 
 
-// --- ၂။ Live Location Tracking & Rider Name Display ---
-if (navigator.geolocation) {
-    navigator.geolocation.watchPosition(async (pos) => {
-        if (auth.currentUser) {
+// --- ၂။ Live Location Tracking & Profile Display ---
+async function trackRiderLocation(user) {
+    if (navigator.geolocation) {
+        navigator.geolocation.watchPosition(async (pos) => {
             try {
-                // ပြင်ဆင်ချက်: "users" အစား "riders" collection ဆီက နာမည်ယူမယ်
-                const riderDoc = await getDoc(doc(db, "riders", auth.currentUser.uid));
-                const riderData = riderDoc.exists() ? riderDoc.data() : null;
-                const riderDisplayName = riderData ? riderData.name : "Rider";
+                const riderRef = doc(db, "riders", user.uid);
+                const riderSnap = await getDoc(riderRef);
+                
+                if (riderSnap.exists()) {
+                    const data = riderSnap.data();
+                    if(document.getElementById('rider-name')) document.getElementById('rider-name').innerText = data.name;
+                    if(document.getElementById('rider-rating')) document.getElementById('rider-rating').innerText = `⭐ ${data.rating?.toFixed(1) || "5.0"}`;
+                }
 
-                // HTML မှာ နာမည်ပြဖို့ ID (rider-name) ရှိရင် သွားထည့်မယ်
-                const nameDisplay = document.getElementById('rider-name');
-                if(nameDisplay) nameDisplay.innerText = riderDisplayName;
-
-                // တည်နေရာကို "riders" collection ထဲမှာပဲ Update လုပ်မယ်
-                await updateDoc(doc(db, "riders", auth.currentUser.uid), {
+                await updateDoc(riderRef, {
                     lat: pos.coords.latitude, 
                     lng: pos.coords.longitude, 
                     lastSeen: serverTimestamp(),
                     status: "online"
                 });
-
-            } catch (err) { console.error("Location Update Error:", err); }
-        }
-    }, (err) => console.error(err), { enableHighAccuracy: true });
+            } catch (err) { console.error(err); }
+        }, (err) => console.error(err), { enableHighAccuracy: true });
+    }
 }
 
-// --- ၃။ Order စောင့်ကြည့်ခြင်း (Core Logic) ---
+// --- ၃။ Order စောင့်ကြည့်ခြင်း ---
 function startTracking() {
-    if (!auth.currentUser) return;
     const myUid = auth.currentUser.uid;
 
     onSnapshot(query(collection(db, "orders"), where("status", "==", "pending")), async (snap) => {
@@ -84,11 +80,7 @@ function startTracking() {
             where("status", "in", ["accepted", "on_the_way", "arrived"])));
         
         const isFull = activeSnap.size >= 7;
-        const activeCountEl = document.getElementById('active-count');
-        if(activeCountEl) {
-            activeCountEl.innerText = `${activeSnap.size} / 7`;
-            activeCountEl.style.color = isFull ? "red" : "var(--primary)";
-        }
+        if(document.getElementById('active-count')) document.getElementById('active-count').innerText = `${activeSnap.size} / 7`;
 
         const container = document.getElementById('available-orders');
         if(container) {
@@ -101,20 +93,18 @@ function startTracking() {
                 const id = orderDoc.id;
                 if (order.lastRejectedRiderId === myUid) return; 
 
-                if(order.pickup) { markers[id] = L.marker([order.pickup.lat, order.pickup.lng]).addTo(map).bindPopup(order.item); }
+                if(order.pickup && map) { 
+                    markers[id] = L.marker([order.pickup.lat, order.pickup.lng]).addTo(map).bindPopup(order.item); 
+                }
 
                 const card = document.createElement('div');
                 card.className = 'order-card';
                 card.innerHTML = `
-                    <div class="item-info">
-                        <b class="item-name">📦 ${order.item}</b>
-                        <span class="price">${order.deliveryFee?.toLocaleString()} KS</span>
-                    </div>
+                    <div class="item-info"><b>📦 ${order.item}</b> <span>${order.deliveryFee?.toLocaleString()} KS</span></div>
                     <div class="order-details">
-                        <b>👤 CUSTOMER:</b> ${order.customerName || "အမည်မသိသူ"}<br>
-                        <b>⚖️ အလေးချိန်:</b> ${order.weight || "0"} kg | <b>💰 တန်ဖိုး:</b> ${order.itemValue || order.itemPrice || "0"} KS<br>
-                        <b>💳 PAYMENT:</b> <span style="color:#00ff00;">${order.paymentMethod || "ပို့ခကြိုပေး"}</span><br>
-                        <b>📞 ဖုန်း:</b> <span style="color:#00ff00;">${order.phone}</span>
+                        ⚖️ ${order.weight || 0}kg | 💰 ${order.itemValue || 0}KS<br>
+                        📍 ${order.pickupAddress || "မသိရပါ"}<br>
+                        🏁 ${order.dropoffAddress || "မသိရပါ"}
                     </div>
                     <div class="btn-group">
                         <button class="btn-accept-now" ${isFull ? 'disabled' : ''} onclick="handleAccept('${id}', 'now')">ချက်ချင်းယူမည်</button>
@@ -125,42 +115,30 @@ function startTracking() {
         }
     });
 
-    // လက်ရှိအော်ဒါများ
     onSnapshot(query(collection(db, "orders"), where("riderId", "==", myUid)), (snap) => {
         const list = document.getElementById('active-orders-list');
-        const rejectedSection = document.getElementById('rejected-orders-section');
-        if(list) list.innerHTML = "";
-        if(rejectedSection) rejectedSection.innerHTML = "";
-        let hasActive = false;
-
+        if(!list) return;
+        list.innerHTML = "";
         snap.forEach(orderDoc => {
             const data = orderDoc.data();
             const id = orderDoc.id;
-            if (data.status === "cancelled") {
-                const rejCard = document.createElement('div');
-                rejCard.className = 'order-card rejected-card';
-                rejCard.innerHTML = `
-                    <b style="color:#ff4444;">⚠️ Customer မှ အော်ဒါဖျက်လိုက်ပါပြီ</b>
-                    <button class="btn-dismiss" onclick="dismissOrder('${id}')">Dashboard မှ ဖယ်ထုတ်မည်</button>`;
-                rejectedSection.appendChild(rejCard);
-                return;
-            }
             if (["accepted", "on_the_way", "arrived"].includes(data.status)) {
-                hasActive = true;
-                let btnText = "🚚 ပစ္စည်းစယူပြီ", nextStatus = "on_the_way", icon = "📦";
-                if(data.status === "on_the_way") { btnText = "📍 ရောက်ရှိကြောင်းပို့ရန်", nextStatus = "arrived", icon = "🚴"; }
-                if(data.status === "arrived") { btnText = "✅ ပစ္စည်းအပ်နှံပြီး (Complete)", nextStatus = "completed", icon = "🏁"; }
+                let btnText = "🚚 ပစ္စည်းစယူပြီ", nextStatus = "on_the_way";
+                if(data.status === "on_the_way") { btnText = "📍 ရောက်ရှိကြောင်းပို့ရန်", nextStatus = "arrived"; }
+                if(data.status === "arrived") { btnText = "✅ ပစ္စည်းအပ်နှံပြီး", nextStatus = "completed"; }
+
                 const div = document.createElement('div');
                 div.className = 'active-order-card';
-                div.innerHTML = `<b>${icon} ${data.status.toUpperCase()}</b><br>📦 ${data.item}<br>
-                    <button class="btn-status" onclick="${nextStatus === 'completed' ? `completeOrder('${id}')` : `updateStatus('${id}', '${nextStatus}')`}">${btnText}</button>`;
+                div.innerHTML = `<b>📦 ${data.item}</b><br>
+                    <button class="btn-status" onclick="${nextStatus === 'completed' ? `completeOrder('${id}')` : `updateStatus('${id}', '${nextStatus}')`}">${btnText}</button>
+                    <button style="color:red; background:none; border:none; margin-top:5px;" onclick="cancelByRider('${id}')">ပြန်လွှတ်မည်</button>`;
                 list.appendChild(div);
             }
         });
     });
 }
 
-// --- ၄။ Rider Name ကို Database ကနေ ဆွဲထုတ်ခြင်း Helper ---
+// --- ၄။ Functions ---
 async function getRiderName() {
     const snap = await getDoc(doc(db, "riders", auth.currentUser.uid));
     return snap.exists() ? snap.data().name : "Rider";
@@ -169,17 +147,15 @@ async function getRiderName() {
 window.handleAccept = async (id, time) => {
     try {
         const docRef = doc(db, "orders", id);
-        const orderSnap = await getDoc(docRef);
-        const order = orderSnap.data();
-        const riderName = await getRiderName(); // ပြင်ဆင်ချက်
+        const order = (await getDoc(docRef)).data();
+        const riderName = await getRiderName();
 
         if(time === 'tomorrow') {
             await updateDoc(docRef, { status: "pending_confirmation", pickupSchedule: "tomorrow", tempRiderId: auth.currentUser.uid, tempRiderName: riderName });
-            await notifyTelegram(createOrderMessage("⏳ <b>Rider Scheduled!</b>", order, riderName, "မနက်ဖြန်မှလာယူပါမည်"));
+            await notifyTelegram(createOrderMessage("⏳ <b>Scheduled!</b>", order, riderName, "မနက်ဖြန်မှလာယူပါမည်"));
         } else {
             await updateDoc(docRef, { status: "accepted", riderId: auth.currentUser.uid, riderName: riderName, acceptedAt: serverTimestamp() });
-            fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ action: "update", orderId: id, riderName: riderName, status: "Accepted" }) });
-            await notifyTelegram(createOrderMessage("✅ <b>Order Accepted!</b>", order, riderName, "Rider လက်ခံလိုက်ပါပြီ"));
+            await notifyTelegram(createOrderMessage("✅ <b>Accepted!</b>", order, riderName, "Rider လက်ခံလိုက်ပါပြီ"));
         }
     } catch (err) { console.error(err); }
 };
@@ -188,35 +164,33 @@ window.updateStatus = async (id, status) => {
     try {
         const docRef = doc(db, "orders", id);
         const order = (await getDoc(docRef)).data();
-        const riderName = await getRiderName(); // ပြင်ဆင်ချက်
+        const riderName = await getRiderName();
         await updateDoc(docRef, { status: status });
-        const statusText = status === "on_the_way" ? "🚚 ပစ္စည်းစယူပြီး ထွက်ခွာလာပါပြီ" : "📍 Rider ရောက်ရှိနေပါပြီ";
-        await notifyTelegram(createOrderMessage("🚀 <b>Status Update!</b>", order, riderName, statusText));
+        const text = status === "on_the_way" ? "ပစ္စည်းစယူပြီး ထွက်ခွာလာပါပြီ" : "Rider ရောက်ရှိနေပါပြီ";
+        await notifyTelegram(createOrderMessage("🚀 <b>Update!</b>", order, riderName, text));
     } catch (err) { console.error(err); }
 };
 
 window.completeOrder = async (id) => {
-    if(confirm("ပို့ဆောင်မှုပြီးမြောက်ပြီလား?")) {
-        try {
-            const docRef = doc(db, "orders", id);
-            const order = (await getDoc(docRef)).data();
-            const riderName = await getRiderName(); // ပြင်ဆင်ချက်
-            await updateDoc(docRef, { status: "completed", completedAt: serverTimestamp() });
-            await notifyTelegram(createOrderMessage("💰 <b>Order Completed!</b>", order, riderName, "အောင်မြင်စွာ ပို့ဆောင်ပြီးပါပြီ"));
-        } catch (err) { console.error(err); }
-    }
-};
-
-window.cancelByRider = async (id) => {
-    if(!confirm("ဤအော်ဒါကို ပြန်လွှတ်မည်မှာ သေချာပါသလား?")) return;
+    if(!confirm("ပို့ဆောင်မှု ပြီးမြောက်ပြီလား?")) return;
     try {
         const docRef = doc(db, "orders", id);
         const order = (await getDoc(docRef)).data();
-        const riderName = await getRiderName(); // ပြင်ဆင်ချက်
-        await updateDoc(docRef, { status: "pending", riderId: null, riderName: null, lastRejectedRiderId: auth.currentUser.uid });
-        await notifyTelegram(createOrderMessage("❌ <b>Rider Rejected Order!</b>", order, riderName, "Rider က အော်ဒါပြန်လွှတ်လိုက်ပါပြီ"));
+        const riderName = await getRiderName();
+        await updateDoc(docRef, { status: "completed", completedAt: serverTimestamp() });
+        await notifyTelegram(createOrderMessage("💰 <b>Completed!</b>", order, riderName, "အောင်မြင်စွာ ပို့ဆောင်ပြီးပါပြီ"));
     } catch (err) { console.error(err); }
 };
 
-auth.onAuthStateChanged((user) => { if(user) startTracking(); });
+window.cancelByRider = async (id) => {
+    if(!confirm("ဤအော်ဒါကို ပြန်လွှတ်မည်လား?")) return;
+    try {
+        const docRef = doc(db, "orders", id);
+        const order = (await getDoc(docRef)).data();
+        const riderName = await getRiderName();
+        await updateDoc(docRef, { status: "pending", riderId: null, riderName: null, lastRejectedRiderId: auth.currentUser.uid });
+        await notifyTelegram(createOrderMessage("❌ <b>Rejected!</b>", order, riderName, "Rider က အော်ဒါပြန်လွှတ်လိုက်ပါပြီ"));
+    } catch (err) { console.error(err); }
+};
 
+onAuthStateChanged(auth, (user) => { if(user) { trackRiderLocation(user); startTracking(); } else { window.location.href = "../index.html"; } });
