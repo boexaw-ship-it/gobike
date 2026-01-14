@@ -53,8 +53,10 @@
             border: none; border-radius: 15px; font-weight: bold;
             cursor: pointer; margin-top: 20px; transition: 0.3s;
             box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-            display: flex; align-items: center; justify-content: center; gap: 10px; text-decoration: none;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            text-decoration: none;
         }
+        .new-order-btn:hover { background: #333; transform: translateY(-2px); }
 
         @keyframes slideIn {
             from { transform: translateY(20px); opacity: 0; }
@@ -78,7 +80,7 @@
         <div id="status-badge" class="status-badge">FINDING RIDER...</div>
 
         <div id="confirmation-ui">
-            <div style="font-size: 1.5rem; margin-bottom: 10px;">🛵</div>
+            <div style="font-size: 1.5rem; margin-bottom: 10px;"></div>
             <p id="confirm-msg">Rider တစ်ဦးက သင့်အော်ဒါကို လက်ခံလိုပါသည်။</p>
             <div class="btn-group">
                 <button class="btn-confirm btn-yes" onclick="respondRider(true)">အိုကေ (Accept)</button>
@@ -92,119 +94,18 @@
             <p>🚴 <b>Rider:</b> <span id="det-rider">ရှာဖွေနေဆဲ...</span></p>
         </div>
 
-        <button class="new-order-btn" onclick="window.location.href='../index.html'">
+        <button class="new-order-btn" onclick="window.location.href='customer.html'">
             <span>➕</span> နောက်ထပ် အော်ဒါအသစ်တင်မည်
         </button>
         
-        <button id="cancelOrderBtn" style="width:100%; padding:10px; background:none; color:var(--danger); border:1px solid var(--danger); border-radius:12px; margin-top:10px; cursor:pointer; font-size:0.8rem;" onclick="cancelOrder()">
-            အော်ဒါဖျက်သိမ်းမည်
-        </button>
+        <p style="text-align:center; font-size:0.75rem; color:#888; margin-top:10px;">
+            လက်ရှိအော်ဒါကို ဤစာမျက်နှာ သို့မဟုတ် Telegram link မှတဆင့် ဆက်လက်စောင့်ကြည့်နိုင်ပါသည်။
+        </p>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script type="module">
-        import { db } from '../js/firebase-config.js';
-        import { doc, onSnapshot, updateDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    
+    <script type="module" src="../js/track.js"></script>
 
-        const params = new URLSearchParams(window.location.search);
-        const orderId = params.get('id');
-
-        // Map Setup
-        const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-        const riderIcon = L.icon({
-            iconUrl: 'https://cdn-icons-png.flaticon.com/512/3198/3198336.png',
-            iconSize: [40, 40],
-            iconAnchor: [20, 20]
-        });
-
-        let riderMarker = null;
-        let riderUnsubscribe = null;
-
-        if (orderId) {
-            onSnapshot(doc(db, "orders", orderId), (docSnap) => {
-                if (!docSnap.exists()) return;
-                const data = docSnap.data();
-
-                // (၁) Status & Progress
-                document.getElementById('status-badge').innerText = (data.status || "LOADING").replace("_", " ").toUpperCase();
-                
-                const steps = ["pending", "accepted", "on_the_way", "arrived"];
-                const currentStatusIdx = steps.indexOf(data.status);
-                steps.forEach((step, idx) => {
-                    const el = document.getElementById(`step-${idx + 1}`);
-                    if (el) {
-                        if (data.status === "completed" || currentStatusIdx >= idx) el.classList.add('active');
-                        else el.classList.remove('active');
-                    }
-                });
-
-                // (၂) Info Update
-                document.getElementById('det-item').innerText = data.item || "-";
-                document.getElementById('det-fee').innerText = data.deliveryFee?.toLocaleString() || "0";
-                
-                let riderText = data.riderName || "ရှာဖွေနေဆဲ...";
-                if (data.status === "pending_confirmation") riderText = "ယာယီစောင့်ဆိုင်းဆဲ...";
-                document.getElementById('det-rider').innerText = riderText;
-
-                // (၃) Confirmation Box
-                const confirmUI = document.getElementById('confirmation-ui');
-                if (confirmUI) {
-                    confirmUI.style.display = (data.status === "pending_confirmation") ? "block" : "none";
-                    if(data.status === "pending_confirmation") {
-                        document.getElementById('confirm-msg').innerHTML = `🛵 Rider <b>${data.tempRiderName || "Rider"}</b> က ${data.pickupSchedule === 'now' ? 'ယခု' : 'မနက်ဖြန်'} လာယူလိုပါသည်။`;
-                    }
-                }
-
-                // (၄) Tracking
-                if (data.riderId && ["accepted", "on_the_way", "arrived"].includes(data.status)) {
-                    if (riderUnsubscribe) riderUnsubscribe();
-                    riderUnsubscribe = onSnapshot(doc(db, "active_riders", data.riderId), (locSnap) => {
-                        if (locSnap.exists()) {
-                            const loc = locSnap.data();
-                            const pos = [loc.lat, loc.lng];
-                            if (!riderMarker) riderMarker = L.marker(pos, { icon: riderIcon }).addTo(map);
-                            else riderMarker.setLatLng(pos);
-                            map.panTo(pos);
-                        }
-                    });
-                }
-
-                // (၅) 404 Error Fix - Redirect to Root index.html
-                if (data.status === "completed") {
-                    setTimeout(() => {
-                        alert("ပို့ဆောင်မှု ပြီးမြောက်သွားပါပြီ။ ကျေးဇူးတင်ပါတယ်။");
-                        window.location.href = "../index.html"; 
-                    }, 800);
-                }
-            });
-        }
-
-        // Functions
-        window.respondRider = async (isAccepted) => {
-            const orderRef = doc(db, "orders", orderId);
-            const snap = await getDoc(orderRef);
-            const d = snap.data();
-            if (isAccepted) {
-                await updateDoc(orderRef, { 
-                    status: "accepted", riderId: d.tempRiderId, riderName: d.tempRiderName,
-                    pickupSchedule: d.pickupSchedule, acceptedAt: serverTimestamp()
-                });
-            } else {
-                await updateDoc(orderRef, { 
-                    status: "pending", tempRiderId: null, tempRiderName: null, 
-                    pickupSchedule: null, lastRejectedRiderId: d.tempRiderId 
-                });
-            }
-        };
-
-        window.cancelOrder = async () => {
-            if (confirm("အော်ဒါဖျက်သိမ်းမှာ သေချာပါသလား?")) {
-                await updateDoc(doc(db, "orders", orderId), { status: "cancelled" });
-                window.location.href = "../index.html";
-            }
-        };
-    </script>
 </body>
 </html>
