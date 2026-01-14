@@ -54,7 +54,8 @@
             <div class="input-group">
                 <select id="reg-role">
                     <option value="customer">Customer</option>
-                    <option value="rider">Rider (Delivery)</option> </select>
+                    <option value="rider">Rider (Delivery)</option> 
+                </select>
             </div>
             <button type="button" id="signupBtn" class="main-btn">Create Account</button>
         </div>
@@ -67,15 +68,18 @@
     <script type="module" src="js/auth.js"></script>
     
     <script>
-        // Tab UI Logic
-        function showLogin() {
+        /**
+         * Tab UI Logic - Global Window Object တွင် ချိတ်ဆက်ထားခြင်းဖြင့်
+         * onclick events များ အလုပ်မလုပ်သည့် ပြဿနာကို ကာကွယ်ပေးပါသည်။
+         */
+        window.showLogin = function() {
             document.getElementById('loginForm').style.display = 'block';
             document.getElementById('signupForm').style.display = 'none';
             document.getElementById('loginTab').classList.add('active');
             document.getElementById('signupTab').classList.remove('active');
         }
 
-        function showSignup() {
+        window.showSignup = function() {
             document.getElementById('loginForm').style.display = 'none';
             document.getElementById('signupForm').style.display = 'block';
             document.getElementById('signupTab').classList.add('active');
@@ -87,7 +91,7 @@
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('sw.js')
                 .then(reg => console.log('PWA Service Worker Active'))
-                .catch(err => console.log('SW Error:', err));
+                .catch(err => console.error('SW Error:', err));
             });
         }
     </script>
