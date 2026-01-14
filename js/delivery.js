@@ -65,10 +65,16 @@ if (navigator.geolocation) {
 function startTracking() {
     if (!auth.currentUser) return;
 
+    // (က) အော်ဒါသစ်များ (Pending) နှင့် Reject လုပ်ထားသော အော်ဒါများ ပြန်တက်လာခြင်းကို စောင့်ကြည့်
     onSnapshot(query(collection(db, "orders"), where("status", "==", "pending")), async (snap) => {
         snap.docChanges().forEach((change) => {
-            if (change.type === "added") {
-                alarmSound.play().catch(e => console.log("Sound error:", e));
+            // "added" သို့မဟုတ် တခြား Rider တစ်ယောက်က reject လုပ်လိုက်လို့ ကိုယ့် Dashboard မှာ ပြန်ပေါ်လာရင် အသံမြည်မယ်
+            if (change.type === "added" || change.type === "modified") {
+                const orderData = change.doc.data();
+                // ကိုယ်တိုင် reject လုပ်ထားတဲ့ အော်ဒါမဟုတ်မှ အသံမြည်စေရန်
+                if (orderData.lastRejectedRiderId !== auth.currentUser.uid) {
+                    alarmSound.play().catch(e => console.log("Sound error:", e));
+                }
             }
         });
 
@@ -120,6 +126,7 @@ function startTracking() {
         }
     });
 
+    // (ခ) ကိုယ်ယူထားသော အော်ဒါများတွင် Customer က Cancel လုပ်လာသည်ကို စောင့်ကြည့်
     onSnapshot(query(collection(db, "orders"), where("riderId", "==", auth.currentUser.uid)), (snap) => {
         const activeList = document.getElementById('active-orders-list');
         const rejectedSection = document.getElementById('rejected-orders-section');
@@ -133,6 +140,9 @@ function startTracking() {
             const id = orderDoc.id;
 
             if (data.status === "cancelled") {
+                // Customer ဖျက်လိုက်ရင် အသံမြည်စေရန်
+                alarmSound.play().catch(e => console.log(e));
+                
                 const rejCard = document.createElement('div');
                 rejCard.className = 'order-card rejected-card';
                 rejCard.innerHTML = `
@@ -188,10 +198,11 @@ window.cancelByRider = async (id) => {
             riderId: null,
             riderName: null,
             acceptedAt: null,
-            pickupSchedule: null
+            pickupSchedule: null,
+            lastRejectedRiderId: auth.currentUser.uid // နောက်တစ်ကြိမ် Dashboard မှာ ပြန်မပေါ်လာစေရန်
         });
 
-        const msg = createOrderMessage("❌ <b>Rider Rejected Order!</b>", order, riderName, "အော်ဒါပြန်လွှတ်လိုက်ပါပြီ (Reject)");
+        const msg = createOrderMessage("❌ <b>Rider Rejected Order!</b>", order, riderName, "Rider က အော်ဒါပြန်လွှတ်လိုက်ပါပြီ");
         await notifyTelegram(msg);
         alert("အော်ဒါကို ပြန်လွှတ်လိုက်ပါပြီ။");
     } catch (err) { console.error(err); }
@@ -199,6 +210,7 @@ window.cancelByRider = async (id) => {
 
 window.dismissOrder = async (id) => {
     try {
+        // Dashboard ကနေ ဖယ်ထုတ်ဖို့ RiderId ကို dismiss လို့ ပြောင်းလိုက်မယ်
         await updateDoc(doc(db, "orders", id), { riderId: "dismissed" }); 
     } catch (err) { console.error(err); }
 };
