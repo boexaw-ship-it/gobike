@@ -25,12 +25,10 @@ onAuthStateChanged(auth, async (user) => {
         await getRiderData(); // Profile နာမည်ဆွဲထုတ်ပြရန်
         startTracking(); // အော်ဒါများ စောင့်ကြည့်ရန်
     } else {
-        // အကောင့်မရှိရင် login page ကို ပြန်ပို့ (index.html သည် root မှာရှိ၍ ../ သုံးသည်)
         window.location.href = "../index.html";
     }
 });
 
-// Logout Function (HTML onclick ကနေ ခေါ်နိုင်ရန် window ထဲ ထည့်သည်)
 window.handleLogout = async () => {
     if (confirm("Rider အကောင့်မှ ထွက်မှာ သေချာပါသလား?")) {
         try {
@@ -42,7 +40,6 @@ window.handleLogout = async () => {
     }
 };
 
-// Helper: Get Rider Data from 'riders' collection
 async function getRiderData() {
     if (!auth.currentUser) return "Rider";
     try {
@@ -63,8 +60,10 @@ async function getRiderData() {
     }
 }
 
-// --- ၂။ Helper: Create Detailed Telegram Message ---
-const createOrderMessage = (title, order, riderName, statusText = "") => {
+// --- ၂။ Helper: Create Detailed Telegram Message (Fixed Name Logic) ---
+const createOrderMessage = (title, order, currentRiderName, statusText = "") => {
+    // order.customerName သည် Firestore ထဲရှိ Customer နာမည်ဖြစ်သည်
+    // currentRiderName သည် လက်ရှိလုပ်ဆောင်နေသော Rider နာမည်ဖြစ်သည်
     let msg = `${title}\n`;
     if (statusText) msg += `📊 Status: <b>${statusText}</b>\n`;
     msg += `--------------------------\n` +
@@ -76,7 +75,7 @@ const createOrderMessage = (title, order, riderName, statusText = "") => {
            `📞 ဖုန်း: <b>${order.phone}</b>\n` +
            `👤 Customer: <b>${order.customerName || "အမည်မသိသူ"}</b>\n` +
            `--------------------------\n` +
-           `🚴 Rider: <b>${riderName}</b>\n` +
+           `🚴 Rider: <b>${currentRiderName}</b>\n` +
            `📍 ယူရန်: ${order.pickupAddress || order.pickup?.address || "မသိရပါ"}\n` +
            `🏁 ပို့ရန်: ${order.dropoffAddress || order.dropoff?.address || "မသိရပါ"}`;
     return msg;
@@ -104,7 +103,7 @@ if (navigator.geolocation) {
     }, (err) => console.error(err), { enableHighAccuracy: true });
 }
 
-// --- ၅။ Order စောင့်ကြည့်ခြင်း (Core Logic) ---
+// --- ၅။ Order စောင့်ကြည့်ခြင်း ---
 function startTracking() {
     if (!auth.currentUser) return;
     const myUid = auth.currentUser.uid;
@@ -147,10 +146,6 @@ function startTracking() {
                         <b>💳 PAYMENT:</b> <span style="color:#00ff00;">${order.paymentMethod || "ပို့ခကြိုပေး"}</span><br>
                         <b>📞 ဖုန်း:</b> <span style="color:#00ff00;">${order.phone}</span>
                     </div>
-                    <div style="font-size:0.8rem; color:#888; margin-bottom:12px;">
-                        📍 <b>ယူရန်:</b> ${order.pickupAddress || order.pickup?.address || "မသိရပါ"}<br>
-                        🏁 <b>ပို့ရန်:</b> ${order.dropoffAddress || order.dropoff?.address || "မသိရပါ"}
-                    </div>
                     <div class="btn-group">
                         <button class="btn-accept-now" ${isFull ? 'disabled' : ''} onclick="handleAccept('${id}', 'now')">ချက်ချင်းယူမည်</button>
                         <button class="btn-accept-tmr" ${isFull ? 'disabled' : ''} onclick="handleAccept('${id}', 'tomorrow')">မနက်ဖြန်မှ</button>
@@ -176,8 +171,7 @@ function startTracking() {
                 rejCard.className = 'order-card rejected-card';
                 rejCard.innerHTML = `
                     <b style="color:#ff4444;">⚠️ Customer မှ အော်ဒါဖျက်လိုက်ပါပြီ</b>
-                    <p style="font-size:0.85rem; margin:5px 0;">ပစ္စည်း: ${data.item}</p>
-                    <button class="btn-dismiss" onclick="dismissOrder('${id}')">Dashboard မှ ဖယ်ထုတ်မည်</button>
+                    <button class="btn-dismiss" onclick="dismissOrder('${id}')">ဖယ်ထုတ်မည်</button>
                 `;
                 rejectedSection.appendChild(rejCard);
                 return;
@@ -282,4 +276,3 @@ window.dismissOrder = async (id) => {
     try { await updateDoc(doc(db, "orders", id), { riderId: "dismissed" }); } 
     catch (err) { console.error(err); }
 };
-
