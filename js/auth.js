@@ -2,10 +2,41 @@ import { auth, db } from './firebase-config.js';
 import { 
     createUserWithEmailAndPassword, 
     signInWithEmailAndPassword,
-    updateProfile
+    updateProfile,
+    onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { notifyTelegram } from './telegram.js';
+
+/**
+ * ၁။ Auto Login Checker
+ * စာမျက်နှာစဖွင့်တာနဲ့ User က Login ဝင်ထားပြီးသားလားဆိုတာကို စစ်ဆေးပေးပါတယ်။
+ */
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        console.log("User already logged in:", user.uid);
+        
+        // ဘယ် Role လဲဆိုတာ စစ်ဆေးပြီး သက်ဆိုင်ရာ Dashboard ကို ပို့ပေးမယ်
+        try {
+            // Rider ဟုတ်မဟုတ် အရင်စစ်
+            const riderDoc = await getDoc(doc(db, "riders", user.uid));
+            if (riderDoc.exists()) {
+                window.location.href = "html/delivery.html";
+                return;
+            }
+
+            // Customer ဟုတ်မဟုတ် ထပ်စစ်
+            const customerDoc = await getDoc(doc(db, "customers", user.uid));
+            if (customerDoc.exists()) {
+                window.location.href = "html/customer.html";
+            }
+        } catch (error) {
+            console.error("Auto Login Error:", error);
+        }
+    } else {
+        console.log("No user logged in. Stay on login page.");
+    }
+});
 
 // Signup Function
 async function handleSignUp() {
@@ -21,7 +52,6 @@ async function handleSignUp() {
         return;
     }
 
-    // ခလုတ်ကို ခဏပိတ်ထားမယ် (Double Click မဖြစ်အောင်)
     signupBtn.disabled = true;
     signupBtn.innerText = "Processing...";
 
@@ -29,7 +59,6 @@ async function handleSignUp() {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
 
-        // Firebase Auth Profile နာမည်ထည့်မယ်
         await updateProfile(user, { displayName: name });
 
         const collectionName = (role === "rider") ? "riders" : "customers";
@@ -50,15 +79,11 @@ async function handleSignUp() {
             userData.status = "online";
         }
 
-        // Firestore ထဲ သိမ်းမယ်
         await setDoc(doc(db, collectionName, user.uid), userData);
 
-        // Telegram ပို့မယ်
         await notifyTelegram(`👤 User အသစ်: ${name}\nRole: ${role}\nPhone: ${phone}`);
 
         alert("Account ဖွင့်လှစ်ပြီးပါပြီ။ Dashboard သို့ ပို့ဆောင်ပေးနေပါသည်...");
-        
-        // Redirect logic based on folder structure
         window.location.href = (role === "customer") ? "html/customer.html" : "html/delivery.html";
 
     } catch (error) {
@@ -86,7 +111,6 @@ async function handleLogin() {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
 
-        // ပထမဦးဆုံး Rider ဟုတ်မဟုတ် စစ်မယ်
         let userDoc = await getDoc(doc(db, "riders", user.uid));
         
         if (userDoc.exists()) {
@@ -94,7 +118,6 @@ async function handleLogin() {
             return;
         }
 
-        // Rider မဟုတ်ရင် Customer ထဲမှာ ရှာမယ်
         userDoc = await getDoc(doc(db, "customers", user.uid));
         if (userDoc.exists()) {
             window.location.href = "html/customer.html";
