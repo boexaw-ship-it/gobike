@@ -114,3 +114,91 @@
             border-left: 3px solid var(--primary);
         }
         .order-details b { color: var(--primary); font-size: 0.8rem; }
+/* --- Rejected State --- */
+        .rejected-card { 
+            border: 2px solid var(--danger) !important; 
+            background: #2a1515 !important; 
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.4); }
+            70% { box-shadow: 0 0 0 12px rgba(255, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 68, 68, 0); }
+        }
+
+        /* --- Buttons --- */
+        .btn-group { display: flex; gap: 12px; margin-top: 15px; }
+        
+        .btn-accept-now { 
+            background: var(--primary); color: black; border: none; 
+            padding: 14px; border-radius: 12px; font-weight: bold; 
+            cursor: pointer; flex: 2; font-size: 1rem;
+        }
+        .btn-accept-tmr { 
+            background: #333; color: white; border: 1px solid #444; 
+            padding: 14px; border-radius: 12px; font-weight: bold; 
+            cursor: pointer; flex: 1; font-size: 0.85rem;
+        }
+        
+        .btn-status { 
+            background: var(--success); color: white; border: none; 
+            width: 100%; padding: 15px; border-radius: 12px; 
+            font-weight: bold; margin-top: 15px; font-size: 1rem;
+            box-shadow: 0 4px 10px rgba(46, 213, 115, 0.3);
+        }
+
+        .btn-dismiss { 
+            background: #444; color: #bbb; border: none; 
+            width: 100%; padding: 12px; border-radius: 10px; 
+            margin-top: 10px; font-size: 0.85rem; 
+        }
+
+        .empty-msg { 
+            text-align: center; color: #666; font-size: 0.9rem; 
+            padding: 40px 20px; border: 2px dashed #333; border-radius: 18px; 
+            background: rgba(255,255,255,0.01);
+        }
+
+        .item-info { display: flex; justify-content: space-between; align-items: center; }
+        .item-name { font-size: 1.1rem; font-weight: bold; color: #fff; }
+        .price { color: var(--primary); font-size: 1.1rem; font-weight: 800; }
+        
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <span>GOBIKE RIDER PANEL</span>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="container">
+        <div id="rider-limit-info" class="limit-info">
+            <div class="stat-box">
+                <span style="font-size: 0.75rem; color: #888; font-weight: bold;">MY ACTIVE ORDERS</span>
+                <span id="active-count" class="stat-val">0 / 7</span>
+            </div>
+            <div class="stat-box">
+                <span style="font-size: 0.75rem; color: #888; font-weight: bold;">SERVER</span>
+                <span id="system-status" class="stat-val" style="color: var(--success); font-size: 0.9rem;">ONLINE</span>
+            </div>
+        </div>
+
+        <div id="rejected-orders-section"></div>
+
+        <h4>🚴 Current Tasks</h4>
+        <div id="active-orders-list">
+            <div class="empty-msg">လက်ခံထားသော အော်ဒါမရှိသေးပါ</div>
+        </div>
+
+        <h4>📥 New Orders Available</h4>
+        <div id="available-orders">
+            <div class="empty-msg">အော်ဒါအသစ်များကို ရှာဖွေနေပါသည်...</div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script type="module" src="../js/delivery.js"></script>
+</body>
+</html>
