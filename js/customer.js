@@ -12,7 +12,6 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzoqWIjISI8MrzFYu-B7
 onAuthStateChanged(auth, (user) => {
     const nameDisplay = document.getElementById('display-name');
     const roleDisplay = document.getElementById('display-role');
-
     if (user) {
         if (nameDisplay) nameDisplay.innerText = user.displayName || "User";
         if (roleDisplay) roleDisplay.innerText = "Customer Account";
@@ -24,39 +23,37 @@ onAuthStateChanged(auth, (user) => {
     }
 });
 
-// Logout Logic (ID နှင့် Window Function နှစ်မျိုးလုံး ချိတ်ထားသည်)
-const logoutBtn = document.getElementById('logoutBtn');
-const handleLogoutAction = () => {
-    Swal.fire({
-        title: 'အကောင့်မှ ထွက်မလား?',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#ffcc00',
-        cancelButtonColor: '#d33',
-        confirmButtonText: 'ထွက်မည်',
-        cancelButtonText: 'မထွက်တော့ပါ',
-        background: '#1a1a1a',
-        color: '#ffffff'
-    }).then(async (result) => {
-        if (result.isConfirmed) {
-            try {
+// Logout Fix (Browser Alert လုံးဝမပါ)
+const setupLogout = () => {
+    const logoutBtn = document.getElementById('logoutBtn');
+    const performLogout = () => {
+        Swal.fire({
+            title: 'အကောင့်မှ ထွက်မလား?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ffcc00',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'ထွက်မည်',
+            cancelButtonText: 'မထွက်တော့ပါ',
+            background: '#1a1a1a',
+            color: '#ffffff'
+        }).then(async (result) => {
+            if (result.isConfirmed) {
                 await signOut(auth);
-            } catch (error) {
-                console.error("Logout Error:", error);
             }
-        }
-    });
+        });
+    };
+    if (logoutBtn) logoutBtn.onclick = performLogout;
+    window.handleLogout = performLogout;
 };
-if (logoutBtn) logoutBtn.onclick = handleLogoutAction;
-window.handleLogout = handleLogoutAction;
+setupLogout();
 
 // --- ၂။ Map Setup ---
 const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 12); 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 let pickupMarker, dropoffMarker;
-let pickupCoords = null;
-let dropoffCoords = null;
+let pickupCoords = null, dropoffCoords = null;
 
 const pickupSelect = document.getElementById('pickup-township');
 const dropoffSelect = document.getElementById('dropoff-township');
@@ -82,7 +79,6 @@ window.updateLocation = function(type) {
         if (dropoffMarker) map.removeLayer(dropoffMarker);
         dropoffMarker = L.marker([lat, lng], { draggable: true }).addTo(map);
     }
-
     map.flyTo([lat, lng], 15);
     calculatePrice();
 };
@@ -96,59 +92,43 @@ function calculatePrice() {
         const p1 = L.latLng(pickupCoords.lat, pickupCoords.lng);
         const p2 = L.latLng(dropoffCoords.lat, dropoffCoords.lng);
         const dist = (p1.distanceTo(p2) / 1000).toFixed(2); 
-        
         const weight = parseFloat(document.getElementById('item-weight').value) || 0;
         const itemValue = parseFloat(document.getElementById('item-value').value) || 0;
 
-        let baseFee = 1500; 
-        let distanceFee = dist * 500; 
-        let weightExtra = weight > 5 ? (weight - 5) * 200 : 0;
-        let insuranceFee = itemValue > 50000 ? itemValue * 0.01 : 0;
-
-        const total = Math.round(baseFee + distanceFee + weightExtra + insuranceFee);
-        
+        const total = Math.round(1500 + (dist * 500) + (weight > 5 ? (weight - 5) * 200 : 0) + (itemValue > 50000 ? itemValue * 0.01 : 0));
         const btn = document.getElementById('placeOrderBtn');
         if (btn) btn.innerText = `ORDER NOW - ${total.toLocaleString()} KS (${dist} km)`;
-        
         return { dist, total };
     }
 }
 document.getElementById('item-weight').oninput = calculatePrice;
 document.getElementById('item-value').oninput = calculatePrice;
 
-// --- ၄။ My Orders (Delete Fix) ---
+// --- ၄။ My Orders (Delete & Tracking Fix) ---
 function displayMyOrders() {
     const listDiv = document.getElementById('orders-list');
     if (!listDiv || !auth.currentUser) return;
 
     const q = query(collection(db, "orders"), where("userId", "==", auth.currentUser.uid));
-    
     onSnapshot(q, (snap) => {
-        listDiv.innerHTML = "";
-        if (snap.empty) {
-            listDiv.innerHTML = "<p style='text-align:center; color:#888; font-size:0.8rem;'>မှတ်တမ်းမရှိသေးပါ</p>";
-            return;
-        }
-
+        listDiv.innerHTML = snap.empty ? "<p style='text-align:center; color:#888; font-size:0.8rem;'>မှတ်တမ်းမရှိသေးပါ</p>" : "";
         snap.forEach((orderDoc) => {
             const order = orderDoc.data();
             const id = orderDoc.id;
-            if (order.customerHide === true) return;
+            if (order.customerHide) return;
 
             const card = document.createElement('div');
             card.className = "order-card";
             card.style = `cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 12px; margin-bottom: 10px; background: #2a2a2a; border-radius: 8px; border-left: 4px solid ${order.status === 'completed' ? '#00ff00' : '#ffcc00'};`;
-            
             card.innerHTML = `
-                <div onclick="window.location.href = 'track.html?id=${id}'" style="flex-grow:1;">
+                <div onclick="window.location.href='track.html?id=${id}'" style="flex-grow:1;">
                     <b style="color: #fff;">📦 ${order.item}</b><br>
                     <span style="font-size: 0.75rem; color: #aaa;">Status: ${order.status.toUpperCase()}</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <span style="color:#ffcc00; font-size: 1.2rem;" onclick="window.location.href = 'track.html?id=${id}'">📍</span>
+                    <span style="color:#ffcc00; font-size: 1.2rem;" onclick="window.location.href='track.html?id=${id}'">📍</span>
                     <span id="del-btn-${id}" style="color: #ff4444; font-size: 1.1rem; cursor: pointer;">🗑️</span>
-                </div>
-            `;
+                </div>`;
             listDiv.appendChild(card);
 
             document.getElementById(`del-btn-${id}`).onclick = (e) => {
@@ -176,19 +156,19 @@ window.deleteOrderPermanently = async (id) => {
     });
 };
 
-// --- ၅။ Submit Order (Full Telegram & Sync) ---
+// --- ၅။ Submit Order (Full Telegram & Google Sync) ---
 const placeOrderBtn = document.getElementById('placeOrderBtn');
 if (placeOrderBtn) {
     placeOrderBtn.onclick = async () => {
         const feeInfo = calculatePrice();
         const item = document.getElementById('item-detail').value;
         const phone = document.getElementById('receiver-phone').value;
-        const payment = document.getElementById('payment-method').value;
         const weight = document.getElementById('item-weight').value;
         const itemValue = document.getElementById('item-value').value;
+        const payment = document.getElementById('payment-method').value;
 
-        if (!feeInfo || !item || !phone || !weight || !pickupCoords || !dropoffCoords) {
-            Swal.fire({ icon: 'error', title: 'အချက်အလက်မစုံလင်ပါ', text: 'ကျေးဇူးပြု၍ အချက်အလက်များ ပြည့်စုံအောင် ဖြည့်ပေးပါခင်ဗျာ။', background: '#1a1a1a', color: '#fff' });
+        if (!feeInfo || !item || !phone || !pickupCoords || !dropoffCoords) {
+            Swal.fire({ icon: 'error', title: 'အချက်အလက်မစုံလင်ပါ', background: '#1a1a1a', color: '#fff' });
             return;
         }
 
@@ -200,14 +180,12 @@ if (placeOrderBtn) {
             const customerName = auth.currentUser?.displayName || "Customer";
 
             const orderData = {
-                userId: auth.currentUser.uid,
-                customerName: customerName,
+                userId: auth.currentUser.uid, customerName,
                 pickup: { ...pickupCoords, address: `${pTown}, ${pAddr}` },
                 dropoff: { ...dropoffCoords, address: `${dTown}, ${dAddr}` },
                 item, weight, itemValue, phone,
                 paymentMethod: payment === "COD" ? "Cash on Delivery" : "Cash at Pickup",
-                deliveryFee: feeInfo.total,
-                status: "pending", customerHide: false, createdAt: serverTimestamp()
+                deliveryFee: feeInfo.total, status: "pending", customerHide: false, createdAt: serverTimestamp()
             };
 
             const docRef = await addDoc(collection(db, "orders"), orderData);
@@ -217,14 +195,14 @@ if (placeOrderBtn) {
             fetch(SCRIPT_URL, {
                 method: "POST", mode: "no-cors",
                 body: JSON.stringify({
-                    action: "create", orderId: orderId, item: item, weight: weight + " kg",
+                    action: "create", orderId, item, weight: weight + " kg",
                     price: itemValue + " KS", deliveryFee: feeInfo.total,
-                    payment: orderData.paymentMethod, phone: phone, address: orderData.dropoff.address,
-                    customerName: customerName, riderName: "-" 
+                    payment: orderData.paymentMethod, phone, address: orderData.dropoff.address,
+                    customerName, riderName: "-" 
                 })
             });
 
-            // 2. 🔥 Telegram Notification (သင်တောင်းဆိုထားသော Format အပြည့်အစုံ)
+            // 2. 🔥 Telegram Notification (Full Format)
             const trackUrl = `https://boexaw-ship-it.github.io/gobike/html/track.html?id=${orderId}`;
             const msg = `📦 <b>New Order Received!</b>\n` +
                         `━━━━━━━━━━━━━━━━━━\n` +
@@ -242,14 +220,15 @@ if (placeOrderBtn) {
 
             await notifyTelegram(msg);
 
-            // 3. Success Popup
+            // 3. Success Popup (Browser Alert လုံးဝမပါတော့ပါ)
             Swal.fire({
                 title: 'အော်ဒါတင်ပြီးပါပြီ!',
                 text: 'Rider မှ ဆက်သွယ်လာသည်အထိ ခေတ္တစောင့်ပေးပါဗျာ။',
                 icon: 'success',
                 confirmButtonColor: '#ffcc00',
                 confirmButtonText: '📍 ခြေရာခံမည်',
-                background: '#1a1a1a', color: '#fff'
+                background: '#1a1a1a',
+                color: '#fff'
             }).then(() => {
                 window.location.href = `track.html?id=${orderId}`;
             });
