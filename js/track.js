@@ -70,7 +70,7 @@ if (orderId) {
         let riderDisplay = data.riderName || 'ရှာဖွေနေဆဲ...';
         if (data.status === "pending_confirmation") riderDisplay = "ယာယီစောင့်ဆိုင်းဆဲ (Rider ကမ်းလှမ်းထားသည်)";
         
-        if (data.pickupSchedule === "tomorrow") riderDisplay += " (မနက်ဖြန်လာယူမည်)";
+        if (data.pickupSchedule === "tomorrow") riderDisplay += " (မနက်ွန်လာယူမည်)";
         else if (data.pickupSchedule === "now") riderDisplay += " (ယနေ့လာယူမည်)";
 
         const detRider = document.getElementById('det-rider');
@@ -110,8 +110,8 @@ if (orderId) {
         if (data.status === "completed") {
             setTimeout(() => {
                 alert("လူကြီးမင်း၏ ပါဆယ်ပို့ဆောင်မှု အောင်မြင်ပြီးဆုံးပါပြီ။");
-                // GitHub Pages တွင် 404 မတက်စေရန် လက်ရှိ Folder ထဲမှ index.html ကို ညွှန်းပါသည်
-                window.location.href = "./index.html"; 
+                // IMPORTANT: track.html သည် html/ folder ထဲတွင်ရှိပြီး index.html သည် Root တွင်ရှိသောကြောင့် ../ သုံးရပါမည်။
+                window.location.href = "../index.html"; 
             }, 1000);
         }
     }, (error) => {
@@ -155,8 +155,8 @@ window.cancelOrder = async () => {
         try {
             await updateDoc(doc(db, "orders", orderId), { status: "cancelled" });
             alert("အော်ဒါဖျက်သိမ်းပြီးပါပြီ။");
-            // Cancel လုပ်လျှင်လည်း Home သို့ ပြန်ပို့ပါသည်
-            window.location.href = "./index.html";
+            // Cancel လုပ်လျှင်လည်း Root ရှိ index.html သို့ ပြန်ပို့ပါသည်
+            window.location.href = "../index.html";
         } catch (err) { console.error(err); }
     }
 };
