@@ -24,8 +24,9 @@ onAuthStateChanged(auth, (user) => {
     }
 });
 
-// Logout (SweetAlert2 version)
-window.handleLogout = async () => {
+// Logout Logic (ID နှင့် Window Function နှစ်မျိုးလုံး ချိတ်ထားသည်)
+const logoutBtn = document.getElementById('logoutBtn');
+const handleLogoutAction = () => {
     Swal.fire({
         title: 'အကောင့်မှ ထွက်မလား?',
         icon: 'warning',
@@ -46,6 +47,8 @@ window.handleLogout = async () => {
         }
     });
 };
+if (logoutBtn) logoutBtn.onclick = handleLogoutAction;
+window.handleLogout = handleLogoutAction;
 
 // --- ၂။ Map Setup ---
 const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 12); 
@@ -55,16 +58,15 @@ let pickupMarker, dropoffMarker;
 let pickupCoords = null;
 let dropoffCoords = null;
 
-// --- ၃။ Sync Dropdown Options ---
 const pickupSelect = document.getElementById('pickup-township');
 const dropoffSelect = document.getElementById('dropoff-township');
 if (pickupSelect && dropoffSelect) {
     dropoffSelect.innerHTML = pickupSelect.innerHTML; 
 }
 
-// --- ၄။ Township Change & Map Update ---
 window.updateLocation = function(type) {
     const select = document.getElementById(`${type}-township`);
+    if (!select) return;
     const option = select.options[select.selectedIndex];
     if (!option || !option.value) return;
 
@@ -85,10 +87,10 @@ window.updateLocation = function(type) {
     calculatePrice();
 };
 
-if (pickupSelect) pickupSelect.onchange = () => updateLocation('pickup');
-if (dropoffSelect) dropoffSelect.onchange = () => updateLocation('dropoff');
+if (pickupSelect) pickupSelect.onchange = () => window.updateLocation('pickup');
+if (dropoffSelect) dropoffSelect.onchange = () => window.updateLocation('dropoff');
 
-// --- ၅။ Auto Pricing Logic ---
+// --- ၃။ Auto Pricing Logic ---
 function calculatePrice() {
     if (pickupCoords && dropoffCoords) {
         const p1 = L.latLng(pickupCoords.lat, pickupCoords.lng);
@@ -108,14 +110,13 @@ function calculatePrice() {
         const btn = document.getElementById('placeOrderBtn');
         if (btn) btn.innerText = `ORDER NOW - ${total.toLocaleString()} KS (${dist} km)`;
         
-        return { dist, total, insuranceFee, weightExtra };
+        return { dist, total };
     }
 }
-
 document.getElementById('item-weight').oninput = calculatePrice;
 document.getElementById('item-value').oninput = calculatePrice;
 
-// --- ၆။ My Orders Logic (Delete Fix Included) ---
+// --- ၄။ My Orders (Delete Fix) ---
 function displayMyOrders() {
     const listDiv = document.getElementById('orders-list');
     if (!listDiv || !auth.currentUser) return;
@@ -132,7 +133,6 @@ function displayMyOrders() {
         snap.forEach((orderDoc) => {
             const order = orderDoc.data();
             const id = orderDoc.id;
-
             if (order.customerHide === true) return;
 
             const card = document.createElement('div');
@@ -140,7 +140,7 @@ function displayMyOrders() {
             card.style = `cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 12px; margin-bottom: 10px; background: #2a2a2a; border-radius: 8px; border-left: 4px solid ${order.status === 'completed' ? '#00ff00' : '#ffcc00'};`;
             
             card.innerHTML = `
-                <div class="order-info" onclick="window.location.href = 'track.html?id=${id}'" style="flex-grow:1;">
+                <div onclick="window.location.href = 'track.html?id=${id}'" style="flex-grow:1;">
                     <b style="color: #fff;">📦 ${order.item}</b><br>
                     <span style="font-size: 0.75rem; color: #aaa;">Status: ${order.status.toUpperCase()}</span>
                 </div>
@@ -151,7 +151,6 @@ function displayMyOrders() {
             `;
             listDiv.appendChild(card);
 
-            // Delete Event
             document.getElementById(`del-btn-${id}`).onclick = (e) => {
                 e.stopPropagation();
                 window.deleteOrderPermanently(id);
@@ -169,8 +168,7 @@ window.deleteOrderPermanently = async (id) => {
         confirmButtonColor: '#ffcc00',
         confirmButtonText: 'ဖယ်မည်',
         cancelButtonText: 'မဖယ်ပါ',
-        background: '#1a1a1a',
-        color: '#fff'
+        background: '#1a1a1a', color: '#fff'
     }).then(async (result) => {
         if (result.isConfirmed) {
             await updateDoc(doc(db, "orders", id), { customerHide: true });
@@ -178,98 +176,86 @@ window.deleteOrderPermanently = async (id) => {
     });
 };
 
-// --- ၇။ Submit Order (Full Telegram & Google Sync) ---
-document.getElementById('placeOrderBtn').onclick = async () => {
-    const feeInfo = calculatePrice();
-    const item = document.getElementById('item-detail').value;
-    const phone = document.getElementById('receiver-phone').value;
-    const payment = document.getElementById('payment-method').value;
-    const weight = document.getElementById('item-weight').value;
-    const itemValue = document.getElementById('item-value').value;
+// --- ၅။ Submit Order (Full Telegram & Sync) ---
+const placeOrderBtn = document.getElementById('placeOrderBtn');
+if (placeOrderBtn) {
+    placeOrderBtn.onclick = async () => {
+        const feeInfo = calculatePrice();
+        const item = document.getElementById('item-detail').value;
+        const phone = document.getElementById('receiver-phone').value;
+        const payment = document.getElementById('payment-method').value;
+        const weight = document.getElementById('item-weight').value;
+        const itemValue = document.getElementById('item-value').value;
 
-    if (!feeInfo || !item || !phone || !weight) {
-        Swal.fire({ icon: 'error', title: 'အချက်အလက်မစုံလင်ပါ', text: 'ကျေးဇူးပြု၍ အချက်အလက်များ ပြည့်စုံအောင် ဖြည့်ပေးပါခင်ဗျာ။', background: '#1a1a1a', color: '#fff' });
-        return;
-    }
+        if (!feeInfo || !item || !phone || !weight || !pickupCoords || !dropoffCoords) {
+            Swal.fire({ icon: 'error', title: 'အချက်အလက်မစုံလင်ပါ', text: 'ကျေးဇူးပြု၍ အချက်အလက်များ ပြည့်စုံအောင် ဖြည့်ပေးပါခင်ဗျာ။', background: '#1a1a1a', color: '#fff' });
+            return;
+        }
 
-    try {
-        const pTown = pickupSelect.options[pickupSelect.selectedIndex].text;
-        const dTown = dropoffSelect.options[dropoffSelect.selectedIndex].text;
-        const pAddr = document.getElementById('pickup-address').value;
-        const dAddr = document.getElementById('dropoff-address').value;
+        try {
+            const pTown = pickupSelect.options[pickupSelect.selectedIndex].text;
+            const dTown = dropoffSelect.options[dropoffSelect.selectedIndex].text;
+            const pAddr = document.getElementById('pickup-address').value;
+            const dAddr = document.getElementById('dropoff-address').value;
+            const customerName = auth.currentUser?.displayName || "Customer";
 
-        const customerDisplayName = auth.currentUser?.displayName || "Customer";
-
-        const orderData = {
-            userId: auth.currentUser?.uid || "anonymous",
-            customerName: customerDisplayName,
-            pickup: { ...pickupCoords, address: `${pTown}, ${pAddr}` },
-            dropoff: { ...dropoffCoords, address: `${dTown}, ${dAddr}` },
-            item: item,
-            weight: weight,
-            itemValue: itemValue,
-            phone: phone,
-            paymentMethod: payment === "COD" ? "Cash on Delivery" : "Cash at Pickup",
-            deliveryFee: feeInfo.total,
-            status: "pending",
-            customerHide: false,
-            createdAt: serverTimestamp()
-        };
-
-        const docRef = await addDoc(collection(db, "orders"), orderData);
-        const orderId = docRef.id;
-
-        // 1. Google Sheets Sync
-        fetch(SCRIPT_URL, {
-            method: "POST",
-            mode: "no-cors",
-            body: JSON.stringify({
-                action: "create",
-                orderId: orderId,
-                item: item,
-                weight: weight + " kg",
-                price: itemValue + " KS",
+            const orderData = {
+                userId: auth.currentUser.uid,
+                customerName: customerName,
+                pickup: { ...pickupCoords, address: `${pTown}, ${pAddr}` },
+                dropoff: { ...dropoffCoords, address: `${dTown}, ${dAddr}` },
+                item, weight, itemValue, phone,
+                paymentMethod: payment === "COD" ? "Cash on Delivery" : "Cash at Pickup",
                 deliveryFee: feeInfo.total,
-                payment: orderData.paymentMethod,
-                phone: phone,
-                address: orderData.dropoff.address,
-                customerName: customerDisplayName,
-                riderName: "-" 
-            })
-        });
+                status: "pending", customerHide: false, createdAt: serverTimestamp()
+            };
 
-        // 2. 🔥 Telegram Notification (အလှပြင်ပြီးသား)
-        const trackUrl = `https://boexaw-ship-it.github.io/gobike/html/track.html?id=${orderId}`;
-        const msg = `📦 <b>New Order Received!</b>\n` +
-                    `━━━━━━━━━━━━━━━━━━\n` +
-                    `👤 Customer: <b>${customerDisplayName}</b>\n` +
-                    `📝 ပစ္စည်း: <b>${item}</b>\n` +
-                    `⚖️ အလေးချိန်: <b>${weight} kg</b>\n` +
-                    `💰 ပစ္စည်းတန်ဖိုး: <b>${itemValue} KS</b>\n` +
-                    `━━━━━━━━━━━━━━━━━━\n` +
-                    `💵 <b>စုစုပေါင်းပို့ခ: ${feeInfo.total.toLocaleString()} KS</b>\n` +
-                    `💳 Payment: <b>${orderData.paymentMethod}</b>\n` +
-                    `📞 ဖုန်း: <b>${phone}</b>\n\n` +
-                    `📍 ယူရန်: ${orderData.pickup.address}\n` +
-                    `🏁 ပို့ရန်: ${orderData.dropoff.address}\n\n` +
-                    `✨ <a href="${trackUrl}"><b>📍 အော်ဒါခြေရာခံရန် နှိပ်ပါ</b></a>`;
+            const docRef = await addDoc(collection(db, "orders"), orderData);
+            const orderId = docRef.id;
 
-        await notifyTelegram(msg);
+            // 1. Google Sheets Sync
+            fetch(SCRIPT_URL, {
+                method: "POST", mode: "no-cors",
+                body: JSON.stringify({
+                    action: "create", orderId: orderId, item: item, weight: weight + " kg",
+                    price: itemValue + " KS", deliveryFee: feeInfo.total,
+                    payment: orderData.paymentMethod, phone: phone, address: orderData.dropoff.address,
+                    customerName: customerName, riderName: "-" 
+                })
+            });
 
-        // 3. Success Popup
-        Swal.fire({
-            title: 'အော်ဒါတင်ပြီးပါပြီ!',
-            html: `Rider မှ ဆက်သွယ်လာသည်အထိ ခေတ္တစောင့်ပေးပါဗျာ။`,
-            icon: 'success',
-            confirmButtonColor: '#ffcc00',
-            confirmButtonText: '📍 ခြေရာခံမည်',
-            background: '#1a1a1a',
-            color: '#fff'
-        }).then(() => {
-            window.location.href = `track.html?id=${orderId}`;
-        });
+            // 2. 🔥 Telegram Notification (သင်တောင်းဆိုထားသော Format အပြည့်အစုံ)
+            const trackUrl = `https://boexaw-ship-it.github.io/gobike/html/track.html?id=${orderId}`;
+            const msg = `📦 <b>New Order Received!</b>\n` +
+                        `━━━━━━━━━━━━━━━━━━\n` +
+                        `👤 Customer: <b>${customerName}</b>\n` +
+                        `📝 ပစ္စည်း: <b>${item}</b>\n` +
+                        `⚖️ အလေးချိန်: <b>${weight} kg</b>\n` +
+                        `💰 ပစ္စည်းတန်ဖိုး: <b>${itemValue} KS</b>\n` +
+                        `━━━━━━━━━━━━━━━━━━\n` +
+                        `💵 <b>စုစုပေါင်းပို့ခ: ${feeInfo.total.toLocaleString()} KS</b>\n` +
+                        `💳 Payment: <b>${orderData.paymentMethod}</b>\n` +
+                        `📞 ဖုန်း: <b>${phone}</b>\n\n` +
+                        `📍 ယူရန်: ${orderData.pickup.address}\n` +
+                        `🏁 ပို့ရန်: ${orderData.dropoff.address}\n\n` +
+                        `✨ <a href="${trackUrl}"><b>📍 အော်ဒါခြေရာခံရန် နှိပ်ပါ</b></a>`;
 
-    } catch (e) {
-        Swal.fire({ icon: 'error', title: 'Error', text: e.message, background: '#1a1a1a', color: '#fff' });
-    }
-};
+            await notifyTelegram(msg);
+
+            // 3. Success Popup
+            Swal.fire({
+                title: 'အော်ဒါတင်ပြီးပါပြီ!',
+                text: 'Rider မှ ဆက်သွယ်လာသည်အထိ ခေတ္တစောင့်ပေးပါဗျာ။',
+                icon: 'success',
+                confirmButtonColor: '#ffcc00',
+                confirmButtonText: '📍 ခြေရာခံမည်',
+                background: '#1a1a1a', color: '#fff'
+            }).then(() => {
+                window.location.href = `track.html?id=${orderId}`;
+            });
+
+        } catch (e) {
+            Swal.fire({ icon: 'error', title: 'Error', text: e.message, background: '#1a1a1a', color: '#fff' });
+        }
+    };
+}
