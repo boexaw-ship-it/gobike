@@ -2,8 +2,7 @@ import { auth, db } from './firebase-config.js';
 import { 
     createUserWithEmailAndPassword, 
     signInWithEmailAndPassword,
-    updateProfile,
-    onAuthStateChanged
+    updateProfile
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { notifyTelegram } from './telegram.js';
@@ -59,7 +58,7 @@ async function handleSignUp() {
 
         alert("Account ဖွင့်လှစ်ပြီးပါပြီ။ Dashboard သို့ ပို့ဆောင်ပေးနေပါသည်...");
         
-        // Auto Redirect
+        // Redirect logic based on folder structure
         window.location.href = (role === "customer") ? "html/customer.html" : "html/delivery.html";
 
     } catch (error) {
@@ -106,27 +105,11 @@ async function handleLogin() {
         }
 
     } catch (error) {
-        alert("Login မှားယွင်းနေပါသည်။");
+        alert("Login မှားယွင်းနေပါသည်။ (Password သို့မဟုတ် Email မှားနိုင်သည်)");
         loginBtn.disabled = false;
         loginBtn.innerText = "Sign In";
     }
 }
-
-// Page Load လုပ်ချိန်မှာ Login ဝင်ထားပြီးသားလား စစ်ဆေးရန် (Auto Login Logic)
-onAuthStateChanged(auth, async (user) => {
-    if (user) {
-        // အကယ်၍ User က index.html ရောက်နေပြီး Login ရှိနေရင် Dashboard ကို အလိုအလျောက် ပို့မယ်
-        const riderCheck = await getDoc(doc(db, "riders", user.uid));
-        if (riderCheck.exists()) {
-            window.location.href = "html/delivery.html";
-            return;
-        }
-        const customerCheck = await getDoc(doc(db, "customers", user.uid));
-        if (customerCheck.exists()) {
-            window.location.href = "html/customer.html";
-        }
-    }
-});
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
