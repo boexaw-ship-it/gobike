@@ -23,6 +23,16 @@ if (orderId) {
     onSnapshot(doc(db, "orders", orderId), (docSnap) => {
         if (!docSnap.exists()) return;
         const data = docSnap.data();
+
+        // --- (ထပ်တိုး logic) Rider က Reject လုပ်လျှင် သို့မဟုတ် Pending ပြန်ဖြစ်သွားလျှင် ---
+        if (data.status === "pending") {
+            const detRider = document.getElementById('det-rider');
+            if (detRider) detRider.innerHTML = "<span style='color:#ffcc00;'>Rider အသစ် ထပ်မံရှာဖွေနေပါသည်...</span>";
+            
+            // Rider Marker ရှိနေရင် ဖျောက်မယ်
+            if (riderMarker) { map.removeLayer(riderMarker); riderMarker = null; }
+            if (riderUnsubscribe) { riderUnsubscribe(); riderUnsubscribe = null; }
+        }
         
         // --- ၂။ Progress Bar Update ---
         const steps = ["pending", "accepted", "on_the_way", "arrived"];
@@ -42,6 +52,8 @@ if (orderId) {
         // --- ၃။ Status Badge ---
         let statusText = data.status.toUpperCase();
         if (data.status === "pending_confirmation") statusText = "CONFIRMATION NEEDED";
+        if (data.status === "cancelled") statusText = "ORDER CANCELLED";
+        
         const statusBadge = document.getElementById('status-badge');
         if (statusBadge) statusBadge.innerText = statusText.replace("_", " ");
 
@@ -51,7 +63,7 @@ if (orderId) {
         if (detItem) detItem.innerText = data.item;
         if (detFee) detFee.innerText = data.deliveryFee ? data.deliveryFee.toLocaleString() : "0";
         
-        // --- ၅။ Rider Info (နာမည်ရင်းပြသရန် ပြင်ဆင်မှု) ---
+        // --- ၅။ Rider Info ---
         let riderDisplay = data.riderName || 'ရှာဖွေနေဆဲ...';
         
         if (data.status === "pending_confirmation") {
@@ -82,7 +94,7 @@ if (orderId) {
             }
         }
 
-        // --- ၇။ Live Tracking Logic (မြေပုံပေါ်တွင် Rider တည်နေရာပြခြင်း) ---
+        // --- ၇။ Live Tracking Logic ---
         if (data.riderId && (["accepted", "on_the_way", "arrived"].includes(data.status))) {
             if (riderUnsubscribe) riderUnsubscribe();
 
@@ -102,10 +114,16 @@ if (orderId) {
             if (riderMarker) { map.removeLayer(riderMarker); riderMarker = null; }
             if (riderUnsubscribe) { riderUnsubscribe(); riderUnsubscribe = null; }
         }
+
+        // အော်ဒါ ပြီးဆုံးသွားလျှင် (Complete)
+        if (data.status === "completed") {
+            alert("လူကြီးမင်း၏ ပါဆယ်ပို့ဆောင်မှု အောင်မြင်ပြီးဆုံးပါပြီ။ ကျေးဇူးတင်ပါသည်။");
+            window.location.href = "index.html"; // အိမ်ပြန်ပို့မယ်
+        }
     });
 }
 
-// --- ၈။ Respond Rider Function (Customer က လက်ခံ/ငြင်းပယ်ခြင်း) ---
+// --- ၈။ Respond Rider Function ---
 window.respondRider = async (isAccepted) => {
     try {
         const orderRef = doc(db, "orders", orderId);
@@ -114,7 +132,6 @@ window.respondRider = async (isAccepted) => {
         const d = snap.data();
 
         if (isAccepted) {
-            // Customer လက်ခံလျှင်
             await updateDoc(orderRef, { 
                 status: "accepted", 
                 riderId: d.tempRiderId, 
@@ -125,7 +142,7 @@ window.respondRider = async (isAccepted) => {
             });
             alert("Rider ကို အတည်ပြုပေးလိုက်ပါပြီ။");
         } else {
-            // Customer ငြင်းပယ်လျှင်
+            // Customer က Reject လုပ်လျှင် - Pending ပြန်ဖြစ်ပြီး Rider အသစ်ရှာမည်
             await updateDoc(orderRef, { 
                 status: "pending", 
                 riderId: null, 
@@ -134,10 +151,23 @@ window.respondRider = async (isAccepted) => {
                 pickupSchedule: null,
                 lastRejectedRiderId: d.tempRiderId 
             });
-            alert("Rider ကို ငြင်းပယ်လိုက်ပါပြီ။ အခြား Rider များ ပြန်လည်မြင်တွေ့နိုင်ပါပြီ။");
+            alert("ဤ Rider ကို ငြင်းပယ်လိုက်ပါပြီ။ အခြား Rider များ ပြန်လည်မြင်တွေ့နိုင်ပါပြီ။");
         }
     } catch (error) { 
         console.error("Respond Error:", error); 
         alert("လုပ်ဆောင်ချက် မအောင်မြင်ပါ။");
+    }
+};
+
+// Customer ကိုယ်တိုင် Order ဖျက်ခြင်း (Rider dashboard မှာ cancelled card ပေါ်စေရန်)
+window.cancelOrder = async () => {
+    if (confirm("အော်ဒါကို ဖျက်သိမ်းမှာ သေချာပါသလား?")) {
+        try {
+            await updateDoc(doc(db, "orders", orderId), { 
+                status: "cancelled" 
+            });
+            alert("အော်ဒါဖျက်သိမ်းပြီးပါပြီ။");
+            window.location.href = "index.html";
+        } catch (err) { console.error(err); }
     }
 };
