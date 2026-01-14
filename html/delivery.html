@@ -17,7 +17,14 @@
             --danger: #ff4444; 
             --success: #2ed573;
         }
-        body { background: var(--bg); color: var(--text); margin: 0; font-family: 'Segoe UI', sans-serif; padding-bottom: 50px; }
+        body { 
+            background: var(--bg); 
+            color: var(--text); 
+            margin: 0; 
+            font-family: 'Segoe UI', Roboto, sans-serif; 
+            padding-bottom: 50px; 
+            line-height: 1.6;
+        }
         
         .header { 
             background: var(--primary); 
@@ -28,23 +35,27 @@
             position: sticky; 
             top: 0; 
             z-index: 1000; 
-            box-shadow: 0 2px 10px rgba(0,0,0,0.5); 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5); 
             display: flex;
             justify-content: center;
             align-items: center;
             gap: 10px;
+            letter-spacing: 1px;
         }
 
-        /* မြေပုံကို ပုံမှန်အရောင်အတိုင်းပြရန် filter ကို ဖယ်ရှားလိုက်ပါသည် */
         #map { 
-            height: 250px; 
+            height: 280px; /* မြေပုံကို နည်းနည်း ထပ်ချဲ့ထားပါတယ် */
             width: 100%; 
             background: #242424;
+            border-bottom: 2px solid var(--primary);
         } 
 
-        .container { padding: 15px; max-width: 600px; margin: auto; }
+        .container { 
+            padding: 15px; 
+            max-width: 650px; 
+            margin: auto; 
+        }
         
-        /* Stats & Limit Info */
         .limit-info { 
             background: #222; 
             padding: 15px; 
@@ -52,72 +63,107 @@
             text-align: center; 
             font-size: 0.9rem; 
             border: 1px solid #333; 
-            margin-bottom: 20px;
+            margin-bottom: 25px;
             display: flex;
             justify-content: space-around;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
         }
         .stat-box { display: flex; flex-direction: column; gap: 5px; }
         .stat-val { font-size: 1.2rem; font-weight: bold; color: var(--primary); }
 
-        h4 { color: var(--primary); font-size: 0.85rem; text-transform: uppercase; margin: 25px 0 12px 0; display: flex; align-items: center; gap: 8px; letter-spacing: 1px; }
+        h4 { 
+            color: var(--primary); 
+            font-size: 0.9rem; 
+            text-transform: uppercase; 
+            margin: 30px 0 15px 0; 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            letter-spacing: 1.5px; 
+        }
         h4::after { content: ""; flex: 1; height: 1px; background: #333; }
 
-        /* Order Cards Styling */
+        /* --- Order List Frames --- */
+        /* Frame သေးမနေအောင် height: auto ထားပြီး padding ထည့်ထားပါတယ် */
+        #available-orders, #active-orders-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            min-height: 50px;
+            margin-bottom: 20px;
+        }
+
+        /* --- Order Card Styling --- */
         .order-card, .active-order-card { 
             background: var(--card); 
-            border-radius: 16px; 
-            padding: 16px; 
-            margin-bottom: 16px; 
+            border-radius: 18px; 
+            padding: 20px; 
             border: 1px solid #333; 
-            transition: transform 0.2s;
+            transition: transform 0.2s, border-color 0.2s;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.3);
         }
+        .order-card:active { transform: scale(0.98); }
 
-        /* Order Details Styling (Rider အတွက် မြင်သာစေရန်) */
         .order-details {
-            font-size: 0.85rem;
-            color: #bbb;
-            margin: 10px 0;
-            line-height: 1.5;
+            background: rgba(255,255,255,0.03);
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            color: #ccc;
+            margin: 12px 0;
+            border-left: 3px solid var(--primary);
         }
-        .order-details b { color: var(--text); }
+        .order-details b { color: var(--primary); font-size: 0.8rem; }
 
-        /* Rejected/Cancelled Style */
+        /* --- Rejected State --- */
         .rejected-card { 
             border: 2px solid var(--danger) !important; 
             background: #2a1515 !important; 
-            position: relative;
-            overflow: hidden;
             animation: pulse 2s infinite;
         }
         @keyframes pulse {
             0% { box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.4); }
-            70% { box-shadow: 0 0 0 10px rgba(255, 68, 68, 0); }
+            70% { box-shadow: 0 0 0 12px rgba(255, 68, 68, 0); }
             100% { box-shadow: 0 0 0 0 rgba(255, 68, 68, 0); }
         }
-        .rejected-label {
-            background: var(--danger);
-            color: white;
-            font-size: 0.7rem;
-            padding: 4px 8px;
-            border-radius: 0 0 0 10px;
-            position: absolute;
-            top: 0;
-            right: 0;
-            font-weight: bold;
+
+        /* --- Buttons --- */
+        .btn-group { display: flex; gap: 12px; margin-top: 15px; }
+        
+        .btn-accept-now { 
+            background: var(--primary); color: black; border: none; 
+            padding: 14px; border-radius: 12px; font-weight: bold; 
+            cursor: pointer; flex: 2; font-size: 1rem;
+        }
+        .btn-accept-tmr { 
+            background: #333; color: white; border: 1px solid #444; 
+            padding: 14px; border-radius: 12px; font-weight: bold; 
+            cursor: pointer; flex: 1; font-size: 0.85rem;
+        }
+        
+        .btn-status { 
+            background: var(--success); color: white; border: none; 
+            width: 100%; padding: 15px; border-radius: 12px; 
+            font-weight: bold; margin-top: 15px; font-size: 1rem;
+            box-shadow: 0 4px 10px rgba(46, 213, 115, 0.3);
         }
 
-        /* Buttons */
-        .btn-accept-now { background: var(--primary); color: black; border: none; padding: 12px; border-radius: 10px; font-weight: bold; cursor: pointer; flex: 1; }
-        .btn-accept-tmr { background: #333; color: white; border: 1px solid #444; padding: 12px; border-radius: 10px; font-weight: bold; cursor: pointer; flex: 1; }
-        .btn-group { display: flex; gap: 10px; margin-top: 10px; }
+        .btn-dismiss { 
+            background: #444; color: #bbb; border: none; 
+            width: 100%; padding: 12px; border-radius: 10px; 
+            margin-top: 10px; font-size: 0.85rem; 
+        }
+
+        .empty-msg { 
+            text-align: center; color: #666; font-size: 0.9rem; 
+            padding: 40px 20px; border: 2px dashed #333; border-radius: 18px; 
+            background: rgba(255,255,255,0.01);
+        }
+
+        .item-info { display: flex; justify-content: space-between; align-items: center; }
+        .item-name { font-size: 1.1rem; font-weight: bold; color: #fff; }
+        .price { color: var(--primary); font-size: 1.1rem; font-weight: 800; }
         
-        .btn-status { background: var(--success); color: white; border: none; width: 100%; padding: 12px; border-radius: 10px; font-weight: bold; margin-top: 10px; }
-        .btn-dismiss { background: #444; color: #bbb; border: none; width: 100%; padding: 10px; border-radius: 10px; margin-top: 10px; font-size: 0.8rem; }
-
-        .empty-msg { text-align: center; color: #555; font-size: 0.85rem; padding: 30px; border: 1px dashed #333; border-radius: 16px; }
-
-        .item-info { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
-        .price { color: var(--primary); font-weight: bold; }
     </style>
 </head>
 <body>
@@ -131,30 +177,29 @@
     <div class="container">
         <div id="rider-limit-info" class="limit-info">
             <div class="stat-box">
-                <span style="font-size: 0.7rem; color: #888;">MY ORDERS</span>
+                <span style="font-size: 0.75rem; color: #888; font-weight: bold;">MY ACTIVE ORDERS</span>
                 <span id="active-count" class="stat-val">0 / 7</span>
             </div>
             <div class="stat-box">
-                <span style="font-size: 0.7rem; color: #888;">SYSTEM</span>
+                <span style="font-size: 0.75rem; color: #888; font-weight: bold;">SERVER</span>
                 <span id="system-status" class="stat-val" style="color: var(--success); font-size: 0.9rem;">ONLINE</span>
             </div>
         </div>
 
         <div id="rejected-orders-section"></div>
 
-        <h4>🚴 Active Delivery (Max 7)</h4>
+        <h4>🚴 Current Tasks</h4>
         <div id="active-orders-list">
             <div class="empty-msg">လက်ခံထားသော အော်ဒါမရှိသေးပါ</div>
         </div>
 
         <h4>📥 New Orders Available</h4>
         <div id="available-orders">
-            <div class="empty-msg">စောင့်ဆိုင်းနေသော အော်ဒါမရှိသေးပါ</div>
+            <div class="empty-msg">အော်ဒါအသစ်များကို ရှာဖွေနေပါသည်...</div>
         </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
     <script type="module" src="../js/delivery.js"></script>
 </body>
 </html>
