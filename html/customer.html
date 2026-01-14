@@ -11,6 +11,7 @@
             --primary: #ffcc00;
             --dark: #1a1a1a;
             --bg: #f8f9fa;
+            --danger: #ff4757;
         }
 
         body { 
@@ -20,16 +21,39 @@
             color: var(--dark);
         }
 
-        .header { 
-            background: var(--primary); 
-            padding: 15px; 
-            text-align: center; 
-            font-weight: 800; 
-            font-size: 1.1rem;
+        /* Profile Bar Styling */
+        .profile-bar {
+            background: white;
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #eee;
             position: sticky;
             top: 0;
-            z-index: 1000;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1100;
+        }
+        .user-meta b { font-size: 0.95rem; color: var(--dark); display: block; }
+        .user-meta span { font-size: 0.7rem; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        .logout-btn {
+            background: #fff0f0;
+            color: var(--danger);
+            border: 1px solid #ffdada;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .header { 
+            background: var(--primary); 
+            padding: 12px; 
+            text-align: center; 
+            font-weight: 800; 
+            font-size: 1rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         }
 
         #map { 
@@ -149,15 +173,20 @@
             cursor: pointer;
         }
         .order-card:active { background: #f0f0f0; }
-        .order-info b { font-size: 0.9rem; display: block; }
-        .order-info span { font-size: 0.75rem; color: #888; }
-        .track-icon { color: var(--primary); font-size: 1.2rem; }
 
         .pickup-label { border-left: 5px solid var(--primary); }
         .dropoff-label { border-left: 5px solid #ff4757; }
     </style>
 </head>
 <body>
+
+    <div class="profile-bar">
+        <div class="user-meta">
+            <span id="display-role">Customer</span>
+            <b id="display-name">Loading...</b>
+        </div>
+        <button class="logout-btn" id="logoutBtn">Logout</button>
+    </div>
 
     <div class="header">GO-BIKE DELIVERY</div>
 
@@ -209,7 +238,7 @@
                 <b>Drop-off (ပစ္စည်းပို့ဆောင်မည့်နေရာ)</b> 
                 <select id="dropoff-township" required>
                     <option value="">မြို့နယ်ရွေးပါ</option>
-                </select>
+                    </select>
                 <input type="text" id="dropoff-address" class="manual-addr" placeholder="လမ်းအမည်/အိမ်အမှတ် ရိုက်ပါ" required>
             </div>
 
