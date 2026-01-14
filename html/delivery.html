@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>GoBike - Rider Dashboard</title>
     
     <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://unpkg.com https://tile.openstreetmap.org; object-src 'none';">
@@ -25,26 +25,51 @@
             padding-bottom: 50px; 
             line-height: 1.6;
         }
+
+        /* Profile Bar Styling for Dark Theme */
+        .profile-bar {
+            background: #1a1a1a;
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #333;
+            position: sticky;
+            top: 0;
+            z-index: 1100;
+        }
+        .user-meta span { font-size: 0.7rem; color: var(--primary); text-transform: uppercase; font-weight: bold; letter-spacing: 1px; display: block; }
+        .user-meta b { font-size: 0.95rem; color: #fff; }
+        
+        .logout-btn {
+            background: transparent;
+            color: var(--danger);
+            border: 1px solid var(--danger);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .logout-btn:active { background: var(--danger); color: #fff; transform: scale(0.9); }
         
         .header { 
             background: var(--primary); 
-            padding: 18px; 
+            padding: 12px; 
             text-align: center; 
             color: black; 
             font-weight: 800; 
-            position: sticky; 
-            top: 0; 
-            z-index: 1000; 
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5); 
+            font-size: 1rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3); 
             display: flex;
             justify-content: center;
             align-items: center;
             gap: 10px;
-            letter-spacing: 1px;
         }
 
         #map { 
-            height: 280px; /* မြေပုံကို နည်းနည်း ထပ်ချဲ့ထားပါတယ် */
+            height: 250px; 
             width: 100%; 
             background: #242424;
             border-bottom: 2px solid var(--primary);
@@ -67,13 +92,14 @@
             display: flex;
             justify-content: space-around;
             box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            margin-top: 15px;
         }
         .stat-box { display: flex; flex-direction: column; gap: 5px; }
         .stat-val { font-size: 1.2rem; font-weight: bold; color: var(--primary); }
 
         h4 { 
             color: var(--primary); 
-            font-size: 0.9rem; 
+            font-size: 0.85rem; 
             text-transform: uppercase; 
             margin: 30px 0 15px 0; 
             display: flex; 
@@ -83,105 +109,50 @@
         }
         h4::after { content: ""; flex: 1; height: 1px; background: #333; }
 
-        /* --- Order List Frames --- */
-        /* Frame သေးမနေအောင် height: auto ထားပြီး padding ထည့်ထားပါတယ် */
         #available-orders, #active-orders-list {
             display: flex;
             flex-direction: column;
             gap: 15px;
             min-height: 50px;
-            margin-bottom: 20px;
         }
 
-        /* --- Order Card Styling --- */
         .order-card, .active-order-card { 
             background: var(--card); 
             border-radius: 18px; 
             padding: 20px; 
             border: 1px solid #333; 
-            transition: transform 0.2s, border-color 0.2s;
             box-shadow: 0 6px 15px rgba(0,0,0,0.3);
-        }
-        .order-card:active { transform: scale(0.98); }
-
-        .order-details {
-            background: rgba(255,255,255,0.03);
-            padding: 12px;
-            border-radius: 12px;
-            font-size: 0.9rem;
-            color: #ccc;
-            margin: 12px 0;
-            border-left: 3px solid var(--primary);
-        }
-        .order-details b { color: var(--primary); font-size: 0.8rem; }
-/* --- Rejected State --- */
-        .rejected-card { 
-            border: 2px solid var(--danger) !important; 
-            background: #2a1515 !important; 
-            animation: pulse 2s infinite;
-        }
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.4); }
-            70% { box-shadow: 0 0 0 12px rgba(255, 68, 68, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(255, 68, 68, 0); }
-        }
-
-        /* --- Buttons --- */
-        .btn-group { display: flex; gap: 12px; margin-top: 15px; }
-        
-        .btn-accept-now { 
-            background: var(--primary); color: black; border: none; 
-            padding: 14px; border-radius: 12px; font-weight: bold; 
-            cursor: pointer; flex: 2; font-size: 1rem;
-        }
-        .btn-accept-tmr { 
-            background: #333; color: white; border: 1px solid #444; 
-            padding: 14px; border-radius: 12px; font-weight: bold; 
-            cursor: pointer; flex: 1; font-size: 0.85rem;
-        }
-        
-        .btn-status { 
-            background: var(--success); color: white; border: none; 
-            width: 100%; padding: 15px; border-radius: 12px; 
-            font-weight: bold; margin-top: 15px; font-size: 1rem;
-            box-shadow: 0 4px 10px rgba(46, 213, 115, 0.3);
-        }
-
-        .btn-dismiss { 
-            background: #444; color: #bbb; border: none; 
-            width: 100%; padding: 12px; border-radius: 10px; 
-            margin-top: 10px; font-size: 0.85rem; 
         }
 
         .empty-msg { 
-            text-align: center; color: #666; font-size: 0.9rem; 
-            padding: 40px 20px; border: 2px dashed #333; border-radius: 18px; 
-            background: rgba(255,255,255,0.01);
+            text-align: center; color: #666; font-size: 0.85rem; 
+            padding: 30px 20px; border: 2px dashed #333; border-radius: 18px; 
         }
-
-        .item-info { display: flex; justify-content: space-between; align-items: center; }
-        .item-name { font-size: 1.1rem; font-weight: bold; color: #fff; }
-        .price { color: var(--primary); font-size: 1.1rem; font-weight: 800; }
-        
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <span>GOBIKE RIDER PANEL</span>
+    <div class="profile-bar">
+        <div class="user-meta">
+            <span id="display-role">Rider</span>
+            <b id="display-name">Loading...</b>
+        </div>
+        <button class="logout-btn" onclick="handleLogout()">Logout</button>
     </div>
+
+    <div class="header">GOBIKE RIDER PANEL</div>
 
     <div id="map"></div>
 
     <div class="container">
         <div id="rider-limit-info" class="limit-info">
             <div class="stat-box">
-                <span style="font-size: 0.75rem; color: #888; font-weight: bold;">MY ACTIVE ORDERS</span>
+                <span style="font-size: 0.7rem; color: #888; font-weight: bold;">ACTIVE ORDERS</span>
                 <span id="active-count" class="stat-val">0 / 7</span>
             </div>
             <div class="stat-box">
-                <span style="font-size: 0.75rem; color: #888; font-weight: bold;">SERVER</span>
-                <span id="system-status" class="stat-val" style="color: var(--success); font-size: 0.9rem;">ONLINE</span>
+                <span style="font-size: 0.7rem; color: #888; font-weight: bold;">SERVER</span>
+                <span id="system-status" class="stat-val" style="color: var(--success); font-size: 0.8rem;">ONLINE</span>
             </div>
         </div>
 
