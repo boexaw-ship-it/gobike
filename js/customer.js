@@ -2,12 +2,45 @@ import { db, auth } from './firebase-config.js';
 import { 
     collection, addDoc, serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { notifyTelegram } from './telegram.js';
 
 // --- 0. Google Apps Script URL ---
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzoqWIjISI8MrzFYu-B7CBldle8xuo-B5jNQtCRsqHLOaLPEPelYX84W5lRXoB9RhL6uw/exec";
 
-// --- ၁။ Map Setup ---
+// --- ၁။ Auth & Profile Logic ---
+onAuthStateChanged(auth, (user) => {
+    const nameDisplay = document.getElementById('display-name');
+    const roleDisplay = document.getElementById('display-role');
+
+    if (user) {
+        // Login ဝင်ထားလျှင် နာမည်ပြမည်
+        if (nameDisplay) nameDisplay.innerText = user.displayName || "User";
+        if (roleDisplay) roleDisplay.innerText = "Customer Account";
+        displayMyOrders(); // အော်ဒါမှတ်တမ်းပြရန်
+    } else {
+        // Login မဝင်ထားလျှင် Login Page (index.html) သို့ ပြန်ပို့မည်
+        // html/ folder ထဲမှာ ရှိနေသဖြင့် ../index.html ကို သုံးရပါသည်
+        window.location.href = "../index.html";
+    }
+});
+
+// Logout Function
+window.handleLogout = async () => {
+    if (confirm("အကောင့်မှ ထွက်မှာ သေချာပါသလား?")) {
+        try {
+            await signOut(auth);
+            // signOut ပြီးလျှင် onAuthStateChanged မှ အလိုအလျောက် redirect လုပ်သွားပါမည်
+        } catch (error) {
+            console.error("Logout Error:", error);
+        }
+    }
+};
+
+// Logout Button Event Listener
+document.getElementById('logoutBtn')?.addEventListener('click', handleLogout);
+
+// --- ၂။ Map Setup ---
 const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 12); 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
@@ -15,14 +48,14 @@ let pickupMarker, dropoffMarker;
 let pickupCoords = null;
 let dropoffCoords = null;
 
-// --- ၂။ Sync Dropdown Options ---
+// --- ၃။ Sync Dropdown Options ---
 const pickupSelect = document.getElementById('pickup-township');
 const dropoffSelect = document.getElementById('dropoff-township');
 if (pickupSelect && dropoffSelect) {
     dropoffSelect.innerHTML = pickupSelect.innerHTML; 
 }
 
-// --- ၃။ Township Change & Map Update ---
+// --- ၄။ Township Change & Map Update ---
 window.updateLocation = function(type) {
     const select = document.getElementById(`${type}-township`);
     const option = select.options[select.selectedIndex];
@@ -48,7 +81,7 @@ window.updateLocation = function(type) {
 if (pickupSelect) pickupSelect.onchange = () => updateLocation('pickup');
 if (dropoffSelect) dropoffSelect.onchange = () => updateLocation('dropoff');
 
-// --- ၄။ Auto Pricing Logic ---
+// --- ၅။ Auto Pricing Logic ---
 function calculatePrice() {
     if (pickupCoords && dropoffCoords) {
         const p1 = L.latLng(pickupCoords.lat, pickupCoords.lng);
@@ -75,7 +108,7 @@ function calculatePrice() {
 document.getElementById('item-weight').oninput = calculatePrice;
 document.getElementById('item-value').oninput = calculatePrice;
 
-// --- ၅။ My Orders Logic (With Delete Function) ---
+// --- ၆။ My Orders Logic (Local Record) ---
 function saveOrderToLocal(id, item) {
     let orders = JSON.parse(localStorage.getItem('myOrders') || "[]");
     const newOrder = {
@@ -90,7 +123,7 @@ function saveOrderToLocal(id, item) {
 }
 
 window.deleteLocalOrder = function(id, event) {
-    event.stopPropagation(); // Card Click မဖြစ်အောင် တားသည်
+    event.stopPropagation(); 
     if(confirm("ဤအော်ဒါမှတ်တမ်းကို ဖျက်လိုပါသလား?")) {
         let orders = JSON.parse(localStorage.getItem('myOrders') || "[]");
         orders = orders.filter(o => o.id !== id);
@@ -111,21 +144,20 @@ function displayMyOrders() {
     }
 
     listDiv.innerHTML = orders.map(order => `
-        <div class="order-card" onclick="window.location.href='track.html?id=${order.id}'" style="cursor: pointer; margin-bottom: 10px; padding: 12px; background: #fafafa; border-radius: 12px; border: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+        <div class="order-card" onclick="window.location.href='track.html?id=${order.id}'">
             <div class="order-info">
-                <b style="display: block; font-size: 0.9rem;">📦 ${order.item}</b>
-                <span style="font-size: 0.75rem; color: #888;">${order.time}</span>
+                <b>📦 ${order.item}</b>
+                <span>${order.time}</span>
             </div>
             <div style="display: flex; align-items: center; gap: 15px;">
-                <div class="track-icon" style="color: #ffcc00; font-size: 1.2rem;">📍</div>
+                <div class="track-icon">📍</div>
                 <div onclick="deleteLocalOrder('${order.id}', event)" style="color: #ff4444; font-size: 1.1rem; padding: 5px;">🗑️</div>
             </div>
         </div>
     `).join('');
 }
-displayMyOrders();
 
-// --- ၆။ Submit Order ---
+// --- ၇။ Submit Order ---
 document.getElementById('placeOrderBtn').onclick = async () => {
     const feeInfo = calculatePrice();
     const item = document.getElementById('item-detail').value;
@@ -145,12 +177,11 @@ document.getElementById('placeOrderBtn').onclick = async () => {
         const pAddr = document.getElementById('pickup-address').value;
         const dAddr = document.getElementById('dropoff-address').value;
 
-        // --- Logic: Signup Name ကို ဦးစားပေးယူခြင်း ---
         const customerDisplayName = auth.currentUser?.displayName || "Customer";
 
         const orderData = {
             userId: auth.currentUser?.uid || "anonymous",
-            customerName: customerDisplayName, // နာမည်ရင်းကို Database ထဲသိမ်းသည်
+            customerName: customerDisplayName,
             pickup: { ...pickupCoords, address: `${pTown}, ${pAddr}` },
             dropoff: { ...dropoffCoords, address: `${dTown}, ${dAddr}` },
             item: item,
@@ -168,7 +199,7 @@ document.getElementById('placeOrderBtn').onclick = async () => {
 
         saveOrderToLocal(orderId, item);
 
-        // --- ၇။ Google Sheets ပို့ခြင်း ---
+        // Google Sheets Sync
         fetch(SCRIPT_URL, {
             method: "POST",
             mode: "no-cors",
@@ -187,10 +218,10 @@ document.getElementById('placeOrderBtn').onclick = async () => {
             })
         });
 
-        // --- ၈။ Telegram Notification ---
+        // Telegram Notification
         const msg = `📦 <b>New Order Received!</b>\n` +
                     `--------------------------\n` +
-                    `👤 Customer: <b>${customerDisplayName}</b>\n` + // နာမည်ရင်းပြသည်
+                    `👤 Customer: <b>${customerDisplayName}</b>\n` +
                     `📝 ပစ္စည်း: <b>${item}</b>\n` +
                     `⚖️ အလေးချိန်: ${weight} kg\n` +
                     `💰 ပစ္စည်းတန်ဖိုး: ${itemValue} KS\n` +
@@ -213,4 +244,3 @@ document.getElementById('placeOrderBtn').onclick = async () => {
     }
 };
 
-auth.onAuthStateChanged((user) => { if(user) displayMyOrders(); });
