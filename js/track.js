@@ -56,12 +56,11 @@ if (orderId) {
             }
         });
 
-        // (ဂ) Details Display (Rider ဆီရောက်မဲ့ အချက်အလက်များပါ စစ်ဆေးရန်)
+        // (ဂ) Details Display
         if (document.getElementById('status-badge')) {
             document.getElementById('status-badge').innerText = (data.status || "LOADING").replace("_", " ").toUpperCase();
         }
 
-        // ဤနေရာတွင် Rider မြင်ရမည့် Order Details များကို UI မှာ ပြသခြင်း
         if (document.getElementById('det-item')) document.getElementById('det-item').innerText = data.item || "-";
         if (document.getElementById('det-fee')) {
             document.getElementById('det-fee').innerText = data.deliveryFee ? data.deliveryFee.toLocaleString() + " KS" : "0 KS";
@@ -107,11 +106,12 @@ if (orderId) {
             }, (err) => console.error("Tracking Error:", err));
         }
 
-        // (စ) Completion Logic
+        // (စ) Completion Logic - FIXED 404 ERROR PATH
         if (data.status === "completed") {
             setTimeout(() => {
                 alert("လူကြီးမင်း၏ ပါဆယ်ပို့ဆောင်မှု အောင်မြင်ပြီးဆုံးပါပြီ။");
-                window.location.href = "index.html"; 
+                // GitHub Pages တွင် 404 မတက်စေရန် လက်ရှိ Folder ထဲမှ index.html ကို ညွှန်းပါသည်
+                window.location.href = "./index.html"; 
             }, 1000);
         }
     }, (error) => {
@@ -121,7 +121,6 @@ if (orderId) {
 
 // --- ၄။ Functions ---
 
-// Customer က Rider ကို လက်ခံလိုက်တဲ့အခါ Data တွေ Rider ဆီ သေချာရောက်အောင် Update လုပ်ခြင်း
 window.respondRider = async (isAccepted) => {
     try {
         const orderRef = doc(db, "orders", orderId);
@@ -129,7 +128,6 @@ window.respondRider = async (isAccepted) => {
         const d = snap.data();
 
         if (isAccepted) {
-            // Rider ဆီသို့ Details အပြည့်အစုံ ရောက်ရှိစေရန် riderId နှင့် riderName ကို သေချာသွင်းပါ
             await updateDoc(orderRef, { 
                 status: "accepted", 
                 riderId: d.tempRiderId, 
@@ -137,7 +135,7 @@ window.respondRider = async (isAccepted) => {
                 pickupSchedule: d.pickupSchedule, 
                 acceptedAt: serverTimestamp()
             });
-            alert("Rider ကို အတည်ပြုလိုက်ပါပြီ။ Rider Dashboard တွင် Order Details များ ပေါ်လာပါလိမ့်မည်။");
+            alert("Rider ကို အတည်ပြုလိုက်ပါပြီ။");
         } else {
             await updateDoc(orderRef, { 
                 status: "pending", 
@@ -157,7 +155,8 @@ window.cancelOrder = async () => {
         try {
             await updateDoc(doc(db, "orders", orderId), { status: "cancelled" });
             alert("အော်ဒါဖျက်သိမ်းပြီးပါပြီ။");
-            window.location.href = "index.html";
+            // Cancel လုပ်လျှင်လည်း Home သို့ ပြန်ပို့ပါသည်
+            window.location.href = "./index.html";
         } catch (err) { console.error(err); }
     }
 };
