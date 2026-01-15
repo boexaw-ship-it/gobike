@@ -39,7 +39,7 @@
             padding: 6px 12px; border-radius: 8px; font-size: 0.75rem; font-weight: bold; cursor: pointer;
         }
 
-        /* Header Style with Back Icon Support */
+        /* Header Style */
         .header { 
             background: var(--primary); 
             padding: 12px; 
@@ -100,10 +100,6 @@
         .order-card {
             background: var(--card-dark); padding: 15px; border-radius: 15px;
             margin-bottom: 12px; color: white; border: 1px solid #333;
-        }
-        .status-badge {
-            float: right; font-size: 0.7rem; padding: 4px 10px; border-radius: 10px;
-            background: var(--primary); color: black; font-weight: bold;
         }
 
         /* Bottom Navigation */
@@ -179,7 +175,7 @@
                     <b>Drop-off (ပစ္စည်းပို့ဆောင်မည့်နေရာ)</b> 
                     <select id="dropoff-township" required>
                         <option value="">မြို့နယ်ရွေးပါ</option>
-                        </select>
+                    </select>
                     <input type="text" id="dropoff-address" class="manual-addr" placeholder="လမ်းအမည်/အိမ်အမှတ် ရိုက်ပါ" required>
                 </div>
 
@@ -227,7 +223,7 @@
     <script type="module" src="../js/customer.js"></script>
 
     <script>
-        // Township Clone logic
+        // 1. Township Clone logic (မြို့နယ်ရွေးရင် နောက်တစ်ခုမှာပါ ပေါ်စေရန်)
         const pSelect = document.getElementById('pickup-township');
         const dSelect = document.getElementById('dropoff-township');
         pSelect.addEventListener('change', () => {
@@ -238,7 +234,7 @@
             }
         });
 
-        // Tab Switching logic
+        // 2. Tab Switching logic
         function showSection(sectionId, el) {
             document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
             const targetSection = document.getElementById(sectionId + '-section');
@@ -248,6 +244,15 @@
             if(el) el.classList.add('active');
             window.scrollTo(0,0);
         }
+
+        // 3. New Logic: URL မှာ tab=list ပါလာရင် My Orders ကို တန်းပြရန် (Tracking Page မှ ပြန်လာလျှင် သုံးရန်)
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('tab') === 'list') {
+                const listTabBtn = document.querySelectorAll('.nav-item')[1];
+                showSection('list', listTabBtn);
+            }
+        });
     </script>
 
 </body>
