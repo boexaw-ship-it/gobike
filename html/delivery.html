@@ -25,15 +25,13 @@
             color: var(--text); 
             margin: 0; 
             font-family: 'Segoe UI', Roboto, sans-serif; 
-            padding-bottom: 70px; /* Nav bar အတွက် နေရာချန်ရန် */
+            padding-bottom: 80px; 
             line-height: 1.6;
         }
 
-        /* Page Sections Toggle */
         .page-section { display: none; }
         .page-section.active { display: block; }
 
-        /* Profile Bar Styling */
         .profile-bar {
             background: #1a1a1a;
             padding: 10px 15px;
@@ -69,21 +67,21 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.3); 
         }
 
-        #map { height: 250px; width: 100%; background: #242424; border-bottom: 2px solid var(--primary); } 
+        #map { height: 220px; width: 100%; background: #242424; border-bottom: 2px solid var(--primary); } 
 
         .container { padding: 15px; max-width: 650px; margin: auto; }
         
         .limit-info { 
             background: #222; padding: 15px; border-radius: 12px; 
             text-align: center; font-size: 0.9rem; border: 1px solid #333; 
-            margin-bottom: 25px; display: flex; justify-content: space-around;
-            margin-top: 15px;
+            margin-bottom: 15px; display: flex; justify-content: space-around;
+            margin-top: 10px;
         }
         .stat-val { font-size: 1.2rem; font-weight: bold; color: var(--primary); }
 
         h4 { 
             color: var(--primary); font-size: 0.85rem; text-transform: uppercase; 
-            margin: 30px 0 15px 0; display: flex; align-items: center; gap: 10px; 
+            margin: 25px 0 12px 0; display: flex; align-items: center; gap: 10px; 
             letter-spacing: 1.5px; 
         }
         h4::after { content: ""; flex: 1; height: 1px; background: #333; }
@@ -91,6 +89,24 @@
         .empty-msg { 
             text-align: center; color: #666; font-size: 0.85rem; 
             padding: 30px 20px; border: 2px dashed #333; border-radius: 18px; 
+        }
+
+        /* Order Card Styling */
+        .order-card {
+            background: var(--card);
+            padding: 15px;
+            border-radius: 15px;
+            margin-bottom: 15px;
+            border: 1px solid #333;
+        }
+
+        .status-badge {
+            font-size: 0.7rem;
+            padding: 3px 8px;
+            border-radius: 5px;
+            background: #333;
+            color: var(--primary);
+            font-weight: bold;
         }
 
         /* Bottom Navigation Bar */
@@ -102,7 +118,7 @@
             background: var(--nav-bg);
             display: flex;
             justify-content: space-around;
-            padding: 10px 0;
+            padding: 12px 0;
             border-top: 1px solid #333;
             z-index: 2000;
         }
@@ -116,10 +132,12 @@
             flex: 1;
         }
         .nav-item.active { color: var(--primary); font-weight: bold; }
-        .nav-icon { font-size: 1.3rem; display: block; margin-bottom: 2px; }
+        .nav-icon { font-size: 1.4rem; display: block; margin-bottom: 2px; }
 
-        /* History & Tomorrow Card Styles */
-        .history-card { background: #1a1a1a; margin-bottom: 10px; padding: 15px; border-radius: 12px; border: 1px solid #333; }
+        /* Buttons */
+        .btn-accept { width: 100%; background: var(--primary); border: none; padding: 12px; border-radius: 10px; font-weight: bold; cursor: pointer; }
+        .btn-update { width: 100%; background: #fff; color: #000; border: none; padding: 10px; border-radius: 8px; font-weight: bold; margin-top: 10px; }
+
     </style>
 </head>
 <body>
@@ -136,27 +154,38 @@
         <div class="header">GOBIKE RIDER PANEL</div>
         <div id="map"></div>
         <div class="container">
-            <div id="rider-limit-info" class="limit-info">
+            <div class="limit-info">
                 <div class="stat-box">
-                    <span style="font-size: 0.7rem; color: #888; font-weight: bold;">ACTIVE ORDERS</span>
-                    <span id="active-count" class="stat-val">0 / 7</span>
+                    <span style="font-size: 0.65rem; color: #888; display: block;">TODAY ACTIVE</span>
+                    <span id="active-count" class="stat-val">0 / 3</span>
                 </div>
                 <div class="stat-box">
-                    <span style="font-size: 0.7rem; color: #888; font-weight: bold;">SERVER</span>
-                    <span id="system-status" class="stat-val" style="color: var(--success); font-size: 0.8rem;">ONLINE</span>
+                    <span style="font-size: 0.65rem; color: #888; display: block;">TOMORROW</span>
+                    <span id="tomorrow-count-home" class="stat-val">0 / 7</span>
                 </div>
             </div>
-            <div id="rejected-orders-section"></div>
-            <h4>🚴 Current Tasks</h4>
-            <div id="active-orders-list"><div class="empty-msg">လက်ခံထားသော အော်ဒါမရှိသေးပါ</div></div>
-            <h4>📥 New Orders Available</h4>
-            <div id="available-orders"><div class="empty-msg">အော်ဒါအသစ်များကို ရှာဖွေနေပါသည်...</div></div>
+
+            <h4>🚴 Current Tasks (လက်ရှိအော်ဒါ)</h4>
+            <div id="active-orders-list">
+                <div class="empty-msg">လက်ခံထားသော အော်ဒါမရှိသေးပါ</div>
+            </div>
+
+            <h4>📥 New Orders (အော်ဒါသစ်များ)</h4>
+            <div id="available-orders">
+                <div class="empty-msg">အော်ဒါအသစ်များကို ရှာဖွေနေပါသည်...</div>
+            </div>
         </div>
     </div>
 
     <div id="tomorrow-section" class="page-section">
         <div class="header">TOMORROW SCHEDULE</div>
         <div class="container">
+            <div class="limit-info">
+                <div class="stat-box">
+                    <span style="font-size: 0.7rem; color: #888;">BOOKED ORDERS</span>
+                    <span id="tomorrow-count" class="stat-val">0 / 7</span>
+                </div>
+            </div>
             <h4>📅 မနက်ဖြန်အတွက် အော်ဒါများ</h4>
             <div id="tomorrow-orders-list">
                 <div class="empty-msg">မနက်ဖြန်အတွက် အော်ဒါမရှိသေးပါ</div>
@@ -167,6 +196,12 @@
     <div id="history-section" class="page-section">
         <div class="header">DELIVERY HISTORY</div>
         <div class="container">
+            <div id="earnings-info" class="limit-info" style="background: #1a1a1a; border-color: var(--success);">
+                <div class="stat-box">
+                    <span style="font-size: 0.7rem; color: #888;">TOTAL EARNED</span>
+                    <span id="total-earnings" class="stat-val" style="color: var(--success);">0 KS</span>
+                </div>
+            </div>
             <h4>📜 ပို့ဆောင်ပြီးသမျှ မှတ်တမ်းများ</h4>
             <div id="history-orders-list">
                 <div class="empty-msg">မှတ်တမ်းမရှိသေးပါ</div>
@@ -191,16 +226,11 @@
 
     <script>
         function showSection(sectionId, el) {
-            // Hide all sections
             document.querySelectorAll('.page-section').forEach(sec => sec.classList.remove('active'));
-            // Show selected section
             document.getElementById(sectionId + '-section').classList.add('active');
             
-            // Handle nav items active state
             document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
             el.classList.add('active');
-
-            // Scroll to top when switching
             window.scrollTo(0,0);
         }
     </script>
