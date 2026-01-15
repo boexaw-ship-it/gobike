@@ -21,7 +21,7 @@ let riderUnsubscribe = null;
 
 // --- ၂။ Main Listener (Order အခြေအနေစောင့်ကြည့်ခြင်း) ---
 if (orderId) {
-    onSnapshot(doc(db, "orders", orderId), (docSnap) => {
+    onSnapshot(doc(db, "orders", orderId), async (docSnap) => {
         if (!docSnap.exists()) {
             console.error("Order not found!");
             return;
@@ -30,15 +30,28 @@ if (orderId) {
         const data = docSnap.data();
 
         // (က) Status Check & Rider Marker Cleanup
-        if (data.status === "pending" || data.status === "cancelled") {
+        if (data.status === "pending" || data.status === "cancelled" || data.status === "rider_rejected") {
             const detRider = document.getElementById('det-rider');
             if (detRider) {
-                detRider.innerHTML = data.status === "cancelled" ? 
-                    "<span style='color:red;'>အော်ဒါဖျက်သိမ်းပြီးပါပြီ</span>" : 
-                    "<span style='color:#ffcc00; font-weight:bold;'>Rider အသစ် ထပ်မံရှာဖွေနေပါသည်...</span>";
+                if (data.status === "cancelled") {
+                    detRider.innerHTML = "<span style='color:red;'>အော်ဒါဖျက်သိမ်းပြီးပါပြီ</span>";
+                } else if (data.status === "rider_rejected") {
+                    detRider.innerHTML = "<span style='color:#ff4444; font-weight:bold;'>Rider က ဤအော်ဒါကို ငြင်းပယ်လိုက်ပါသည်။ ကျေးဇူးပြု၍ အော်ဒါအသစ် ပြန်တင်ပေးပါ။</span>";
+                } else {
+                    detRider.innerHTML = "<span style='color:#ffcc00; font-weight:bold;'>Rider အသစ် ထပ်မံရှာဖွေနေပါသည်...</span>";
+                }
             }
             if (riderMarker) { map.removeLayer(riderMarker); riderMarker = null; }
             if (riderUnsubscribe) { riderUnsubscribe(); riderUnsubscribe = null; }
+            
+            // Rider Reject ဖြစ်လျှင် Progress bar အားလုံးကို မီးမှိတ်ရန်
+            if (data.status === "rider_rejected") {
+                for(let i=1; i<=4; i++) {
+                    const el = document.getElementById(`step-${i}`);
+                    if(el) el.classList.remove('active');
+                }
+                return; 
+            }
         }
 
         // (ခ) Progress Bar Update
@@ -74,7 +87,9 @@ if (orderId) {
         else if (data.pickupSchedule === "now") riderDisplay += " (ယနေ့လာယူမည်)";
 
         const detRider = document.getElementById('det-rider');
-        if (detRider) detRider.innerText = riderDisplay;
+        if (detRider && data.status !== "rider_rejected" && data.status !== "cancelled") {
+            detRider.innerText = riderDisplay;
+        }
 
         // (င) Confirmation UI Logic
         const confirmBox = document.getElementById('confirmation-ui');
@@ -108,17 +123,17 @@ if (orderId) {
 
         // (စ) Completion Logic - FIXED with Swal
         if (data.status === "completed") {
-            setTimeout(async () => {
-                await Swal.fire({
-                    title: 'အောင်မြင်ပါသည်!',
-                    text: 'လူကြီးမင်း၏ ပါဆယ်ပို့ဆောင်မှု အောင်မြင်ပြီးဆုံးပါပြီ။',
-                    icon: 'success',
-                    confirmButtonColor: '#ffcc00',
-                    background: '#1a1a1a',
-                    color: '#fff'
-                });
-                window.location.href = "../index.html"; 
-            }, 1000);
+            // setTimeout မလိုဘဲ တိုက်ရိုက် await ခေါ်လိုက်ခြင်းက ပိုသေချာပါသည်
+            await Swal.fire({
+                title: 'အောင်မြင်ပါသည်!',
+                text: 'လူကြီးမင်း၏ ပါဆယ်ပို့ဆောင်မှု အောင်မြင်ပြီးဆုံးပါပြီ။ ကျေးဇူးတင်ပါသည်။',
+                icon: 'success',
+                confirmButtonColor: '#ffcc00',
+                background: '#1a1a1a',
+                color: '#fff',
+                allowOutsideClick: false
+            });
+            window.location.href = "../index.html"; 
         }
     }, (error) => {
         console.error("Main Listener Error:", error);
