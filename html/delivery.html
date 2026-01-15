@@ -8,7 +8,6 @@
     <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://unpkg.com https://tile.openstreetmap.org https://cdn.jsdelivr.net; object-src 'none';">
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <style>
@@ -19,15 +18,20 @@
             --text: #e0e0e0; 
             --danger: #ff4444; 
             --success: #2ed573;
+            --nav-bg: #1a1a1a;
         }
         body { 
             background: var(--bg); 
             color: var(--text); 
             margin: 0; 
             font-family: 'Segoe UI', Roboto, sans-serif; 
-            padding-bottom: 50px; 
+            padding-bottom: 70px; /* Nav bar အတွက် နေရာချန်ရန် */
             line-height: 1.6;
         }
+
+        /* Page Sections Toggle */
+        .page-section { display: none; }
+        .page-section.active { display: block; }
 
         /* Profile Bar Styling */
         .profile-bar {
@@ -53,10 +57,8 @@
             font-size: 0.75rem;
             font-weight: bold;
             cursor: pointer;
-            transition: 0.2s;
         }
-        .logout-btn:active { background: var(--danger); color: #fff; transform: scale(0.9); }
-        
+
         .header { 
             background: var(--primary); 
             padding: 12px; 
@@ -65,78 +67,59 @@
             font-weight: 800; 
             font-size: 1rem;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3); 
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 10px;
         }
 
-        #map { 
-            height: 250px; 
-            width: 100%; 
-            background: #242424;
-            border-bottom: 2px solid var(--primary);
-        } 
+        #map { height: 250px; width: 100%; background: #242424; border-bottom: 2px solid var(--primary); } 
 
-        .container { 
-            padding: 15px; 
-            max-width: 650px; 
-            margin: auto; 
-        }
+        .container { padding: 15px; max-width: 650px; margin: auto; }
         
         .limit-info { 
-            background: #222; 
-            padding: 15px; 
-            border-radius: 12px; 
-            text-align: center; 
-            font-size: 0.9rem; 
-            border: 1px solid #333; 
-            margin-bottom: 25px;
-            display: flex;
-            justify-content: space-around;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            background: #222; padding: 15px; border-radius: 12px; 
+            text-align: center; font-size: 0.9rem; border: 1px solid #333; 
+            margin-bottom: 25px; display: flex; justify-content: space-around;
             margin-top: 15px;
         }
-        .stat-box { display: flex; flex-direction: column; gap: 5px; }
         .stat-val { font-size: 1.2rem; font-weight: bold; color: var(--primary); }
 
         h4 { 
-            color: var(--primary); 
-            font-size: 0.85rem; 
-            text-transform: uppercase; 
-            margin: 30px 0 15px 0; 
-            display: flex; 
-            align-items: center; 
-            gap: 10px; 
+            color: var(--primary); font-size: 0.85rem; text-transform: uppercase; 
+            margin: 30px 0 15px 0; display: flex; align-items: center; gap: 10px; 
             letter-spacing: 1.5px; 
         }
         h4::after { content: ""; flex: 1; height: 1px; background: #333; }
-
-        #available-orders, #active-orders-list {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            min-height: 50px;
-        }
-
-        .order-card, .active-order-card { 
-            background: var(--card); 
-            border-radius: 18px; 
-            padding: 20px; 
-            border: 1px solid #333; 
-            box-shadow: 0 6px 15px rgba(0,0,0,0.3);
-        }
 
         .empty-msg { 
             text-align: center; color: #666; font-size: 0.85rem; 
             padding: 30px 20px; border: 2px dashed #333; border-radius: 18px; 
         }
 
-        /* SweetAlert Custom Styles for Dark Theme */
-        .swal2-popup {
-            border-radius: 20px !important;
-            font-family: 'Segoe UI', sans-serif !important;
+        /* Bottom Navigation Bar */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: var(--nav-bg);
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+            border-top: 1px solid #333;
+            z-index: 2000;
         }
+        .nav-item {
+            color: #777;
+            text-align: center;
+            font-size: 0.7rem;
+            text-decoration: none;
+            cursor: pointer;
+            transition: 0.3s;
+            flex: 1;
+        }
+        .nav-item.active { color: var(--primary); font-weight: bold; }
+        .nav-icon { font-size: 1.3rem; display: block; margin-bottom: 2px; }
+
+        /* History & Tomorrow Card Styles */
+        .history-card { background: #1a1a1a; margin-bottom: 10px; padding: 15px; border-radius: 12px; border: 1px solid #333; }
     </style>
 </head>
 <body>
@@ -149,36 +132,77 @@
         <button class="logout-btn" onclick="handleLogout()">Logout</button>
     </div>
 
-    <div class="header">GOBIKE RIDER PANEL</div>
-
-    <div id="map"></div>
-
-    <div class="container">
-        <div id="rider-limit-info" class="limit-info">
-            <div class="stat-box">
-                <span style="font-size: 0.7rem; color: #888; font-weight: bold;">ACTIVE ORDERS</span>
-                <span id="active-count" class="stat-val">0 / 7</span>
+    <div id="home-section" class="page-section active">
+        <div class="header">GOBIKE RIDER PANEL</div>
+        <div id="map"></div>
+        <div class="container">
+            <div id="rider-limit-info" class="limit-info">
+                <div class="stat-box">
+                    <span style="font-size: 0.7rem; color: #888; font-weight: bold;">ACTIVE ORDERS</span>
+                    <span id="active-count" class="stat-val">0 / 7</span>
+                </div>
+                <div class="stat-box">
+                    <span style="font-size: 0.7rem; color: #888; font-weight: bold;">SERVER</span>
+                    <span id="system-status" class="stat-val" style="color: var(--success); font-size: 0.8rem;">ONLINE</span>
+                </div>
             </div>
-            <div class="stat-box">
-                <span style="font-size: 0.7rem; color: #888; font-weight: bold;">SERVER</span>
-                <span id="system-status" class="stat-val" style="color: var(--success); font-size: 0.8rem;">ONLINE</span>
-            </div>
-        </div>
-
-        <div id="rejected-orders-section"></div>
-
-        <h4>🚴 Current Tasks</h4>
-        <div id="active-orders-list">
-            <div class="empty-msg">လက်ခံထားသော အော်ဒါမရှိသေးပါ</div>
-        </div>
-
-        <h4>📥 New Orders Available</h4>
-        <div id="available-orders">
-            <div class="empty-msg">အော်ဒါအသစ်များကို ရှာဖွေနေပါသည်...</div>
+            <div id="rejected-orders-section"></div>
+            <h4>🚴 Current Tasks</h4>
+            <div id="active-orders-list"><div class="empty-msg">လက်ခံထားသော အော်ဒါမရှိသေးပါ</div></div>
+            <h4>📥 New Orders Available</h4>
+            <div id="available-orders"><div class="empty-msg">အော်ဒါအသစ်များကို ရှာဖွေနေပါသည်...</div></div>
         </div>
     </div>
 
+    <div id="tomorrow-section" class="page-section">
+        <div class="header">TOMORROW SCHEDULE</div>
+        <div class="container">
+            <h4>📅 မနက်ဖြန်အတွက် အော်ဒါများ</h4>
+            <div id="tomorrow-orders-list">
+                <div class="empty-msg">မနက်ဖြန်အတွက် အော်ဒါမရှိသေးပါ</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="history-section" class="page-section">
+        <div class="header">DELIVERY HISTORY</div>
+        <div class="container">
+            <h4>📜 ပို့ဆောင်ပြီးသမျှ မှတ်တမ်းများ</h4>
+            <div id="history-orders-list">
+                <div class="empty-msg">မှတ်တမ်းမရှိသေးပါ</div>
+            </div>
+        </div>
+    </div>
+
+    <nav class="bottom-nav">
+        <div class="nav-item active" onclick="showSection('home', this)">
+            <span class="nav-icon">🏠</span>Home
+        </div>
+        <div class="nav-item" onclick="showSection('tomorrow', this)">
+            <span class="nav-icon">📅</span>Tomorrow
+        </div>
+        <div class="nav-item" onclick="showSection('history', this)">
+            <span class="nav-icon">📜</span>History
+        </div>
+    </nav>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script type="module" src="../js/delivery.js"></script>
+
+    <script>
+        function showSection(sectionId, el) {
+            // Hide all sections
+            document.querySelectorAll('.page-section').forEach(sec => sec.classList.remove('active'));
+            // Show selected section
+            document.getElementById(sectionId + '-section').classList.add('active');
+            
+            // Handle nav items active state
+            document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+            el.classList.add('active');
+
+            // Scroll to top when switching
+            window.scrollTo(0,0);
+        }
+    </script>
 </body>
 </html>
