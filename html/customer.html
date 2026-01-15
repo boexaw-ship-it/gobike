@@ -39,7 +39,26 @@
             padding: 6px 12px; border-radius: 8px; font-size: 0.75rem; font-weight: bold; cursor: pointer;
         }
 
-        .header { background: var(--primary); padding: 12px; text-align: center; font-weight: 800; font-size: 1rem; }
+        /* Header Style with Back Icon Support */
+        .header { 
+            background: var(--primary); 
+            padding: 12px; 
+            text-align: center; 
+            font-weight: 800; 
+            font-size: 1rem; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .back-btn {
+            position: absolute;
+            left: 15px;
+            font-size: 1.4rem;
+            cursor: pointer;
+            padding: 0 10px;
+        }
 
         /* Section Logic */
         .page-section { display: none; }
@@ -184,7 +203,10 @@
     </div>
 
     <div id="list-section" class="page-section">
-        <div class="header">MY ORDER HISTORY</div>
+        <div class="header">
+            <span class="back-btn" onclick="showSection('order', document.querySelector('.nav-item:first-child'))">❮</span>
+            MY ORDER HISTORY
+        </div>
         <div class="orders-list-container">
             <div id="orders-list">
                 <p style="text-align:center; color:#888; margin-top:50px;">မှတ်တမ်းများ ရယူနေပါသည်...</p>
@@ -219,10 +241,11 @@
         // Tab Switching logic
         function showSection(sectionId, el) {
             document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
-            document.getElementById(sectionId + '-section').classList.add('active');
+            const targetSection = document.getElementById(sectionId + '-section');
+            if(targetSection) targetSection.classList.add('active');
             
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-            el.classList.add('active');
+            if(el) el.classList.add('active');
             window.scrollTo(0,0);
         }
     </script>
