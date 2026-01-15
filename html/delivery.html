@@ -5,10 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>GoBike - Rider Dashboard</title>
     
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://unpkg.com https://tile.openstreetmap.org https://cdn.jsdelivr.net; object-src 'none';">
-
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <style>
         :root { 
@@ -91,14 +90,15 @@
             padding: 30px 20px; border: 2px dashed #333; border-radius: 18px; 
         }
 
-        /* Order Card Styling */
         .order-card {
             background: var(--card);
             padding: 15px;
             border-radius: 15px;
             margin-bottom: 15px;
             border: 1px solid #333;
+            animation: fadeIn 0.3s ease;
         }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
         .status-badge {
             font-size: 0.7rem;
@@ -107,9 +107,12 @@
             background: #333;
             color: var(--primary);
             font-weight: bold;
+            float: right;
         }
 
-        /* Bottom Navigation Bar */
+        .order-details { font-size: 0.85rem; margin-top: 10px; }
+        .order-details p { margin: 4px 0; }
+
         .bottom-nav {
             position: fixed;
             bottom: 0;
@@ -134,18 +137,16 @@
         .nav-item.active { color: var(--primary); font-weight: bold; }
         .nav-icon { font-size: 1.4rem; display: block; margin-bottom: 2px; }
 
-        /* Buttons */
-        .btn-accept { width: 100%; background: var(--primary); border: none; padding: 12px; border-radius: 10px; font-weight: bold; cursor: pointer; }
-        .btn-update { width: 100%; background: #fff; color: #000; border: none; padding: 10px; border-radius: 8px; font-weight: bold; margin-top: 10px; }
-
+        .btn-accept { width: 100%; background: var(--primary); border: none; padding: 12px; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 10px; color: #000; }
+        .btn-update { width: 100%; background: #fff; color: #000; border: none; padding: 10px; border-radius: 8px; font-weight: bold; margin-top: 10px; cursor: pointer; }
     </style>
 </head>
 <body>
 
     <div class="profile-bar">
         <div class="user-meta">
-            <span id="display-role">Rider</span>
-            <b id="display-name">Loading...</b>
+            <span id="display-role">Rider Dashboard</span>
+            <b id="display-name">Mg Mg (Rider-001)</b>
         </div>
         <button class="logout-btn" onclick="handleLogout()">Logout</button>
     </div>
@@ -221,10 +222,27 @@
         </div>
     </nav>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script type="module" src="../js/delivery.js"></script>
-
     <script>
+        // 1. Map Initialization
+        let map;
+        function initMap() {
+            map = L.map('map').setView([16.8409, 96.1735], 13); // Default to Yangon
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap'
+            }).addTo(map);
+
+            // Get Rider Location
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(position => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    map.setView([lat, lng], 15);
+                    L.marker([lat, lng]).addTo(map).bindPopup('Your Location').openPopup();
+                });
+            }
+        }
+
+        // 2. Section Switching
         function showSection(sectionId, el) {
             document.querySelectorAll('.page-section').forEach(sec => sec.classList.remove('active'));
             document.getElementById(sectionId + '-section').classList.add('active');
@@ -232,6 +250,46 @@
             document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
             el.classList.add('active');
             window.scrollTo(0,0);
+
+            // Invalidate map size when switching back to home
+            if(sectionId === 'home' && map) {
+                setTimeout(() => map.invalidateSize(), 100);
+            }
+        }
+
+        // 3. Fake Logout Function
+        function handleLogout() {
+            Swal.fire({
+                title: 'Logout?',
+                text: "အကောင့်ထဲမှ ထွက်မှာ သေချာပါသလား?",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ffcc00',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'ထွက်မည်',
+                cancelButtonText: 'မထွက်တော့ပါ'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = 'login.html'; 
+                }
+            })
+        }
+
+        // 4. Load Data on Startup
+        window.onload = function() {
+            initMap();
+            // ဒီနေရာမှာ Backend ကနေ အော်ဒါတွေဆွဲယူမယ့် Function တွေကို ခေါ်ပေးရပါမယ်
+            console.log("Rider Panel Loaded");
+        };
+
+        // Example: အော်ဒါအသစ်လက်ခံခြင်း (Demo)
+        function acceptOrder(orderId) {
+            Swal.fire({
+                title: 'အော်ဒါလက်ခံမလား?',
+                text: `Order ID: ${orderId} ကို လက်ခံလိုက်ပါပြီ။`,
+                icon: 'success',
+                confirmButtonColor: '#ffcc00'
+            });
         }
     </script>
 </body>
