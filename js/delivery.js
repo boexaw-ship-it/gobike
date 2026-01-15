@@ -22,20 +22,33 @@ soundBtn.onclick = () => {
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         console.log("Rider Logged In:", user.uid);
-        await getRiderData(); // Profile နာမည်ဆွဲထုတ်ပြရန်
-        startTracking(); // အော်ဒါများ စောင့်ကြည့်ရန်
+        await getRiderData(); 
+        startTracking(); 
     } else {
         window.location.href = "../index.html";
     }
 });
 
 window.handleLogout = async () => {
-    if (confirm("Rider အကောင့်မှ ထွက်မှာ သေချာပါသလား?")) {
+    const result = await Swal.fire({
+        title: 'ထွက်မှာ သေချာပါသလား?',
+        text: "Rider အကောင့်မှ ထွက်ခွာပါမည်။",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ffcc00',
+        cancelButtonColor: '#444',
+        confirmButtonText: 'ထွက်မည်',
+        cancelButtonText: 'မထွက်တော့ပါ',
+        background: '#1a1a1a',
+        color: '#fff'
+    });
+
+    if (result.isConfirmed) {
         try {
             await signOut(auth);
         } catch (error) {
             console.error("Logout Error:", error);
-            alert("Logout လုပ်၍ မရပါ။");
+            Swal.fire({ title: 'Error!', text: 'Logout လုပ်၍ မရပါ။', icon: 'error', background: '#1a1a1a', color: '#fff' });
         }
     }
 };
@@ -60,10 +73,8 @@ async function getRiderData() {
     }
 }
 
-// --- ၂။ Helper: Create Detailed Telegram Message (Fixed Name Logic) ---
+// --- ၂။ Helper: Create Detailed Telegram Message ---
 const createOrderMessage = (title, order, currentRiderName, statusText = "") => {
-    // order.customerName သည် Firestore ထဲရှိ Customer နာမည်ဖြစ်သည်
-    // currentRiderName သည် လက်ရှိလုပ်ဆောင်နေသော Rider နာမည်ဖြစ်သည်
     let msg = `${title}\n`;
     if (statusText) msg += `📊 Status: <b>${statusText}</b>\n`;
     msg += `--------------------------\n` +
@@ -152,6 +163,7 @@ function startTracking() {
                     </div>`;
                 container.appendChild(card);
             });
+            if (!snap.empty && !isFull) alarmSound.play().catch(e => {});
         }
     });
 
@@ -203,7 +215,7 @@ function startTracking() {
     });
 }
 
-// --- ၆။ Functions ---
+// --- ၆။ Functions with Swal Replacement ---
 
 window.handleAccept = async (id, time) => {
     try {
@@ -215,7 +227,15 @@ window.handleAccept = async (id, time) => {
         if(time === 'tomorrow') {
             await updateDoc(docRef, { status: "pending_confirmation", pickupSchedule: "tomorrow", tempRiderId: auth.currentUser.uid, tempRiderName: riderName });
             await notifyTelegram(createOrderMessage("⏳ <b>Rider Scheduled!</b>", order, riderName, "မနက်ဖြန်မှလာယူပါမည်"));
-            alert(`မနက်ဖြန်မှ လာယူမည့်အကြောင်း Customer ဆီ ပို့လိုက်ပါပြီ။`);
+            
+            Swal.fire({
+                title: 'အောင်မြင်သည်!',
+                text: 'မနက်ဖြန်မှ လာယူမည့်အကြောင်း Customer ဆီ ပို့လိုက်ပါပြီ။',
+                icon: 'success',
+                confirmButtonColor: '#ffcc00',
+                background: '#1a1a1a',
+                color: '#fff'
+            });
         } else {
             await updateDoc(docRef, { status: "accepted", riderId: auth.currentUser.uid, riderName: riderName, acceptedAt: serverTimestamp() });
             fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ action: "update", orderId: id, riderName: riderName, status: "Accepted" }) });
@@ -237,7 +257,19 @@ window.updateStatus = async (id, status) => {
 };
 
 window.completeOrder = async (id) => {
-    if(confirm("ပို့ဆောင်မှုပြီးမြောက်ပြီလား?")) {
+    const result = await Swal.fire({
+        title: 'ပို့ဆောင်မှု ပြီးဆုံးပြီလား?',
+        text: "ဤအော်ဒါကို အောင်မြင်စွာ ပို့ဆောင်ပြီးကြောင်း အတည်ပြုပါမည်။",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#2ed573',
+        cancelButtonColor: '#444',
+        confirmButtonText: 'ဟုတ်ကဲ့၊ ပြီးပါပြီ',
+        background: '#1a1a1a',
+        color: '#fff'
+    });
+
+    if (result.isConfirmed) {
         try {
             const docRef = doc(db, "orders", id);
             const order = (await getDoc(docRef)).data();
@@ -246,24 +278,48 @@ window.completeOrder = async (id) => {
             await updateDoc(docRef, { status: "completed", completedAt: serverTimestamp() });
             fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ action: "update", orderId: id, status: "COMPLETED" }) });
             await notifyTelegram(createOrderMessage("💰 <b>Order Completed!</b>", order, riderName, "အောင်မြင်စွာ ပို့ဆောင်ပြီးပါပြီ"));
+            
+            Swal.fire({
+                title: 'အောင်မြင်ပါသည်!',
+                text: 'လူကြီးမင်း၏ ပါဆယ်ပို့ဆောင်မှု အောင်မြင်ပြီးဆုံးပါပြီ။',
+                icon: 'success',
+                confirmButtonColor: '#ffcc00',
+                background: '#1a1a1a',
+                color: '#fff'
+            });
         } catch (err) { console.error(err); }
     }
 };
 
 window.cancelByRider = async (id) => {
-    if(!confirm("ဤအော်ဒါကို ပြန်လွှတ်မည်မှာ သေချာပါသလား?")) return;
-    try {
-        const docRef = doc(db, "orders", id);
-        const order = (await getDoc(docRef)).data();
-        const riderName = await getRiderName();
+    const result = await Swal.fire({
+        title: 'သေချာပါသလား?',
+        text: "ဤအော်ဒါကို ပြန်လွှတ်ပါမည်။ အခြား Rider များ ပြန်မြင်ရမည်ဖြစ်ပါသည်။",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ffcc00',
+        cancelButtonColor: '#ff4444',
+        confirmButtonText: 'ပြန်လွှတ်မည်',
+        cancelButtonText: 'မလုပ်တော့ပါ',
+        background: '#1a1a1a',
+        color: '#fff'
+    });
 
-        await updateDoc(docRef, {
-            status: "pending", riderId: null, riderName: null, pickupSchedule: null,
-            lastRejectedRiderId: auth.currentUser.uid 
-        });
-        await notifyTelegram(createOrderMessage("❌ <b>Rider Rejected Order!</b>", order, riderName, "Rider က အော်ဒါပြန်လွှတ်လိုက်ပါပြီ"));
-        alert("အော်ဒါကို ပြန်လွှတ်လိုက်ပါပြီ။");
-    } catch (err) { console.error(err); }
+    if (result.isConfirmed) {
+        try {
+            const docRef = doc(db, "orders", id);
+            const order = (await getDoc(docRef)).data();
+            const riderName = await getRiderName();
+
+            await updateDoc(docRef, {
+                status: "pending", riderId: null, riderName: null, pickupSchedule: null,
+                lastRejectedRiderId: auth.currentUser.uid 
+            });
+            await notifyTelegram(createOrderMessage("❌ <b>Rider Rejected Order!</b>", order, riderName, "Rider က အော်ဒါပြန်လွှတ်လိုက်ပါပြီ"));
+            
+            Swal.fire({ title: 'ပြန်လွှတ်ပြီးပါပြီ', icon: 'info', background: '#1a1a1a', color: '#fff' });
+        } catch (err) { console.error(err); }
+    }
 };
 
 async function getRiderName() {
