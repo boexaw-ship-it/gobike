@@ -23,28 +23,28 @@ onAuthStateChanged(auth, (user) => {
     }
 });
 
-// Logout Fix
+// Logout Logic
 const setupLogout = () => {
     const logoutBtn = document.getElementById('logoutBtn');
-    const performLogout = () => {
-        Swal.fire({
-            title: 'အကောင့်မှ ထွက်မလား?',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#ffcc00',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'ထွက်မည်',
-            cancelButtonText: 'မထွက်တော့ပါ',
-            background: '#1a1a1a',
-            color: '#ffffff'
-        }).then(async (result) => {
-            if (result.isConfirmed) {
-                await signOut(auth);
-            }
-        });
-    };
-    if (logoutBtn) logoutBtn.onclick = performLogout;
-    window.handleLogout = performLogout;
+    if (logoutBtn) {
+        logoutBtn.onclick = () => {
+            Swal.fire({
+                title: 'အကောင့်မှ ထွက်မလား?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ffcc00',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'ထွက်မည်',
+                cancelButtonText: 'မထွက်တော့ပါ',
+                background: '#1a1a1a',
+                color: '#ffffff'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    await signOut(auth);
+                }
+            });
+        };
+    }
 };
 setupLogout();
 
@@ -97,6 +97,7 @@ function calculatePrice() {
         if (btn) btn.innerText = `ORDER NOW - ${total.toLocaleString()} KS (${dist} km)`;
         return { dist, total };
     }
+    return null;
 }
 document.getElementById('item-weight').oninput = calculatePrice;
 document.getElementById('item-value').oninput = calculatePrice;
@@ -121,7 +122,7 @@ function displayMyOrders() {
                 <div onclick="window.location.href='track.html?id=${id}'" style="flex-grow:1;">
                     <b style="color: #fff;">📦 ${order.item}</b><br>
                     <span style="font-size: 0.75rem; color: #aaa;">Status: ${order.status.toUpperCase()}</span><br>
-                    <span style="font-size: 0.7rem; color: var(--primary);">${order.deliveryFee.toLocaleString()} KS</span>
+                    <span style="font-size: 0.7rem; color: #ffcc00;">${order.deliveryFee.toLocaleString()} KS</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 15px;">
                     <span style="color:#ffcc00; font-size: 1.2rem;" onclick="window.location.href='track.html?id=${id}'">📍</span>
@@ -137,7 +138,7 @@ function displayMyOrders() {
     });
 }
 
-// --- ၅။ Rider Accept Logic ---
+// --- ၅။ Rider Accept & Delete Logic ---
 window.acceptRiderFromCustomer = async (orderId, riderId, riderName) => {
     try {
         const orderRef = doc(db, "orders", orderId);
@@ -172,7 +173,7 @@ window.acceptRiderFromCustomer = async (orderId, riderId, riderName) => {
         await notifyTelegram(`✅ <b>Rider Confirmed!</b>\n📝 ပစ္စည်း: ${currentOrderData.item}\n📅 Schedule: <b>${isTomorrow ? 'Tomorrow' : 'Now'}</b>\n🚴 Rider: <b>${riderName}</b>`);
 
     } catch (e) {
-        console.error("Error in acceptRiderFromCustomer:", e);
+        console.error("Error:", e);
         Swal.fire({ icon: 'error', title: 'Error', text: 'လုပ်ဆောင်ချက် မအောင်မြင်ပါ။' });
     }
 };
@@ -194,7 +195,7 @@ window.deleteOrderPermanently = async (id) => {
     });
 };
 
-// --- ၆။ Submit Order (ထပ်ခါထပ်ခါ တင်နိုင်ရန် ပြင်ဆင်ပြီး) ---
+// --- ၆။ Submit Order (အကြိမ်ပေါင်းများစွာ ထပ်တင်နိုင်ရန် Reset Logic ပါဝင်သည်) ---
 const placeOrderBtn = document.getElementById('placeOrderBtn');
 if (placeOrderBtn) {
     placeOrderBtn.onclick = async () => {
@@ -204,21 +205,20 @@ if (placeOrderBtn) {
         const weight = document.getElementById('item-weight').value;
         const itemValue = document.getElementById('item-value').value;
         const payment = document.getElementById('payment-method').value;
+        const pAddr = document.getElementById('pickup-address').value;
+        const dAddr = document.getElementById('dropoff-address').value;
 
-        if (!feeInfo || !item || !phone || !pickupCoords || !dropoffCoords) {
-            Swal.fire({ icon: 'error', title: 'အချက်အလက်မစုံလင်ပါ', background: '#1a1a1a', color: '#fff' });
+        if (!feeInfo || !item || !phone || !pAddr || !dAddr || !pickupCoords || !dropoffCoords) {
+            Swal.fire({ icon: 'error', title: 'အချက်အလက်မစုံလင်ပါ', text: 'မြို့နယ်နှင့် လိပ်စာအပြည့်အစုံ ဖြည့်ပေးပါ', background: '#1a1a1a', color: '#fff' });
             return;
         }
 
         try {
-            // Button ခဏပိတ်ထားမယ် (Double Click မဖြစ်အောင်)
             placeOrderBtn.disabled = true;
             placeOrderBtn.innerText = "Processing...";
 
             const pTown = pickupSelect.options[pickupSelect.selectedIndex].text;
             const dTown = dropoffSelect.options[dropoffSelect.selectedIndex].text;
-            const pAddr = document.getElementById('pickup-address').value;
-            const dAddr = document.getElementById('dropoff-address').value;
             const customerName = auth.currentUser?.displayName || "Customer";
 
             const orderData = {
@@ -249,14 +249,14 @@ if (placeOrderBtn) {
                         `━━━━━━━━━━━━━━━━━━\n` +
                         `👤 Customer: <b>${customerName}</b>\n` +
                         `📝 ပစ္စည်း: <b>${item}</b>\n` +
-                        `💵 <b>စုစုပေါင်းပို့ခ: ${feeInfo.total.toLocaleString()} KS</b>\n` +
+                        `💵 <b>ပို့ခ: ${feeInfo.total.toLocaleString()} KS</b>\n` +
                         `📍 ယူရန်: ${orderData.pickup.address}\n` +
                         `🏁 ပို့ရန်: ${orderData.dropoff.address}\n\n` +
-                        `✨ <a href="${trackUrl}"><b>📍 အော်ဒါခြေရာခံရန် နှိပ်ပါ</b></a>`;
+                        `✨ <a href="${trackUrl}"><b>📍 ခြေရာခံရန်နှိပ်ပါ</b></a>`;
 
             await notifyTelegram(msg);
 
-            // Success Alert ပြပြီး Form ကို Reset လုပ်မယ်
+            // Success Alert ပြပြီး Form Reset လုပ်ကာ Tab ရွှေ့ပေးခြင်း
             Swal.fire({
                 title: 'အော်ဒါတင်ပြီးပါပြီ!',
                 text: 'နောက်ထပ်အော်ဒါများလည်း ထပ်မံတင်နိုင်ပါသည်ဗျာ။',
@@ -265,13 +265,20 @@ if (placeOrderBtn) {
                 confirmButtonText: 'အော်ဒါစာရင်းကြည့်မည်',
                 background: '#1a1a1a', color: '#fff'
             }).then(() => {
-                // Form Reset & UI ပြန်ပြင်
+                // Form Reset
                 document.getElementById('orderForm').reset();
+                
+                // Map markers များကို ရှင်းထုတ်ခြင်း
+                if (pickupMarker) map.removeLayer(pickupMarker);
+                if (dropoffMarker) map.removeLayer(dropoffMarker);
+                pickupCoords = null; dropoffCoords = null;
+                
+                // Button Reset
                 placeOrderBtn.disabled = false;
                 placeOrderBtn.innerText = "ORDER NOW";
                 
-                // My Orders Tab ဆီသို့ အလိုအလျောက်ရွှေ့ပေးခြင်း
-                if(typeof window.showSection === 'function') {
+                // My Orders Tab သို့ ရွှေ့ခြင်း
+                if (typeof window.showSection === 'function') {
                     const listTab = document.querySelectorAll('.nav-item')[1];
                     window.showSection('list', listTab);
                 }
