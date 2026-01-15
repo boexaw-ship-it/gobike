@@ -139,26 +139,33 @@ function displayMyOrders() {
     });
 }
 
-// --- ၅။ Rider Accept Logic (မနက်ဖြန်အတွက် ကြိုတင်သိမ်းဆည်းရန် ပြင်ဆင်ချက်) ---
+// --- ၅။ Rider Accept Logic (မနက်ဖြန် Flag မပျောက်စေရန် အဆင့်မြှင့်ထားသည်) ---
 window.acceptRiderFromCustomer = async (orderId, riderId, riderName) => {
     try {
         const orderRef = doc(db, "orders", orderId);
+        
+        // Database ထဲက အချက်အလက်ကို အရင်ဖတ်မယ်
         const orderSnap = await getDoc(orderRef);
-        const orderData = orderSnap.data();
+        if (!orderSnap.exists()) return;
+        const currentOrderData = orderSnap.data();
 
-        // အရေးကြီးဆုံးအပိုင်း: pickupSchedule "tomorrow" ဖြစ်နေရင် tomorrow အဖြစ် ဆက်သိမ်းထားမည်
-        const isTomorrow = orderData.pickupSchedule === "tomorrow";
+        // မနက်ဖြန်အတွက် ဟုတ်မဟုတ် စစ်ဆေးခြင်း
+        const scheduleType = currentOrderData.pickupSchedule || "now";
+        const isTomorrow = scheduleType === "tomorrow";
 
+        // အရေးကြီးသော Update: pickupSchedule ကို ပြန်ထည့်ပေးထားသည်
         await updateDoc(orderRef, {
             status: "accepted",
             riderId: riderId,
             riderName: riderName,
-            tempRiderId: null, // Confirm ဖြစ်ပြီဖြစ်၍ temp ကို ဖျက်မည်
+            pickupSchedule: scheduleType, // ဤနေရာတွင် Flag ကို ပြန်ထိန်းထားသည်
+            tempRiderId: null,
             confirmedAt: serverTimestamp()
         });
 
         Swal.fire({
             title: isTomorrow ? 'မနက်ဖြန်အတွက် အတည်ပြုပြီး!' : 'Rider လက်ခံပြီးပါပြီ!',
+            text: isTomorrow ? 'အော်ဒါသည် Rider ၏ မနက်ဖြန်စာရင်းတွင် ဆက်ရှိနေပါမည်။' : 'Rider ပစ္စည်းလာယူပါလိမ့်မည်။',
             icon: 'success',
             background: '#1a1a1a', color: '#fff'
         });
@@ -170,10 +177,11 @@ window.acceptRiderFromCustomer = async (orderId, riderId, riderName) => {
         });
 
         // Telegram Notification
-        await notifyTelegram(`✅ <b>Rider Confirmed!</b>\nOrder: ${orderData.item}\nStatus: ${isTomorrow ? 'မနက်ဖြန်အတွက် အတည်ပြုသည်' : 'ယနေ့အတွက် အတည်ပြုသည်'}\nRider: ${riderName}`);
+        await notifyTelegram(`✅ <b>Rider Confirmed!</b>\n📝 ပစ္စည်း: ${currentOrderData.item}\n📅 Schedule: <b>${isTomorrow ? 'Tomorrow' : 'Now'}</b>\n🚴 Rider: <b>${riderName}</b>`);
 
     } catch (e) {
-        console.error("Error accepting rider:", e);
+        console.error("Error in acceptRiderFromCustomer:", e);
+        Swal.fire({ icon: 'error', title: 'Error', text: 'လုပ်ဆောင်ချက် မအောင်မြင်ပါ။' });
     }
 };
 
