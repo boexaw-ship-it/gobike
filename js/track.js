@@ -1,4 +1,3 @@
-
 import { db } from './firebase-config.js';
 import { 
     doc, onSnapshot, updateDoc, serverTimestamp, getDoc 
@@ -71,7 +70,7 @@ if (orderId) {
         let riderDisplay = data.riderName || 'ရှာဖွေနေဆဲ...';
         if (data.status === "pending_confirmation") riderDisplay = "ယာယီစောင့်ဆိုင်းဆဲ (Rider ကမ်းလှမ်းထားသည်)";
         
-        if (data.pickupSchedule === "tomorrow") riderDisplay += " (မနက်ွန်လာယူမည်)";
+        if (data.pickupSchedule === "tomorrow") riderDisplay += " (မနက်ဖြန်လာယူမည်)";
         else if (data.pickupSchedule === "now") riderDisplay += " (ယနေ့လာယူမည်)";
 
         const detRider = document.getElementById('det-rider');
@@ -107,11 +106,17 @@ if (orderId) {
             }, (err) => console.error("Tracking Error:", err));
         }
 
-        // (စ) Completion Logic - FIXED 404 ERROR PATH
+        // (စ) Completion Logic - FIXED with Swal
         if (data.status === "completed") {
-            setTimeout(() => {
-                alert("လူကြီးမင်း၏ ပါဆယ်ပို့ဆောင်မှု အောင်မြင်ပြီးဆုံးပါပြီ။");
-                // IMPORTANT: track.html သည် html/ folder ထဲတွင်ရှိပြီး index.html သည် Root တွင်ရှိသောကြောင့် ../ သုံးရပါမည်။
+            setTimeout(async () => {
+                await Swal.fire({
+                    title: 'အောင်မြင်ပါသည်!',
+                    text: 'လူကြီးမင်း၏ ပါဆယ်ပို့ဆောင်မှု အောင်မြင်ပြီးဆုံးပါပြီ။',
+                    icon: 'success',
+                    confirmButtonColor: '#ffcc00',
+                    background: '#1a1a1a',
+                    color: '#fff'
+                });
                 window.location.href = "../index.html"; 
             }, 1000);
         }
@@ -120,7 +125,7 @@ if (orderId) {
     });
 }
 
-// --- ၄။ Functions ---
+// --- ၄။ Functions with Swal ---
 
 window.respondRider = async (isAccepted) => {
     try {
@@ -136,7 +141,14 @@ window.respondRider = async (isAccepted) => {
                 pickupSchedule: d.pickupSchedule, 
                 acceptedAt: serverTimestamp()
             });
-            alert("Rider ကို အတည်ပြုလိုက်ပါပြီ။");
+            Swal.fire({
+                title: 'အတည်ပြုပြီးပါပြီ',
+                text: 'Rider ကို အော်ဒါလက်ခံရန် အကြောင်းကြားလိုက်ပါပြီ။',
+                icon: 'success',
+                confirmButtonColor: '#ffcc00',
+                background: '#1a1a1a',
+                color: '#fff'
+            });
         } else {
             await updateDoc(orderRef, { 
                 status: "pending", 
@@ -146,17 +158,42 @@ window.respondRider = async (isAccepted) => {
                 pickupSchedule: null,
                 lastRejectedRiderId: d.tempRiderId 
             });
-            alert("Rider ကို ငြင်းပယ်လိုက်ပါပြီ။");
+            Swal.fire({
+                title: 'ငြင်းပယ်လိုက်ပါပြီ',
+                text: 'အခြား Rider တစ်ဦးကို ထပ်မံရှာဖွေပေးပါမည်။',
+                icon: 'info',
+                confirmButtonColor: '#ffcc00',
+                background: '#1a1a1a',
+                color: '#fff'
+            });
         }
     } catch (error) { console.error("Respond Error:", error); }
 };
 
 window.cancelOrder = async () => {
-    if (confirm("အော်ဒါကို ဖျက်သိမ်းမှာ သေချာပါသလား?")) {
+    const result = await Swal.fire({
+        title: 'သေချာပါသလား?',
+        text: "အော်ဒါကို ဖျက်သိမ်းမှာ သေချာပါသလား?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ff4444',
+        cancelButtonColor: '#444',
+        confirmButtonText: 'ဖျက်သိမ်းမည်',
+        cancelButtonText: 'မဖျက်တော့ပါ',
+        background: '#1a1a1a',
+        color: '#fff'
+    });
+
+    if (result.isConfirmed) {
         try {
             await updateDoc(doc(db, "orders", orderId), { status: "cancelled" });
-            alert("အော်ဒါဖျက်သိမ်းပြီးပါပြီ။");
-            // Cancel လုပ်လျှင်လည်း Root ရှိ index.html သို့ ပြန်ပို့ပါသည်
+            await Swal.fire({
+                title: 'ဖျက်သိမ်းပြီးပါပြီ',
+                text: 'အော်ဒါကို အောင်မြင်စွာ ဖျက်သိမ်းလိုက်ပါသည်။',
+                icon: 'success',
+                background: '#1a1a1a',
+                color: '#fff'
+            });
             window.location.href = "../index.html";
         } catch (err) { console.error(err); }
     }
