@@ -10,13 +10,33 @@
 
     <style>
         :root { --primary: #ffcc00; --dark: #1a1a1a; --bg: #f8f9fa; }
-        body { background: var(--bg); margin: 0; font-family: sans-serif; }
+        body { background: var(--bg); margin: 0; font-family: sans-serif; padding-bottom: 30px; }
         
-        .header { background: var(--primary); padding: 15px; text-align: center; font-weight: bold; }
+        .header { 
+            background: var(--primary); 
+            padding: 15px; 
+            text-align: center; 
+            font-weight: bold; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        /* Back Button Style */
+        .back-btn {
+            position: absolute;
+            left: 15px;
+            font-size: 1.4rem;
+            cursor: pointer;
+            text-decoration: none;
+            color: var(--dark);
+        }
+
         #map { height: 250px; width: 100%; }
 
         .track-container {
-            padding: 20px; max-width: 500px; margin: -20px auto 0;
+            padding: 20px; max-width: 500px; margin: -25px auto 0;
             background: white; border-top-left-radius: 25px; border-top-right-radius: 25px;
             position: relative; z-index: 100; box-shadow: 0 -5px 15px rgba(0,0,0,0.1);
         }
@@ -38,8 +58,7 @@
         .label { color: #888; flex: 0 0 100px; }
         .value { font-weight: bold; text-align: right; flex: 1; color: #333; }
 
-        /* Address Highlight */
-        .addr-highlight { color: #0088ff; } /* လိပ်စာကို အရောင်လေးနဲ့ ခွဲထားပေးတာပါ */
+        .addr-highlight { color: #0088ff; } 
 
         #status-badge { background: var(--dark); color: var(--primary); padding: 4px 10px; border-radius: 5px; font-size: 0.7rem; }
 
@@ -52,13 +71,24 @@
         .btn-confirm { flex: 1; padding: 12px; background: var(--dark); color: var(--primary); border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
         .btn-reject { flex: 1; padding: 12px; background: #eee; border: none; border-radius: 10px; cursor: pointer; }
         
-        .cancel-section { margin-top: 20px; text-align: center; }
+        .action-section { margin-top: 25px; text-align: center; display: flex; flex-direction: column; gap: 15px; }
+        
+        /* New Order Button */
+        .btn-new-order { 
+            background: #fff9e6; color: #d4a017; border: 1px dashed #ffcc00; 
+            padding: 12px; border-radius: 12px; font-weight: bold; font-size: 0.9rem;
+            cursor: pointer; text-decoration: none; display: inline-block;
+        }
+        
         .btn-cancel { background: none; border: none; color: #ff4757; font-size: 0.85rem; text-decoration: underline; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <div class="header">TRACKING ORDER</div>
+    <div class="header">
+        <a href="customer.html" class="back-btn">❮</a>
+        TRACKING ORDER
+    </div>
 
     <div id="map"></div>
 
@@ -108,7 +138,9 @@
             </div>
         </div>
 
-        <div class="cancel-section">
+        <div class="action-section">
+            <a href="customer.html" class="btn-new-order">➕ နောက်ထပ် အော်ဒါအသစ်တင်ရန်</a>
+            
             <button class="btn-cancel" onclick="cancelOrder()">အော်ဒါဖျက်သိမ်းမည်</button>
         </div>
     </div>
