@@ -1,3 +1,4 @@
+
 import { db } from './firebase-config.js';
 import { 
     doc, onSnapshot, updateDoc, serverTimestamp, getDoc 
@@ -109,7 +110,9 @@ if (orderId) {
         // (စ) Completion Logic - FIXED 404 ERROR PATH
         if (data.status === "completed") {
             setTimeout(() => {
-                alert("လူကြီးမင်း၏ ပါဆယ်ပို့ဆောင်မှု အောင်မြင်ပြီးဆုံးပါပြီ။");
+      Swal.fire({ title: 'အောင်မြင်ပါသည်!',
+    text: 'လူကြီးမင်း၏ ပါဆယ်ပို့ဆောင်မှု အောင်မြင်ပြီးဆုံးပါပြီ။',
+    icon: 'success'});
                 // IMPORTANT: track.html သည် html/ folder ထဲတွင်ရှိပြီး index.html သည် Root တွင်ရှိသောကြောင့် ../ သုံးရပါမည်။
                 window.location.href = "../index.html"; 
             }, 1000);
