@@ -5,9 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>GoBike - Rider Dashboard</title>
     
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://unpkg.com https://tile.openstreetmap.org; object-src 'none';">
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://unpkg.com https://tile.openstreetmap.org https://cdn.jsdelivr.net; object-src 'none';">
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     <style>
         :root { 
             --primary: #ffcc00; 
@@ -26,7 +29,7 @@
             line-height: 1.6;
         }
 
-        /* Profile Bar Styling for Dark Theme */
+        /* Profile Bar Styling */
         .profile-bar {
             background: #1a1a1a;
             padding: 10px 15px;
@@ -127,6 +130,12 @@
         .empty-msg { 
             text-align: center; color: #666; font-size: 0.85rem; 
             padding: 30px 20px; border: 2px dashed #333; border-radius: 18px; 
+        }
+
+        /* SweetAlert Custom Styles for Dark Theme */
+        .swal2-popup {
+            border-radius: 20px !important;
+            font-family: 'Segoe UI', sans-serif !important;
         }
     </style>
 </head>
