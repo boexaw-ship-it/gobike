@@ -137,31 +137,7 @@ function startTracking() {
             Object.values(markers).forEach(m => map.removeLayer(m));
             markers = {};
 
-            snap.forEach(orderDoc => {
-                const order = orderDoc.data();
-                const id = orderDoc.id;
-                if (order.lastRejectedRiderId === myUid) return; 
-
-                if(order.pickup) { markers[id] = L.marker([order.pickup.lat, order.pickup.lng]).addTo(map).bindPopup(order.item); }
-
-                const card = document.createElement('div');
-                card.className = 'order-card';
-                card.innerHTML = `
-                    <div class="item-info">
-                        <b class="item-name">📦 ${order.item}</b>
-                        <span class="price">${order.deliveryFee?.toLocaleString()} KS</span>
-                    </div>
-                    <div class="order-details">
-                        <b>👤 CUSTOMER:</b> ${order.customerName || "အမည်မသိသူ"}<br>
-                        <b>⚖️ အလေးချိန်:</b> ${order.weight || "0"} kg | <b>💰 တန်ဖိုး:</b> ${order.itemValue || order.itemPrice || "0"} KS<br>
-                        <b>💳 PAYMENT:</b> <span style="color:#00ff00;">${order.paymentMethod || "ပို့ခကြိုပေး"}</span><br>
-                        <b>📞 ဖုန်း:</b> <span style="color:#00ff00;">${order.phone}</span>
-                    </div>
-                    <div class="btn-group">
-                        <button class="btn-accept-now" ${isFull ? 'disabled' : ''} onclick="handleAccept('${id}', 'now')">ချက်ချင်းယူမည်</button>
-                        <button class="btn-accept-tmr" ${isFull ? 'disabled' : ''} onclick="handleAccept('${id}', 'tomorrow')">မနက်ဖြန်မှ</button>
-                    </div>`;
-                container.appendChild(card);
+            
             });
             if (!snap.empty && !isFull) alarmSound.play().catch(e => {});
         }
@@ -180,6 +156,49 @@ function startTracking() {
 
             if (data.status === "cancelled") {
                 const rejCard = document.createElement('div');
+             snap.forEach(orderDoc => {
+    const order = orderDoc.data();
+    const id = orderDoc.id;
+    if (order.lastRejectedRiderId === myUid) return;
+
+    if(order.pickup) { markers[id] = L.marker([order.pickup.lat, order.pickup.lng]).addTo(map).bindPopup(order.item); }
+
+    // 🔥 လိပ်စာကို Firebase Path အမှန်အတိုင်း ဆွဲထုတ်ခြင်း
+    const pAddr = order.pickup?.address || order.pickupAddress || "လိပ်စာမရှိပါ";
+    const dAddr = order.dropoff?.address || order.dropoffAddress || "လိပ်စာမရှိပါ";
+
+    const card = document.createElement('div');
+    card.className = 'order-card';
+    card.innerHTML = `
+        <div class="item-info">
+            <b class="item-name">📦 ${order.item}</b>
+            <span class="price">${order.deliveryFee?.toLocaleString()} KS</span>
+        </div>
+        
+        <div class="address-section" style="margin: 10px 0; padding: 10px; background: #222; border-radius: 8px; font-size: 0.9rem;">
+            <div style="margin-bottom: 5px;">
+                <b style="color:var(--primary);">📍 ယူရန်:</b> <span style="color:#fff;">${pAddr}</span>
+            </div>
+            <div>
+                <b style="color:#ff4444;">🏁 ပို့ရန်:</b> <span style="color:#fff;">${dAddr}</span>
+            </div>
+        </div>
+
+        <div class="order-details">
+            <b>👤 CUSTOMER:</b> ${order.customerName || "အမည်မသိသူ"}<br>
+            <b>⚖️ အလေးချိန်:</b> ${order.weight || "0"} kg | <b>💰 တန်ဖိုး:</b> ${order.itemValue || order.itemPrice || "0"} KS<br>
+            <b>💳 PAYMENT:</b> <span style="color:#00ff00;">${order.paymentMethod || "CASH"}</span><br>
+            <b>📞 ဖုန်း:</b> <span style="color:#00ff00;">${order.phone}</span>
+        </div>
+        
+        <div class="btn-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+            <button class="btn btn-complete" style="background:var(--primary); color:#000;" onclick="handleAccept('${id}', 'now')">ချက်ချင်းယူမည်</button>
+            <button class="btn btn-arrive" style="background:#444; color:white;" onclick="handleAccept('${id}', 'tomorrow')">မနက်ဖြန်မှ</button>
+        </div>`;
+    
+    const container = document.getElementById('available-orders');
+    if(container) container.appendChild(card);
+});
                 rejCard.className = 'order-card rejected-card';
                 rejCard.innerHTML = `
                     <b style="color:#ff4444;">⚠️ Customer မှ အော်ဒါဖျက်လိုက်ပါပြီ</b>
