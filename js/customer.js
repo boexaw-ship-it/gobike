@@ -1,6 +1,6 @@
 import { db, auth } from './firebase-config.js';
 import { 
-    collection, addDoc, serverTimestamp, query, where, onSnapshot, doc, updateDoc 
+    collection, addDoc, serverTimestamp, query, where, onSnapshot, doc, updateDoc, getDoc 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { notifyTelegram } from './telegram.js';
@@ -23,7 +23,7 @@ onAuthStateChanged(auth, (user) => {
     }
 });
 
-// Logout Fix (Browser Alert လုံးဝမပါ)
+// Logout Fix
 const setupLogout = () => {
     const logoutBtn = document.getElementById('logoutBtn');
     const performLogout = () => {
@@ -104,7 +104,7 @@ function calculatePrice() {
 document.getElementById('item-weight').oninput = calculatePrice;
 document.getElementById('item-value').oninput = calculatePrice;
 
-// --- ၄။ My Orders (Delete & Tracking Fix) ---
+// --- ၄။ My Orders Logic ---
 function displayMyOrders() {
     const listDiv = document.getElementById('orders-list');
     if (!listDiv || !auth.currentUser) return;
@@ -139,6 +139,44 @@ function displayMyOrders() {
     });
 }
 
+// --- ၅။ Rider Accept Logic (မနက်ဖြန်အတွက် ကြိုတင်သိမ်းဆည်းရန် ပြင်ဆင်ချက်) ---
+window.acceptRiderFromCustomer = async (orderId, riderId, riderName) => {
+    try {
+        const orderRef = doc(db, "orders", orderId);
+        const orderSnap = await getDoc(orderRef);
+        const orderData = orderSnap.data();
+
+        // အရေးကြီးဆုံးအပိုင်း: pickupSchedule "tomorrow" ဖြစ်နေရင် tomorrow အဖြစ် ဆက်သိမ်းထားမည်
+        const isTomorrow = orderData.pickupSchedule === "tomorrow";
+
+        await updateDoc(orderRef, {
+            status: "accepted",
+            riderId: riderId,
+            riderName: riderName,
+            tempRiderId: null, // Confirm ဖြစ်ပြီဖြစ်၍ temp ကို ဖျက်မည်
+            confirmedAt: serverTimestamp()
+        });
+
+        Swal.fire({
+            title: isTomorrow ? 'မနက်ဖြန်အတွက် အတည်ပြုပြီး!' : 'Rider လက်ခံပြီးပါပြီ!',
+            icon: 'success',
+            background: '#1a1a1a', color: '#fff'
+        });
+
+        // Google Sheet Update
+        fetch(SCRIPT_URL, {
+            method: "POST", mode: "no-cors",
+            body: JSON.stringify({ action: "update", orderId, status: "Accepted", riderName })
+        });
+
+        // Telegram Notification
+        await notifyTelegram(`✅ <b>Rider Confirmed!</b>\nOrder: ${orderData.item}\nStatus: ${isTomorrow ? 'မနက်ဖြန်အတွက် အတည်ပြုသည်' : 'ယနေ့အတွက် အတည်ပြုသည်'}\nRider: ${riderName}`);
+
+    } catch (e) {
+        console.error("Error accepting rider:", e);
+    }
+};
+
 window.deleteOrderPermanently = async (id) => {
     Swal.fire({
         title: 'ဖယ်ထုတ်မလား?',
@@ -156,7 +194,7 @@ window.deleteOrderPermanently = async (id) => {
     });
 };
 
-// --- ၅။ Submit Order (Full Telegram & Google Sync) ---
+// --- ၆။ Submit Order ---
 const placeOrderBtn = document.getElementById('placeOrderBtn');
 if (placeOrderBtn) {
     placeOrderBtn.onclick = async () => {
@@ -191,7 +229,6 @@ if (placeOrderBtn) {
             const docRef = await addDoc(collection(db, "orders"), orderData);
             const orderId = docRef.id;
 
-            // 1. Google Sheets Sync
             fetch(SCRIPT_URL, {
                 method: "POST", mode: "no-cors",
                 body: JSON.stringify({
@@ -202,33 +239,25 @@ if (placeOrderBtn) {
                 })
             });
 
-            // 2. 🔥 Telegram Notification (Full Format)
             const trackUrl = `https://boexaw-ship-it.github.io/gobike/html/track.html?id=${orderId}`;
             const msg = `📦 <b>New Order Received!</b>\n` +
                         `━━━━━━━━━━━━━━━━━━\n` +
                         `👤 Customer: <b>${customerName}</b>\n` +
                         `📝 ပစ္စည်း: <b>${item}</b>\n` +
-                        `⚖️ အလေးချိန်: <b>${weight} kg</b>\n` +
-                        `💰 ပစ္စည်းတန်ဖိုး: <b>${itemValue} KS</b>\n` +
-                        `━━━━━━━━━━━━━━━━━━\n` +
                         `💵 <b>စုစုပေါင်းပို့ခ: ${feeInfo.total.toLocaleString()} KS</b>\n` +
-                        `💳 Payment: <b>${orderData.paymentMethod}</b>\n` +
-                        `📞 ဖုန်း: <b>${phone}</b>\n\n` +
                         `📍 ယူရန်: ${orderData.pickup.address}\n` +
                         `🏁 ပို့ရန်: ${orderData.dropoff.address}\n\n` +
                         `✨ <a href="${trackUrl}"><b>📍 အော်ဒါခြေရာခံရန် နှိပ်ပါ</b></a>`;
 
             await notifyTelegram(msg);
 
-            // 3. Success Popup (Browser Alert လုံးဝမပါတော့ပါ)
             Swal.fire({
                 title: 'အော်ဒါတင်ပြီးပါပြီ!',
                 text: 'Rider မှ ဆက်သွယ်လာသည်အထိ ခေတ္တစောင့်ပေးပါဗျာ။',
                 icon: 'success',
                 confirmButtonColor: '#ffcc00',
                 confirmButtonText: '📍 ခြေရာခံမည်',
-                background: '#1a1a1a',
-                color: '#fff'
+                background: '#1a1a1a', color: '#fff'
             }).then(() => {
                 window.location.href = `track.html?id=${orderId}`;
             });
@@ -238,3 +267,4 @@ if (placeOrderBtn) {
         }
     };
 }
+
