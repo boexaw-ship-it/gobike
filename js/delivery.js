@@ -147,7 +147,7 @@ function startTracking() {
         if(activeCount === 0) list.innerHTML = "<div class='empty-msg'>လက်ခံထားသော အော်ဒါမရှိပါ</div>";
     });
 
-    // (D) Tomorrow Section - FIX: Customer Reject လုပ်ပါက အနီရောင်စာသားဖြင့် ပြောင်းလဲပြသမည်
+    // (D) Tomorrow Section - FIX: Details အစုံအလင်ပြသရန် ပြင်ဆင်ထားသည်
     onSnapshot(query(collection(db, "orders"), where("pickupSchedule", "==", "tomorrow")), (snap) => {
         const tomList = document.getElementById('tomorrow-orders-list');
         if(!tomList) return;
@@ -158,39 +158,49 @@ function startTracking() {
             const d = docSnap.data();
             const id = docSnap.id;
 
-            // Rider dismiss လုပ်ထားလျှင် မပြပါ
             if (d.riderDismissedTomorrow === myUid) return;
 
             if (d.tempRiderId === myUid || d.riderId === myUid) {
                 tomCount++;
-                
-                // Customer က Reject လုပ်လျှင် status သည် pending သို့မဟုတ် rider_rejected ဖြစ်သွားမည်
                 const isRejected = (d.status === "pending" || d.status === "rider_rejected" || d.status === "cancelled");
                 const isConfirmed = d.status === "accepted";
 
                 const div = document.createElement('div');
                 div.className = 'order-card';
-                div.style = `border-left: 5px solid ${isRejected ? '#ff4444' : (isConfirmed ? '#2ed573' : '#3498db')}; background:#1a1a1a; padding:15px; margin-bottom:10px;`;
+                div.style = `border-left: 5px solid ${isRejected ? '#ff4444' : (isConfirmed ? '#2ed573' : '#3498db')}; background:#1a1a1a; padding:15px; margin-bottom:12px; border-radius:12px;`;
                 
                 let statusLabel = isConfirmed ? '✅ TOMORROW CONFIRMED' : '⏳ WAITING CUSTOMER';
                 if (isRejected) statusLabel = '❌ ORDER REJECTED (ပယ်ဖျက်လိုက်ပြီ)';
 
                 div.innerHTML = `
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <span style="color:${isRejected ? '#ff4444' : (isConfirmed ? '#2ed573' : '#3498db')}; font-weight:bold; font-size:0.8rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <span style="color:${isRejected ? '#ff4444' : (isConfirmed ? '#2ed573' : '#3498db')}; font-weight:bold; font-size:0.85rem;">
                             📅 ${statusLabel}
                         </span>
-                        <button onclick="dismissTomorrowOrder('${id}')" style="background:#444; color:#fff; border:none; border-radius:4px; padding:2px 8px; font-size:0.75rem; cursor:pointer;">✖ ဖယ်ထုတ်</button>
+                        <button onclick="dismissTomorrowOrder('${id}')" style="background:#444; color:#fff; border:none; border-radius:5px; padding:3px 10px; font-size:0.8rem; cursor:pointer;">✖ ဖယ်ထုတ်</button>
                     </div>
-                    <div style="display:flex; justify-content:space-between;">
-                         <b style="color:#fff;">📦 ${d.item}</b>
-                         <b style="color:#ffcc00;">${(d.deliveryFee || 0).toLocaleString()} KS</b>
+
+                    <div style="background:#222; padding:12px; border-radius:8px; margin-bottom:12px;">
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:8px; margin-bottom:8px;">
+                             <b style="color:#fff; font-size:1rem;">📦 ${d.item} ${d.weight ? `(${d.weight}kg)` : ''}</b>
+                             <b style="color:#ffcc00; font-size:1.1rem;">${(d.deliveryFee || 0).toLocaleString()} KS</b>
+                        </div>
+                        <div style="font-size:0.85rem; color:#00ff00; font-weight:bold;">
+                            💰 ပစ္စည်းဖိုး: ${(d.itemValue || 0).toLocaleString()} KS
+                        </div>
                     </div>
-                    <div style="font-size:0.85rem; color:#aaa; margin-top:8px; background:#222; padding:10px; border-radius:5px;">
-                        📍 <b>To:</b> ${d.dropoffAddress || d.dropoff?.address}
+
+                    <div style="font-size:0.9rem; color:#eee; line-height:1.6; background:#262626; padding:12px; border-radius:8px;">
+                        <div style="margin-bottom:8px;">
+                            <span style="color:#ffcc00;">📍 Pick-up:</span> ${d.pickup?.address || d.pickupAddress || 'မရှိပါ'}
+                        </div>
+                        <div>
+                            <span style="color:#0088ff;">🏁 Drop-off:</span> ${d.dropoff?.address || d.dropoffAddress || 'မရှိပါ'}
+                        </div>
                     </div>
+
                     <button onclick="${isRejected ? `dismissTomorrowOrder('${id}')` : `startTomorrowOrder('${id}')`}" 
-                        style="width:100%; margin-top:10px; padding:12px; background:${isRejected ? '#444' : (isConfirmed ? '#2ed573' : '#333')}; color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer;"
+                        style="width:100%; margin-top:12px; padding:15px; background:${isRejected ? '#444' : (isConfirmed ? '#2ed573' : '#333')}; color:white; border:none; border-radius:10px; font-weight:bold; cursor:pointer; font-size:1rem;"
                         ${(!isConfirmed && !isRejected) ? 'disabled' : ''}>
                         ${isRejected ? 'အော်ဒါ ပယ်ဖျက်ခံရသည် (ဖယ်ထုတ်ရန်နှိပ်ပါ)' : (isConfirmed ? '🚀 ယနေ့အတွက် စတင်မည်' : 'Customer အတည်ပြုရန်စောင့်ပါ')}
                     </button>`;
@@ -232,7 +242,7 @@ window.dismissTomorrowOrder = async (id) => {
     try {
         await updateDoc(doc(db, "orders", id), {
             riderDismissedTomorrow: auth.currentUser.uid,
-            tempRiderId: null // List ထဲက လုံးဝပျောက်သွားစေရန် tempRiderId ကိုပါ ဖြုတ်ပေးခြင်း
+            tempRiderId: null 
         });
     } catch (err) { console.error(err); }
 };
