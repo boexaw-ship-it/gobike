@@ -147,7 +147,7 @@ function startTracking() {
         if(activeCount === 0) list.innerHTML = "<div class='empty-msg'>လက်ခံထားသော အော်ဒါမရှိပါ</div>";
     });
 
-    // (D) Tomorrow Section - Fix: ပယ်ဖျက်ခံရလျှင် အလိုအလျောက် ပျောက်သွားမည်
+    // (D) Tomorrow Section - FIX: Customer Reject လုပ်ပါက အနီရောင်စာသားဖြင့် ပြောင်းလဲပြသမည်
     onSnapshot(query(collection(db, "orders"), where("pickupSchedule", "==", "tomorrow")), (snap) => {
         const tomList = document.getElementById('tomorrow-orders-list');
         if(!tomList) return;
@@ -158,23 +158,29 @@ function startTracking() {
             const d = docSnap.data();
             const id = docSnap.id;
 
-            // Reject ဖြစ်သွားရင် (သို့) Customer ဘက်က အကြောင်းတစ်ခုခုကြောင့် Status Pending ပြန်ဖြစ်သွားရင် ဖယ်ထုတ်မယ်
-            if (d.status === "pending" || d.status === "rider_rejected" || d.riderDismissedTomorrow === myUid) return;
+            // Rider dismiss လုပ်ထားလျှင် မပြပါ
+            if (d.riderDismissedTomorrow === myUid) return;
 
             if (d.tempRiderId === myUid || d.riderId === myUid) {
                 tomCount++;
+                
+                // Customer က Reject လုပ်လျှင် status သည် pending သို့မဟုတ် rider_rejected ဖြစ်သွားမည်
+                const isRejected = (d.status === "pending" || d.status === "rider_rejected" || d.status === "cancelled");
                 const isConfirmed = d.status === "accepted";
 
                 const div = document.createElement('div');
                 div.className = 'order-card';
-                div.style = `border-left: 5px solid ${isConfirmed ? '#2ed573' : '#3498db'}; background:#1a1a1a; padding:15px; margin-bottom:10px;`;
+                div.style = `border-left: 5px solid ${isRejected ? '#ff4444' : (isConfirmed ? '#2ed573' : '#3498db')}; background:#1a1a1a; padding:15px; margin-bottom:10px;`;
                 
+                let statusLabel = isConfirmed ? '✅ TOMORROW CONFIRMED' : '⏳ WAITING CUSTOMER';
+                if (isRejected) statusLabel = '❌ ORDER REJECTED (ပယ်ဖျက်လိုက်ပြီ)';
+
                 div.innerHTML = `
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <span style="color:${isConfirmed ? '#2ed573' : '#3498db'}; font-weight:bold; font-size:0.8rem;">
-                            📅 ${isConfirmed ? '✅ TOMORROW CONFIRMED' : '⏳ WAITING CUSTOMER'}
+                        <span style="color:${isRejected ? '#ff4444' : (isConfirmed ? '#2ed573' : '#3498db')}; font-weight:bold; font-size:0.8rem;">
+                            📅 ${statusLabel}
                         </span>
-                        <button onclick="dismissTomorrowOrder('${id}')" style="background:none; border:none; color:#ff4444; font-size:0.8rem; cursor:pointer;">✖ ဖယ်ထုတ်</button>
+                        <button onclick="dismissTomorrowOrder('${id}')" style="background:#444; color:#fff; border:none; border-radius:4px; padding:2px 8px; font-size:0.75rem; cursor:pointer;">✖ ဖယ်ထုတ်</button>
                     </div>
                     <div style="display:flex; justify-content:space-between;">
                          <b style="color:#fff;">📦 ${d.item}</b>
@@ -183,10 +189,10 @@ function startTracking() {
                     <div style="font-size:0.85rem; color:#aaa; margin-top:8px; background:#222; padding:10px; border-radius:5px;">
                         📍 <b>To:</b> ${d.dropoffAddress || d.dropoff?.address}
                     </div>
-                    <button onclick="startTomorrowOrder('${id}')" 
-                        style="width:100%; margin-top:10px; padding:12px; background:${isConfirmed ? '#2ed573' : '#333'}; color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer;"
-                        ${!isConfirmed ? 'disabled' : ''}>
-                        ${isConfirmed ? '🚀 ယနေ့အတွက် စတင်မည်' : 'Customer အတည်ပြုရန်စောင့်ပါ'}
+                    <button onclick="${isRejected ? `dismissTomorrowOrder('${id}')` : `startTomorrowOrder('${id}')`}" 
+                        style="width:100%; margin-top:10px; padding:12px; background:${isRejected ? '#444' : (isConfirmed ? '#2ed573' : '#333')}; color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer;"
+                        ${(!isConfirmed && !isRejected) ? 'disabled' : ''}>
+                        ${isRejected ? 'အော်ဒါ ပယ်ဖျက်ခံရသည် (ဖယ်ထုတ်ရန်နှိပ်ပါ)' : (isConfirmed ? '🚀 ယနေ့အတွက် စတင်မည်' : 'Customer အတည်ပြုရန်စောင့်ပါ')}
                     </button>`;
                 tomList.appendChild(div);
             }
@@ -225,7 +231,8 @@ function startTracking() {
 window.dismissTomorrowOrder = async (id) => {
     try {
         await updateDoc(doc(db, "orders", id), {
-            riderDismissedTomorrow: auth.currentUser.uid
+            riderDismissedTomorrow: auth.currentUser.uid,
+            tempRiderId: null // List ထဲက လုံးဝပျောက်သွားစေရန် tempRiderId ကိုပါ ဖြုတ်ပေးခြင်း
         });
     } catch (err) { console.error(err); }
 };
