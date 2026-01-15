@@ -265,19 +265,24 @@ if (placeOrderBtn) {
                 confirmButtonText: 'အော်ဒါစာရင်းကြည့်မည်',
                 background: '#1a1a1a', color: '#fff'
             }).then(() => {
-                // Form Reset
-                document.getElementById('orderForm').reset();
+                // ၁။ Form Reset လုပ်ခြင်း
+                const form = document.getElementById('orderForm');
+                if(form) form.reset();
                 
-                // Map markers များကို ရှင်းထုတ်ခြင်း
+                // ၂။ Map markers များကို ရှင်းထုတ်ခြင်း
                 if (pickupMarker) map.removeLayer(pickupMarker);
                 if (dropoffMarker) map.removeLayer(dropoffMarker);
-                pickupCoords = null; dropoffCoords = null;
+                pickupCoords = null; 
+                dropoffCoords = null;
                 
-                // Button Reset
+                // ၃။ Button Reset
                 placeOrderBtn.disabled = false;
                 placeOrderBtn.innerText = "ORDER NOW";
                 
-                // My Orders Tab သို့ ရွှေ့ခြင်း
+                // ၄။ Dropoff Township ကိုပါ ရှင်းထုတ်ခြင်း (Select Logic အဟောင်းကြောင့် လိုအပ်လျှင်)
+                if(dropoffSelect) dropoffSelect.innerHTML = '<option value="">မြို့နယ်ရွေးပါ</option>';
+                
+                // ၅။ My Orders Tab သို့ ရွှေ့ခြင်း (HTML ထဲက showSection function ကို ခေါ်ခြင်း)
                 if (typeof window.showSection === 'function') {
                     const listTab = document.querySelectorAll('.nav-item')[1];
                     window.showSection('list', listTab);
