@@ -154,7 +154,7 @@ function startTracking() {
         }
     });
 
-    // --- (B) Active Orders (လက်ခံထားသော အော်ဒါများ) ---
+    // --- (B) Active Orders (လက်ခံထားသော အော်ဒါများ - Details အစုံပါဝင်သည်) ---
     onSnapshot(query(collection(db, "orders"), where("riderId", "==", myUid)), (snap) => {
         const list = document.getElementById('active-orders-list');
         const rejectedSection = document.getElementById('rejected-orders-section');
@@ -174,6 +174,7 @@ function startTracking() {
                 return;
             }
 
+            // Accepted ကနေ Arrived အထိ Detail တွေ အကုန်ပြပါမယ်
             if (["accepted", "on_the_way", "arrived"].includes(data.status)) {
                 hasActive = true;
                 const pAddr = data.pickup?.address || data.pickupAddress || "မသိရပါ";
@@ -181,7 +182,7 @@ function startTracking() {
                 
                 let btnText = "🚚 ပစ္စည်းစယူပြီ", nextStatus = "on_the_way";
                 if(data.status === "on_the_way") { btnText = "📍 ရောက်ရှိကြောင်းပို့ရန်", nextStatus = "arrived"; }
-                if(data.status === "arrived") { btnText = "✅ ပစ္စည်းအပ်နှံပြီး", nextStatus = "completed"; }
+                if(data.status === "arrived") { btnText = "✅ ပစ္စည်းအပ်နှံပြီး (Complete)", nextStatus = "completed"; }
 
                 const div = document.createElement('div');
                 div.className = 'active-order-card';
@@ -191,15 +192,31 @@ function startTracking() {
                         <span style="color:#ffcc00;">STATUS: ${data.status.toUpperCase()}</span>
                         <span style="color:#ff4444; font-size:0.8rem; cursor:pointer;" onclick="cancelByRider('${id}')">✖ ပယ်ဖျက်</span>
                     </div>
+                    
                     <div style="font-size:0.95rem; line-height:1.6;">
-                        <b style="font-size:1.1rem; color:#fff;">📦 ${data.item}</b><br>
-                        <div style="margin:10px 0; background:#222; padding:10px; border-radius:8px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <b style="font-size:1.1rem; color:#fff;">📦 ${data.item}</b>
+                            <b style="color:#00ff00; font-size:1.1rem;">${data.deliveryFee?.toLocaleString()} KS</b>
+                        </div>
+                        
+                        <div style="margin:10px 0; background:#222; padding:10px; border-radius:8px; border:1px solid #333;">
+                             <b style="color:#ffcc00; font-size:0.8rem;">👤 CUSTOMER:</b> <span style="color:#fff;">${data.customerName || "အမည်မသိ"}</span><br>
+                             <b style="color:#ffcc00; font-size:0.8rem;">💰 ပစ္စည်းဖိုး:</b> <span style="color:#fff;">${(data.itemValue || data.itemPrice || 0).toLocaleString()} KS</span><br>
+                             <b style="color:#ffcc00; font-size:0.8rem;">⚖️ WEIGHT:</b> <span style="color:#fff;">${data.weight || 0} kg</span><br>
                              <b style="color:#ffcc00; font-size:0.8rem;">📍 FROM:</b> <span style="color:#fff;">${pAddr}</span><br>
                              <b style="color:#3498db; font-size:0.8rem;">🏁 TO:</b> <span style="color:#fff;">${dAddr}</span>
                         </div>
-                        📞 <b>CALL:</b> <a href="tel:${data.phone}" style="color:#00ff00; text-decoration:none; font-weight:bold;">${data.phone}</a>
+                        
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;">
+                            <span>📞 <b>CALL:</b> <a href="tel:${data.phone}" style="color:#00ff00; text-decoration:none; font-weight:bold;">${data.phone}</a></span>
+                            <span style="background:#333; padding:2px 8px; border-radius:5px; font-size:0.8rem;">💳 ${data.paymentMethod || "CASH"}</span>
+                        </div>
                     </div>
-                    <button style="width:100%; margin-top:15px; padding:14px; background:#ffcc00; color:#000; border:none; border-radius:8px; font-weight:bold; cursor:pointer;" onclick="${nextStatus === 'completed' ? `completeOrder('${id}')` : `updateStatus('${id}', '${nextStatus}')`}">${btnText}</button>
+                    
+                    <button style="width:100%; margin-top:15px; padding:14px; background:#ffcc00; color:#000; border:none; border-radius:8px; font-weight:bold; cursor:pointer;" 
+                        onclick="${nextStatus === 'completed' ? `completeOrder('${id}')` : `updateStatus('${id}', '${nextStatus}')`}">
+                        ${btnText}
+                    </button>
                 `;
                 list.appendChild(div);
             }
@@ -208,7 +225,7 @@ function startTracking() {
     });
 }
 
-// --- ၆။ Functions ---
+// --- ၆။ Functions (မူလအတိုင်း) ---
 
 window.handleAccept = async (id, time) => {
     try {
@@ -277,3 +294,4 @@ async function getRiderName() {
 window.dismissOrder = async (id) => {
     try { await updateDoc(doc(db, "orders", id), { riderId: "dismissed" }); } catch (err) { console.error(err); }
 };
+
