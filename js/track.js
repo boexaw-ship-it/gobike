@@ -110,9 +110,7 @@ if (orderId) {
         // (စ) Completion Logic - FIXED 404 ERROR PATH
         if (data.status === "completed") {
             setTimeout(() => {
-      Swal.fire({ title: 'အောင်မြင်ပါသည်!',
-    text: 'လူကြီးမင်း၏ ပါဆယ်ပို့ဆောင်မှု အောင်မြင်ပြီးဆုံးပါပြီ။',
-    icon: 'success'});
+                alert("လူကြီးမင်း၏ ပါဆယ်ပို့ဆောင်မှု အောင်မြင်ပြီးဆုံးပါပြီ။");
                 // IMPORTANT: track.html သည် html/ folder ထဲတွင်ရှိပြီး index.html သည် Root တွင်ရှိသောကြောင့် ../ သုံးရပါမည်။
                 window.location.href = "../index.html"; 
             }, 1000);
