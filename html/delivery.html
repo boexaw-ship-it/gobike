@@ -8,7 +8,6 @@
     <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://unpkg.com https://tile.openstreetmap.org https://cdn.jsdelivr.net; object-src 'none';">
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <style>
@@ -19,6 +18,7 @@
             --text: #e0e0e0; 
             --danger: #ff4444; 
             --success: #2ed573;
+            --info: #0088ff;
         }
         body { 
             background: var(--bg); 
@@ -29,7 +29,7 @@
             line-height: 1.6;
         }
 
-        /* Profile Bar Styling */
+        /* Profile Bar */
         .profile-bar {
             background: #1a1a1a;
             padding: 10px 15px;
@@ -45,97 +45,65 @@
         .user-meta b { font-size: 0.95rem; color: #fff; }
         
         .logout-btn {
-            background: transparent;
-            color: var(--danger);
-            border: 1px solid var(--danger);
-            padding: 6px 12px;
-            border-radius: 8px;
-            font-size: 0.75rem;
-            font-weight: bold;
-            cursor: pointer;
-            transition: 0.2s;
+            background: transparent; color: var(--danger); border: 1px solid var(--danger);
+            padding: 6px 12px; border-radius: 8px; font-size: 0.75rem; font-weight: bold; cursor: pointer;
         }
-        .logout-btn:active { background: var(--danger); color: #fff; transform: scale(0.9); }
-        
+
         .header { 
-            background: var(--primary); 
-            padding: 12px; 
-            text-align: center; 
-            color: black; 
-            font-weight: 800; 
-            font-size: 1rem;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3); 
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 10px;
+            background: var(--primary); padding: 12px; text-align: center; 
+            color: black; font-weight: 800; font-size: 1rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
 
-        #map { 
-            height: 250px; 
-            width: 100%; 
-            background: #242424;
-            border-bottom: 2px solid var(--primary);
-        } 
+        #map { height: 250px; width: 100%; border-bottom: 2px solid var(--primary); } 
 
-        .container { 
-            padding: 15px; 
-            max-width: 650px; 
-            margin: auto; 
-        }
+        .container { padding: 15px; max-width: 650px; margin: auto; }
         
         .limit-info { 
-            background: #222; 
-            padding: 15px; 
-            border-radius: 12px; 
-            text-align: center; 
-            font-size: 0.9rem; 
-            border: 1px solid #333; 
-            margin-bottom: 25px;
-            display: flex;
-            justify-content: space-around;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-            margin-top: 15px;
+            background: #222; padding: 15px; border-radius: 12px; 
+            display: flex; justify-content: space-around; border: 1px solid #333; margin: 15px 0 25px;
         }
-        .stat-box { display: flex; flex-direction: column; gap: 5px; }
         .stat-val { font-size: 1.2rem; font-weight: bold; color: var(--primary); }
 
         h4 { 
-            color: var(--primary); 
-            font-size: 0.85rem; 
-            text-transform: uppercase; 
-            margin: 30px 0 15px 0; 
-            display: flex; 
-            align-items: center; 
-            gap: 10px; 
-            letter-spacing: 1.5px; 
+            color: var(--primary); font-size: 0.85rem; text-transform: uppercase; 
+            margin: 30px 0 15px; display: flex; align-items: center; gap: 10px; letter-spacing: 1.5px; 
         }
         h4::after { content: ""; flex: 1; height: 1px; background: #333; }
 
-        #available-orders, #active-orders-list {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            min-height: 50px;
+        /* --- Rider UI Improvements (Buttons & Addresses) --- */
+        .active-order-card { 
+            background: var(--card); border-radius: 20px; padding: 20px; 
+            border: 1px solid #333; margin-bottom: 20px;
         }
 
-        .order-card, .active-order-card { 
-            background: var(--card); 
-            border-radius: 18px; 
-            padding: 20px; 
-            border: 1px solid #333; 
-            box-shadow: 0 6px 15px rgba(0,0,0,0.3);
+        /* လိပ်စာကတ်ပြားပုံစံ */
+        .address-section {
+            background: #262626; border-left: 4px solid var(--primary);
+            padding: 12px; border-radius: 10px; margin: 10px 0;
         }
+        .address-section.dropoff { border-left-color: var(--danger); }
+        .address-label { font-size: 0.7rem; color: #888; text-transform: uppercase; margin-bottom: 4px; }
+        .address-data { font-size: 0.95rem; font-weight: bold; color: #fff; }
+
+        /* ခလုတ်များ */
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
+        
+        .btn {
+            padding: 14px; border-radius: 12px; border: none; font-weight: bold;
+            font-size: 0.9rem; cursor: pointer; transition: 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .btn:active { transform: scale(0.95); }
+
+        .btn-call { background: var(--primary); color: #000; grid-column: span 2; }
+        .btn-arrive { background: var(--info); color: #fff; }
+        .btn-complete { background: var(--success); color: #fff; }
+        .btn-reject { background: #333; color: var(--danger); border: 1px solid #444; margin-top: 10px; width: 100%; }
 
         .empty-msg { 
             text-align: center; color: #666; font-size: 0.85rem; 
             padding: 30px 20px; border: 2px dashed #333; border-radius: 18px; 
-        }
-
-        /* SweetAlert Custom Styles for Dark Theme */
-        .swal2-popup {
-            border-radius: 20px !important;
-            font-family: 'Segoe UI', sans-serif !important;
         }
     </style>
 </head>
@@ -155,24 +123,22 @@
 
     <div class="container">
         <div id="rider-limit-info" class="limit-info">
-            <div class="stat-box">
-                <span style="font-size: 0.7rem; color: #888; font-weight: bold;">ACTIVE ORDERS</span>
-                <span id="active-count" class="stat-val">0 / 7</span>
+            <div style="text-align:center">
+                <div style="font-size: 0.65rem; color: #888;">ACTIVE ORDERS</div>
+                <div id="active-count" class="stat-val">0 / 7</div>
             </div>
-            <div class="stat-box">
-                <span style="font-size: 0.7rem; color: #888; font-weight: bold;">SERVER</span>
-                <span id="system-status" class="stat-val" style="color: var(--success); font-size: 0.8rem;">ONLINE</span>
+            <div style="text-align:center">
+                <div style="font-size: 0.65rem; color: #888;">SERVER</div>
+                <div id="system-status" class="stat-val" style="color: var(--success); font-size: 0.8rem;">ONLINE</div>
             </div>
         </div>
 
-        <div id="rejected-orders-section"></div>
-
-        <h4>🚴 Current Tasks</h4>
+        <h4>🚴 Active Tasks (လက်ရှိလုပ်ငန်းများ)</h4>
         <div id="active-orders-list">
             <div class="empty-msg">လက်ခံထားသော အော်ဒါမရှိသေးပါ</div>
         </div>
 
-        <h4>📥 New Orders Available</h4>
+        <h4>📥 Available Orders (အော်ဒါသစ်များ)</h4>
         <div id="available-orders">
             <div class="empty-msg">အော်ဒါအသစ်များကို ရှာဖွေနေပါသည်...</div>
         </div>
@@ -180,5 +146,6 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script type="module" src="../js/delivery.js"></script>
+
 </body>
 </html>
