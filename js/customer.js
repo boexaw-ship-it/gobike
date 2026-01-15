@@ -57,9 +57,6 @@ let pickupCoords = null, dropoffCoords = null;
 
 const pickupSelect = document.getElementById('pickup-township');
 const dropoffSelect = document.getElementById('dropoff-township');
-if (pickupSelect && dropoffSelect) {
-    dropoffSelect.innerHTML = pickupSelect.innerHTML; 
-}
 
 window.updateLocation = function(type) {
     const select = document.getElementById(`${type}-township`);
@@ -119,11 +116,12 @@ function displayMyOrders() {
 
             const card = document.createElement('div');
             card.className = "order-card";
-            card.style = `cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 12px; margin-bottom: 10px; background: #2a2a2a; border-radius: 8px; border-left: 4px solid ${order.status === 'completed' ? '#00ff00' : '#ffcc00'};`;
+            card.style = `cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 12px; margin-bottom: 10px; background: #2a2a2a; border-radius: 12px; border-left: 5px solid ${order.status === 'completed' ? '#00ff00' : '#ffcc00'}; border: 1px solid #444;`;
             card.innerHTML = `
                 <div onclick="window.location.href='track.html?id=${id}'" style="flex-grow:1;">
                     <b style="color: #fff;">📦 ${order.item}</b><br>
-                    <span style="font-size: 0.75rem; color: #aaa;">Status: ${order.status.toUpperCase()}</span>
+                    <span style="font-size: 0.75rem; color: #aaa;">Status: ${order.status.toUpperCase()}</span><br>
+                    <span style="font-size: 0.7rem; color: var(--primary);">${order.deliveryFee.toLocaleString()} KS</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 15px;">
                     <span style="color:#ffcc00; font-size: 1.2rem;" onclick="window.location.href='track.html?id=${id}'">📍</span>
@@ -139,26 +137,22 @@ function displayMyOrders() {
     });
 }
 
-// --- ၅။ Rider Accept Logic (မနက်ဖြန် Flag မပျောက်စေရန် အဆင့်မြှင့်ထားသည်) ---
+// --- ၅။ Rider Accept Logic ---
 window.acceptRiderFromCustomer = async (orderId, riderId, riderName) => {
     try {
         const orderRef = doc(db, "orders", orderId);
-        
-        // Database ထဲက အချက်အလက်ကို အရင်ဖတ်မယ်
         const orderSnap = await getDoc(orderRef);
         if (!orderSnap.exists()) return;
         const currentOrderData = orderSnap.data();
 
-        // မနက်ဖြန်အတွက် ဟုတ်မဟုတ် စစ်ဆေးခြင်း
         const scheduleType = currentOrderData.pickupSchedule || "now";
         const isTomorrow = scheduleType === "tomorrow";
 
-        // အရေးကြီးသော Update: pickupSchedule ကို ပြန်ထည့်ပေးထားသည်
         await updateDoc(orderRef, {
             status: "accepted",
             riderId: riderId,
             riderName: riderName,
-            pickupSchedule: scheduleType, // ဤနေရာတွင် Flag ကို ပြန်ထိန်းထားသည်
+            pickupSchedule: scheduleType,
             tempRiderId: null,
             confirmedAt: serverTimestamp()
         });
@@ -170,13 +164,11 @@ window.acceptRiderFromCustomer = async (orderId, riderId, riderName) => {
             background: '#1a1a1a', color: '#fff'
         });
 
-        // Google Sheet Update
         fetch(SCRIPT_URL, {
             method: "POST", mode: "no-cors",
             body: JSON.stringify({ action: "update", orderId, status: "Accepted", riderName })
         });
 
-        // Telegram Notification
         await notifyTelegram(`✅ <b>Rider Confirmed!</b>\n📝 ပစ္စည်း: ${currentOrderData.item}\n📅 Schedule: <b>${isTomorrow ? 'Tomorrow' : 'Now'}</b>\n🚴 Rider: <b>${riderName}</b>`);
 
     } catch (e) {
@@ -202,7 +194,7 @@ window.deleteOrderPermanently = async (id) => {
     });
 };
 
-// --- ၆။ Submit Order ---
+// --- ၆။ Submit Order (ထပ်ခါထပ်ခါ တင်နိုင်ရန် ပြင်ဆင်ပြီး) ---
 const placeOrderBtn = document.getElementById('placeOrderBtn');
 if (placeOrderBtn) {
     placeOrderBtn.onclick = async () => {
@@ -219,6 +211,10 @@ if (placeOrderBtn) {
         }
 
         try {
+            // Button ခဏပိတ်ထားမယ် (Double Click မဖြစ်အောင်)
+            placeOrderBtn.disabled = true;
+            placeOrderBtn.innerText = "Processing...";
+
             const pTown = pickupSelect.options[pickupSelect.selectedIndex].text;
             const dTown = dropoffSelect.options[dropoffSelect.selectedIndex].text;
             const pAddr = document.getElementById('pickup-address').value;
@@ -237,6 +233,7 @@ if (placeOrderBtn) {
             const docRef = await addDoc(collection(db, "orders"), orderData);
             const orderId = docRef.id;
 
+            // Google Sheet & Telegram Notifications
             fetch(SCRIPT_URL, {
                 method: "POST", mode: "no-cors",
                 body: JSON.stringify({
@@ -259,20 +256,31 @@ if (placeOrderBtn) {
 
             await notifyTelegram(msg);
 
+            // Success Alert ပြပြီး Form ကို Reset လုပ်မယ်
             Swal.fire({
                 title: 'အော်ဒါတင်ပြီးပါပြီ!',
-                text: 'Rider မှ ဆက်သွယ်လာသည်အထိ ခေတ္တစောင့်ပေးပါဗျာ။',
+                text: 'နောက်ထပ်အော်ဒါများလည်း ထပ်မံတင်နိုင်ပါသည်ဗျာ။',
                 icon: 'success',
                 confirmButtonColor: '#ffcc00',
-                confirmButtonText: '📍 ခြေရာခံမည်',
+                confirmButtonText: 'အော်ဒါစာရင်းကြည့်မည်',
                 background: '#1a1a1a', color: '#fff'
             }).then(() => {
-                window.location.href = `track.html?id=${orderId}`;
+                // Form Reset & UI ပြန်ပြင်
+                document.getElementById('orderForm').reset();
+                placeOrderBtn.disabled = false;
+                placeOrderBtn.innerText = "ORDER NOW";
+                
+                // My Orders Tab ဆီသို့ အလိုအလျောက်ရွှေ့ပေးခြင်း
+                if(typeof window.showSection === 'function') {
+                    const listTab = document.querySelectorAll('.nav-item')[1];
+                    window.showSection('list', listTab);
+                }
             });
 
         } catch (e) {
+            placeOrderBtn.disabled = false;
+            placeOrderBtn.innerText = "ORDER NOW";
             Swal.fire({ icon: 'error', title: 'Error', text: e.message, background: '#1a1a1a', color: '#fff' });
         }
     };
 }
-
