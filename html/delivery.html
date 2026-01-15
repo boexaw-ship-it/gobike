@@ -71,35 +71,84 @@
         }
         h4::after { content: ""; flex: 1; height: 1px; background: #333; }
 
-        /* --- Rider UI Improvements (Buttons & Addresses) --- */
-        .active-order-card { 
-            background: var(--card); border-radius: 20px; padding: 20px; 
-            border: 1px solid #333; margin-bottom: 20px;
+        /* --- Updated Card & Address UI --- */
+        .order-card {
+            background: var(--card);
+            border-radius: 18px;
+            padding: 18px;
+            margin-bottom: 20px;
+            border: 1px solid #333;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
         }
 
-        /* လိပ်စာကတ်ပြားပုံစံ */
-        .address-section {
-            background: #262626; border-left: 4px solid var(--primary);
-            padding: 12px; border-radius: 10px; margin: 10px 0;
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
         }
-        .address-section.dropoff { border-left-color: var(--danger); }
-        .address-label { font-size: 0.7rem; color: #888; text-transform: uppercase; margin-bottom: 4px; }
-        .address-data { font-size: 0.95rem; font-weight: bold; color: #fff; }
 
-        /* ခလုတ်များ */
-        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
-        
-        .btn {
-            padding: 14px; border-radius: 12px; border: none; font-weight: bold;
-            font-size: 0.9rem; cursor: pointer; transition: 0.2s;
-            display: flex; align-items: center; justify-content: center; gap: 8px;
+        .item-info b { font-size: 1.1rem; color: #fff; }
+        .fee-tag { background: #332b00; color: var(--primary); padding: 4px 10px; border-radius: 8px; font-weight: bold; font-size: 0.9rem; }
+
+        /* လိပ်စာကတ်ပြားပုံစံကို ပိုကျယ်ပြီး ရှင်းလင်းအောင်လုပ်ထားသည် */
+        .address-box {
+            background: #262626;
+            padding: 12px;
+            border-radius: 12px;
+            margin: 8px 0;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
         }
-        .btn:active { transform: scale(0.95); }
+        .icon-box { font-size: 1.2rem; }
+        .addr-text { flex: 1; }
+        .addr-label { font-size: 0.65rem; color: #888; text-transform: uppercase; font-weight: bold; }
+        .addr-detail { font-size: 0.9rem; color: #fff; font-weight: 500; display: block; margin-top: 2px; }
 
-        .btn-call { background: var(--primary); color: #000; grid-column: span 2; }
-        .btn-arrive { background: var(--info); color: #fff; }
-        .btn-complete { background: var(--success); color: #fff; }
-        .btn-reject { background: #333; color: var(--danger); border: 1px solid #444; margin-top: 10px; width: 100%; }
+        .pickup-box { border-left: 4px solid var(--primary); }
+        .dropoff-box { border-left: 4px solid var(--danger); }
+
+        /* --- Updated Action Buttons --- */
+        .btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .action-btn {
+            padding: 14px;
+            border-radius: 12px;
+            border: none;
+            font-weight: 800;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            text-transform: uppercase;
+        }
+
+        .btn-accept {
+            background: linear-gradient(135deg, #ffcc00, #ffaa00);
+            color: #000;
+            box-shadow: 0 4px 12px rgba(255, 204, 0, 0.2);
+        }
+
+        .btn-later {
+            background: #2a2a2a;
+            color: #bbb;
+            border: 1px solid #444;
+        }
+
+        .action-btn:active { transform: scale(0.96); }
+        .action-btn i { font-size: 1.1rem; margin-bottom: 2px; }
 
         .empty-msg { 
             text-align: center; color: #666; font-size: 0.85rem; 
@@ -111,7 +160,7 @@
 
     <div class="profile-bar">
         <div class="user-meta">
-            <span id="display-role">Rider</span>
+            <span id="display-role">Rider Dashboard</span>
             <b id="display-name">Loading...</b>
         </div>
         <button class="logout-btn" onclick="handleLogout()">Logout</button>
