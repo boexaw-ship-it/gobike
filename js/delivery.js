@@ -11,7 +11,6 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzoqWIjISI8MrzFYu-B7
 const alarmSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
 let isSoundAllowed = false;
 
-// UI ထဲက button ကို js ကနေ control လုပ်ခြင်း
 const soundBtn = document.createElement('button');
 soundBtn.innerHTML = "🔔 အသံဖွင့်ရန်";
 soundBtn.style = "position:fixed; bottom:85px; right:20px; z-index:3000; padding:10px 18px; background:#ffcc00; color:#000; border:2px solid #1a1a1a; border-radius:50px; font-weight:bold; cursor:pointer;";
@@ -65,7 +64,6 @@ const createOrderMessage = (title, order, currentRiderName, statusText = "") => 
 // --- ၃။ Map Init ---
 const map = L.map('map').setView([16.8661, 96.1951], 12); 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-let markers = {}; 
 
 // --- ၄။ Live Location ---
 if (navigator.geolocation) {
@@ -89,7 +87,6 @@ function startTracking() {
         const container = document.getElementById('available-orders');
         if(!container) return;
 
-        // Active Order ၃ ခုရှိမရှိ စစ်ဆေးခြင်း
         const activeSnap = await getDocs(query(collection(db, "orders"), where("riderId", "==", myUid), where("status", "in", ["accepted", "on_the_way", "arrived"])));
         const isFull = activeSnap.size >= 3;
 
@@ -97,7 +94,8 @@ function startTracking() {
         
         snap.forEach(orderDoc => {
             const order = orderDoc.data();
-            if (order.lastRejectedRiderId === myUid) return;
+            // ကိုယ်ငြင်းထားတဲ့ဟာနဲ့ ကိုယ်ကြိုတင်ယူထားတဲ့ဟာတွေ မပြအောင် filter လုပ်ခြင်း
+            if (order.lastRejectedRiderId === myUid || order.tempRiderId === myUid) return;
             const id = orderDoc.id;
 
             const card = document.createElement('div');
@@ -107,7 +105,7 @@ function startTracking() {
                 <div style="font-size:0.85rem; color:#ccc; margin:10px 0;">📍 From: ${order.pickup?.address || order.pickupAddress}</div>
                 <div style="display:flex; gap:10px;">
                     <button class="btn-accept" style="background:${isFull ? '#444' : '#ffcc00'}" ${isFull ? 'disabled' : ''} onclick="handleAccept('${id}', 'now')">${isFull ? 'Limit Full' : 'လက်ခံမည်'}</button>
-                    <button class="btn-accept" style="background:#333; color:#fff;" onclick="handleAccept('${id}', 'tomorrow')">မနက်ဖြန်</button>
+                    <button class="btn-accept" style="background:#333; color:#fff;" onclick="handleAccept('${id}', 'tomorrow')">မနက်ဖြန်မှယူမည်</button>
                 </div>
             `;
             container.appendChild(card);
@@ -115,7 +113,7 @@ function startTracking() {
         if (!snap.empty && isSoundAllowed) alarmSound.play().catch(e => {});
     });
 
-    // (B) Home: Active Tasks (လက်ရှိလုပ်ဆောင်နေသော အော်ဒါများ - Limit 3)
+    // (B) Home: Active Tasks (လက်ရှိအော်ဒါ - Limit 3)
     onSnapshot(query(collection(db, "orders"), where("riderId", "==", myUid)), (snap) => {
         const list = document.getElementById('active-orders-list');
         const activeCountDisplay = document.getElementById('active-count');
@@ -146,25 +144,40 @@ function startTracking() {
             }
         });
         if(activeCountDisplay) activeCountDisplay.innerText = `${activeCount} / 3`;
-        if(activeCount === 0) list.innerHTML = "<div class='empty-msg'>လက်ရှိလုပ်ဆောင်စရာမရှိပါ</div>";
+        if(activeCount === 0) list.innerHTML = "<div class='empty-msg'>လက်ခံထားသော အော်ဒါမရှိသေးပါ</div>";
     });
 
     // (C) Tomorrow Section (မနက်ဖြန်အတွက် - Limit 7)
-    onSnapshot(query(collection(db, "orders"), where("tempRiderId", "==", myUid), where("status", "==", "pending_confirmation")), (snap) => {
+    // Query ပြင်ထားသည် - ကိုယ် temp ယူထားတဲ့အော်ဒါမှန်သမျှ Tomorrow ထဲရောက်မည်
+    onSnapshot(query(collection(db, "orders"), where("tempRiderId", "==", myUid)), (snap) => {
         const tomList = document.getElementById('tomorrow-orders-list');
         const tomCountHome = document.getElementById('tomorrow-count-home');
         const tomCountPage = document.getElementById('tomorrow-count');
         
         if(tomList) {
-            tomList.innerHTML = snap.empty ? "<div class='empty-msg'>မနက်ဖြန်အတွက် မရှိသေးပါ</div>" : "";
+            tomList.innerHTML = snap.empty ? "<div class='empty-msg'>မနက်ဖြန်အတွက် အော်ဒါမရှိသေးပါ</div>" : "";
             snap.forEach(doc => {
                 const d = doc.data();
-                const div = document.createElement('div');
-                div.className = 'order-card';
-                div.innerHTML = `<b>📅 Tomorrow</b><br>📦 ${d.item}<br><small>📍 ${d.pickupAddress || d.pickup?.address}</small>`;
-                tomList.appendChild(div);
+                // စစ်ထုတ်ရန်: pending_confirmation (Rider က မနက်ဖြန်အတွက် ယူထားသော status)
+                if(d.status === "pending_confirmation") {
+                    const div = document.createElement('div');
+                    div.className = 'order-card';
+                    div.style = "border-left: 5px solid #3498db; background: #1a1a1a;";
+                    div.innerHTML = `
+                        <div style="color:#3498db; font-size:0.75rem; font-weight:bold; margin-bottom:5px;">📅 TOMORROW SCHEDULE</div>
+                        <b>📦 ${d.item}</b> | 💰 ${d.deliveryFee?.toLocaleString()} KS
+                        <div style="font-size:0.8rem; color:#888; margin-top:5px;">
+                            📍 Pickup: ${d.pickupAddress || d.pickup?.address}<br>
+                            🏁 Dropoff: ${d.dropoffAddress || d.dropoff?.address}
+                        </div>
+                    `;
+                    tomList.appendChild(div);
+                }
             });
-            const countStr = `${snap.size} / 7`;
+            
+            // Count ပြရန် (pending_confirmation ဖြစ်နေတဲ့ ဟာတွေကိုပဲ ရေမည်)
+            const scheduledCount = snap.docs.filter(d => d.data().status === "pending_confirmation").length;
+            const countStr = `${scheduledCount} / 7`;
             if(tomCountHome) tomCountHome.innerText = countStr;
             if(tomCountPage) tomCountPage.innerText = countStr;
         }
@@ -183,12 +196,13 @@ function startTracking() {
                 totalEarnings += (h.deliveryFee || 0);
                 const div = document.createElement('div');
                 div.className = 'history-card';
+                div.style = "background: #1a1a1a; padding: 15px; border-radius: 12px; margin-bottom:10px; border:1px solid #333;";
                 div.innerHTML = `
                     <div style="display:flex; justify-content:space-between;">
                         <span>✅ ${h.item}</span>
-                        <span style="color:#00ff00;">+${h.deliveryFee?.toLocaleString()} KS</span>
+                        <span style="color:#00ff00; font-weight:bold;">+${h.deliveryFee?.toLocaleString()} KS</span>
                     </div>
-                    <small style="color:#666;">${h.completedAt?.toDate().toLocaleString() || ''}</small>
+                    <small style="color:#666; font-size:0.75rem;">${h.completedAt?.toDate().toLocaleString() || 'N/A'}</small>
                 `;
                 historyList.appendChild(div);
             });
@@ -207,15 +221,30 @@ window.handleAccept = async (id, time) => {
         const riderName = await getRiderName();
 
         if(time === 'tomorrow') {
+            // မနက်ဖြန်အတွက် ၇ ခု Limit စစ်ခြင်း
             const tmrSnap = await getDocs(query(collection(db, "orders"), where("tempRiderId", "==", auth.currentUser.uid), where("status", "==", "pending_confirmation")));
             if(tmrSnap.size >= 7) {
-                Swal.fire({ title: 'Limit Full!', text: 'မနက်ဖြန်အတွက် ၇ ခုပြည့်နေပါပြီ', icon: 'error' });
+                Swal.fire({ title: 'Limit Full!', text: 'မနက်ဖြန်အတွက် ၇ ခုပြည့်နေပါပြီ', icon: 'error', background: '#1a1a1a', color: '#fff' });
                 return;
             }
-            await updateDoc(docRef, { status: "pending_confirmation", tempRiderId: auth.currentUser.uid, tempRiderName: riderName });
-            await notifyTelegram(createOrderMessage("⏳ Tomorrow Scheduled", order, riderName, "မနက်ဖြန်အတွက် ချိတ်ဆက်ထားပါသည်"));
+            // Status ကို pending_confirmation သို့ပြောင်းပြီး tempRiderId သတ်မှတ်ခြင်း
+            await updateDoc(docRef, { 
+                status: "pending_confirmation", 
+                tempRiderId: auth.currentUser.uid, 
+                tempRiderName: riderName,
+                pickupSchedule: "tomorrow" 
+            });
+            await notifyTelegram(createOrderMessage("⏳ Tomorrow Scheduled", order, riderName, "မနက်ဖြန်အတွက် ကြိုယူထားပါသည်"));
+            Swal.fire({ title: 'Success!', text: 'Tomorrow Section သို့ ပို့လိုက်ပါပြီ', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1a1a1a', color: '#fff' });
         } else {
-            await updateDoc(docRef, { status: "accepted", riderId: auth.currentUser.uid, riderName: riderName, acceptedAt: serverTimestamp() });
+            // ချက်ချင်းယူခြင်း
+            await updateDoc(docRef, { 
+                status: "accepted", 
+                riderId: auth.currentUser.uid, 
+                riderName: riderName, 
+                acceptedAt: serverTimestamp(),
+                tempRiderId: null // temp ရှိနေရင် ဖျက်လိုက်ခြင်း
+            });
             fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ action: "update", orderId: id, riderName, status: "Accepted" }) });
             await notifyTelegram(createOrderMessage("✅ Order Accepted", order, riderName, "Rider လက်ခံလိုက်ပါပြီ"));
         }
@@ -225,7 +254,8 @@ window.handleAccept = async (id, time) => {
 window.updateStatus = async (id, status) => {
     try {
         const docRef = doc(db, "orders", id);
-        const order = (await getDoc(docRef)).data();
+        const orderSnap = await getDoc(docRef);
+        const order = orderSnap.data();
         const riderName = await getRiderName();
         await updateDoc(docRef, { status });
         const text = status === "on_the_way" ? "🚚 ပစ္စည်းစယူပြီး ထွက်ခွာလာပါပြီ" : "📍 Rider ရောက်ရှိနေပါပြီ";
@@ -238,11 +268,13 @@ window.completeOrder = async (id) => {
     if (result.isConfirmed) {
         try {
             const docRef = doc(db, "orders", id);
-            const order = (await getDoc(docRef)).data();
+            const orderSnap = await getDoc(docRef);
+            const order = orderSnap.data();
             const riderName = await getRiderName();
             await updateDoc(docRef, { status: "completed", completedAt: serverTimestamp() });
             fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ action: "update", orderId: id, status: "COMPLETED" }) });
             await notifyTelegram(createOrderMessage("💰 Order Completed", order, riderName, "အောင်မြင်စွာ ပို့ဆောင်ပြီးပါပြီ"));
+            Swal.fire({ title: 'ပြီးမြောက်ပါပြီ!', icon: 'success', background: '#1a1a1a', color: '#fff' });
         } catch (err) { console.error(err); }
     }
 };
@@ -252,7 +284,8 @@ window.cancelByRider = async (id) => {
     if (result.isConfirmed) {
         try {
             const docRef = doc(db, "orders", id);
-            const order = (await getDoc(docRef)).data();
+            const orderSnap = await getDoc(docRef);
+            const order = orderSnap.data();
             const name = await getRiderName();
             await updateDoc(docRef, { status: "rider_rejected", riderId: null, riderName: null, lastRejectedRiderId: auth.currentUser.uid });
             await notifyTelegram(createOrderMessage("❌ Rider Rejected", order, name, "Rider က ငြင်းပယ်လိုက်ပါပြီ"));
