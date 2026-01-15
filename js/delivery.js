@@ -215,7 +215,7 @@ function startTracking() {
     });
 }
 
-// --- ၆။ Functions with Swal Replacement ---
+// --- ၆။ Functions ---
 
 window.handleAccept = async (id, time) => {
     try {
@@ -279,7 +279,8 @@ window.completeOrder = async (id) => {
             fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ action: "update", orderId: id, status: "COMPLETED" }) });
             await notifyTelegram(createOrderMessage("💰 <b>Order Completed!</b>", order, riderName, "အောင်မြင်စွာ ပို့ဆောင်ပြီးပါပြီ"));
             
-            Swal.fire({
+            // Swal ပေါ်ပြီးမှ မဟုတ်ဘဲ တိုက်ရိုက် Success ပြရန်
+            await Swal.fire({
                 title: 'အောင်မြင်ပါသည်!',
                 text: 'လူကြီးမင်း၏ ပါဆယ်ပို့ဆောင်မှု အောင်မြင်ပြီးဆုံးပါပြီ။',
                 icon: 'success',
@@ -294,12 +295,12 @@ window.completeOrder = async (id) => {
 window.cancelByRider = async (id) => {
     const result = await Swal.fire({
         title: 'သေချာပါသလား?',
-        text: "ဤအော်ဒါကို ပြန်လွှတ်ပါမည်။ အခြား Rider များ ပြန်မြင်ရမည်ဖြစ်ပါသည်။",
+        text: "ဤအော်ဒါကို ငြင်းပယ်ပါမည်။ Customer ထံသို့ 'Rejected' ပြပေးမည်ဖြစ်ပါသည်။",
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#ffcc00',
         cancelButtonColor: '#ff4444',
-        confirmButtonText: 'ပြန်လွှတ်မည်',
+        confirmButtonText: 'ငြင်းပယ်မည်',
         cancelButtonText: 'မလုပ်တော့ပါ',
         background: '#1a1a1a',
         color: '#fff'
@@ -311,13 +312,17 @@ window.cancelByRider = async (id) => {
             const order = (await getDoc(docRef)).data();
             const riderName = await getRiderName();
 
+            // Status ကို "pending" အစား "rider_rejected" သို့ ပြောင်းလဲခြင်း
             await updateDoc(docRef, {
-                status: "pending", riderId: null, riderName: null, pickupSchedule: null,
+                status: "rider_rejected", 
+                riderId: null, 
+                riderName: null, 
+                pickupSchedule: null,
                 lastRejectedRiderId: auth.currentUser.uid 
             });
-            await notifyTelegram(createOrderMessage("❌ <b>Rider Rejected Order!</b>", order, riderName, "Rider က အော်ဒါပြန်လွှတ်လိုက်ပါပြီ"));
+            await notifyTelegram(createOrderMessage("❌ <b>Rider Rejected Order!</b>", order, riderName, "Rider က အော်ဒါကို ငြင်းပယ်လိုက်ပါပြီ"));
             
-            Swal.fire({ title: 'ပြန်လွှတ်ပြီးပါပြီ', icon: 'info', background: '#1a1a1a', color: '#fff' });
+            Swal.fire({ title: 'ငြင်းပယ်ပြီးပါပြီ', icon: 'info', background: '#1a1a1a', color: '#fff' });
         } catch (err) { console.error(err); }
     }
 };
