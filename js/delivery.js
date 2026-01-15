@@ -5,7 +5,7 @@ import {
 import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { notifyTelegram } from './telegram.js';
 
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzoqWIjISI8MrzFYu-B7CBldle8xuo-B5jNQtCRsqHLOaLPEPelYX84W5lRXoB9RhL6uw/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzoqWIjISI8MrzFYu-B7CBldle8xuo-B5jNQtCRsqHLOaLPEPelYX84W5lRXoB9RhL6uo/exec";
 
 // --- ၀။ Alarm Sound Setup ---
 const alarmSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
@@ -60,18 +60,17 @@ async function getRiderData() {
     } catch (err) { return "Rider"; }
 }
 
-// --- ၂။ Helper: Create Detailed Telegram Message (လိပ်စာ အပြည့်အစုံ ဖြည့်စွက်ပြီး) ---
+// --- ၂။ Helper: Create Detailed Telegram Message ---
 const createOrderMessage = (title, order, currentRiderName, statusText = "") => {
-    // လိပ်စာများကို format လုပ်ခြင်း
-    const pAddr = `${order.pickupTownship || ""} ${order.pickupAddress || order.pickup?.address || "မသိရပါ"}`;
-    const dAddr = `${order.dropoffTownship || ""} ${order.dropoffAddress || order.dropoff?.address || "မသိရပါ"}`;
+    const pAddr = order.pickup?.address || "မသိရပါ";
+    const dAddr = order.dropoff?.address || "မသိရပါ";
 
     let msg = `${title}\n`;
     if (statusText) msg += `📊 Status: <b>${statusText}</b>\n`;
     msg += `--------------------------\n` +
            `📝 ပစ္စည်း: <b>${order.item}</b>\n` +
            `⚖️ အလေးချိန်: <b>${order.weight || "0"} kg</b>\n` +
-           `💰 ပစ္စည်းတန်ဖိုး: <b>${order.itemValue || order.itemPrice || "0"} KS</b>\n` +
+           `💰 ပစ္စည်းတန်ဖိုး: <b>${order.itemValue || "0"} KS</b>\n` +
            `💵 ပို့ခ: <b>${order.deliveryFee?.toLocaleString()} KS</b>\n` +
            `💳 Payment: <b>${order.paymentMethod || "CASH"}</b>\n` +
            `📞 ဖုန်း: <b>${order.phone}</b>\n` +
@@ -131,28 +130,38 @@ function startTracking() {
 
                 if(order.pickup) { markers[id] = L.marker([order.pickup.lat, order.pickup.lng]).addTo(map).bindPopup(order.item); }
 
+                // HTML Design နှင့် ကိုက်ညီအောင် ရေးသားထားသော Card
                 const card = document.createElement('div');
                 card.className = 'order-card';
                 card.innerHTML = `
-                    <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                        <b style="color:var(--primary); font-size:1.1rem;">📦 ${order.item}</b>
-                        <b style="color:var(--success);">${order.deliveryFee?.toLocaleString()} KS</b>
+                    <div class="order-header">
+                        <div class="item-info">📦 <b>${order.item}</b></div>
+                        <div class="fee-tag">${order.deliveryFee?.toLocaleString()} KS</div>
                     </div>
-                    <div class="address-section">
-                        <div class="address-label">📍 Pick-up (ပစ္စည်းယူရန်)</div>
-                        <div class="address-data">${order.pickupTownship || ""} ${order.pickupAddress || ""}</div>
+                    <div class="address-box pickup-box">
+                        <div class="icon-box">📍</div>
+                        <div class="addr-text">
+                            <span class="addr-label">ယူရန် (Pickup)</span>
+                            <span class="addr-detail">${order.pickup?.address || "မသိရပါ"}</span>
+                        </div>
                     </div>
-                    <div class="address-section dropoff">
-                        <div class="address-label">🏁 Drop-off (ပို့ဆောင်ရန်)</div>
-                        <div class="address-data">${order.dropoffTownship || ""} ${order.dropoffAddress || ""}</div>
+                    <div class="address-box dropoff-box">
+                        <div class="icon-box">🏁</div>
+                        <div class="addr-text">
+                            <span class="addr-label">ပို့ရန် (Drop-off)</span>
+                            <span class="addr-detail">${order.dropoff?.address || "မသိရပါ"}</span>
+                        </div>
                     </div>
-                    <div style="font-size:0.85rem; margin:10px 0; color:#bbb;">
-                        👤 ${order.customerName || "အမည်မသိသူ"} | ⚖️ ${order.weight || "0"}kg | 💰 ${order.itemValue || "0"}KS
+                    <div style="font-size:0.8rem; margin:15px 0; color:#aaa; display:flex; gap:10px;">
+                        <span>👤 ${order.customerName || "User"}</span> | <span>⚖️ ${order.weight || "0"}kg</span> | <span>📞 ${order.phone}</span>
                     </div>
-                    <div class="btn-grid">
-                        <button class="btn btn-call" onclick="window.location.href='tel:${order.phone}'">📞 ဖုန်းခေါ်ရန်</button>
-                        <button class="btn btn-complete" style="background:var(--primary); color:#000;" ${isFull ? 'disabled' : ''} onclick="handleAccept('${id}', 'now')">ချက်ချင်းယူမည်</button>
-                        <button class="btn btn-arrive" style="background:#444; color:white;" ${isFull ? 'disabled' : ''} onclick="handleAccept('${id}', 'tomorrow')">မနက်ဖြန်မှ</button>
+                    <div class="btn-group">
+                        <button class="action-btn btn-accept" ${isFull ? 'disabled' : ''} onclick="handleAccept('${id}', 'now')">
+                            <i>⚡</i> ချက်ချင်းယူမည်
+                        </button>
+                        <button class="action-btn btn-later" ${isFull ? 'disabled' : ''} onclick="handleAccept('${id}', 'tomorrow')">
+                            <i>⏳</i> မနက်ဖြန်မှ
+                        </button>
                     </div>`;
                 container.appendChild(card);
             });
@@ -163,47 +172,41 @@ function startTracking() {
     // လက်ခံထားသော အော်ဒါများကို စောင့်ကြည့်ခြင်း
     onSnapshot(query(collection(db, "orders"), where("riderId", "==", myUid)), (snap) => {
         const list = document.getElementById('active-orders-list');
-        const rejectedSection = document.getElementById('rejected-orders-section');
         if(list) list.innerHTML = "";
-        if(rejectedSection) rejectedSection.innerHTML = "";
         let hasActive = false;
 
         snap.forEach(orderDoc => {
             const data = orderDoc.data();
             const id = orderDoc.id;
 
-            if (data.status === "cancelled") {
-                const rejCard = document.createElement('div');
-                rejCard.className = 'order-card rejected-card';
-                rejCard.innerHTML = `<b style="color:#ff4444;">⚠️ Customer မှ ဖျက်လိုက်ပါပြီ</b><br><button class="btn btn-reject" onclick="dismissOrder('${id}')">ဖယ်ထုတ်မည်</button>`;
-                rejectedSection.appendChild(rejCard);
-                return;
-            }
-
             if (["accepted", "on_the_way", "arrived"].includes(data.status)) {
                 hasActive = true;
-                let btnText = "🚚 ပစ္စည်းစယူပြီ", nextStatus = "on_the_way", btnClass = "btn-arrive";
-                if(data.status === "on_the_way") { btnText = "📍 ရောက်ရှိပါပြီ", nextStatus = "arrived", btnClass = "btn-info"; }
-                if(data.status === "arrived") { btnText = "✅ ပစ္စည်းအပ်နှံပြီးပြီ", nextStatus = "completed", btnClass = "btn-complete"; }
+                let btnText = "🚚 ပစ္စည်းစယူပြီ", nextStatus = "on_the_way", btnColor = "var(--info)";
+                if(data.status === "on_the_way") { btnText = "📍 ရောက်ရှိပါပြီ", nextStatus = "arrived", btnColor = "var(--info)"; }
+                if(data.status === "arrived") { btnText = "✅ ပစ္စည်းအပ်နှံပြီးပြီ", nextStatus = "completed", btnColor = "var(--success)"; }
 
                 const div = document.createElement('div');
                 div.className = 'active-order-card';
                 div.innerHTML = `
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                        <b style="color:var(--primary);">${data.status.toUpperCase()}</b>
-                        <span style="color:var(--danger); font-size:0.8rem; cursor:pointer;" onclick="cancelByRider('${id}')">✖ မယူတော့ပါ</span>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
+                        <b style="color:var(--primary);"># ${data.status.toUpperCase()}</b>
+                        <span style="color:var(--danger); font-size:0.75rem; font-weight:bold; cursor:pointer;" onclick="cancelByRider('${id}')">❌ ငြင်းပယ်မည်</span>
                     </div>
-                    <div class="address-section">
-                        <div class="address-label">📍 Pick-up (ယူရန်)</div>
-                        <div class="address-data">${data.pickupTownship || ""} ${data.pickupAddress || ""}</div>
+                    <div class="address-box pickup-box">
+                        <div class="addr-text">
+                            <span class="addr-label">ယူရန်</span>
+                            <span class="addr-detail">${data.pickup?.address || "မသိရပါ"}</span>
+                        </div>
                     </div>
-                    <div class="address-section dropoff">
-                        <div class="address-label">🏁 Drop-off (ပို့ရန်)</div>
-                        <div class="address-data">${data.dropoffTownship || ""} ${data.dropoffAddress || ""}</div>
+                    <div class="address-box dropoff-box">
+                        <div class="addr-text">
+                            <span class="addr-label">ပို့ရန်</span>
+                            <span class="addr-detail">${data.dropoff?.address || "မသိရပါ"}</span>
+                        </div>
                     </div>
-                    <div class="btn-grid">
-                        <button class="btn btn-call" onclick="window.location.href='tel:${data.phone}'">📞 ဖုန်းခေါ်မည်</button>
-                        <button class="btn ${btnClass}" style="grid-column: span 2;" onclick="${nextStatus === 'completed' ? `completeOrder('${id}')` : `updateStatus('${id}', '${nextStatus}')`}">${btnText}</button>
+                    <div class="btn-group" style="grid-template-columns: 1fr;">
+                         <button class="action-btn" style="background:var(--primary); color:#000; margin-bottom:8px;" onclick="window.location.href='tel:${data.phone}'">📞 ဖုန်းခေါ်ဆိုရန်</button>
+                         <button class="action-btn" style="background:${btnColor}; color:#fff;" onclick="${nextStatus === 'completed' ? `completeOrder('${id}')` : `updateStatus('${id}', '${nextStatus}')`}">${btnText}</button>
                     </div>`;
                 list.appendChild(div);
             }
@@ -266,7 +269,7 @@ window.cancelByRider = async (id) => {
             const docRef = doc(db, "orders", id);
             const order = (await getDoc(docRef)).data();
             const riderName = await getRiderName();
-            await updateDoc(docRef, { status: "rider_rejected", riderId: null, riderName: null, lastRejectedRiderId: auth.currentUser.uid });
+            await updateDoc(docRef, { status: "pending", riderId: null, riderName: null, lastRejectedRiderId: auth.currentUser.uid });
             await notifyTelegram(createOrderMessage("❌ <b>Rider Rejected Order!</b>", order, riderName, "Rider က အော်ဒါကို ငြင်းပယ်လိုက်ပါပြီ"));
         } catch (err) { console.error(err); }
     }
@@ -278,6 +281,3 @@ async function getRiderName() {
     return snap.exists() ? snap.data().name : "Rider";
 }
 
-window.dismissOrder = async (id) => {
-    try { await updateDoc(doc(db, "orders", id), { riderId: "dismissed" }); } catch (err) { console.error(err); }
-};
