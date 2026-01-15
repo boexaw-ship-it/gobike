@@ -195,7 +195,7 @@ window.deleteOrderPermanently = async (id) => {
     });
 };
 
-// --- ၆။ Submit Order (အကြိမ်ပေါင်းများစွာ ထပ်တင်နိုင်ရန် Reset Logic ပါဝင်သည်) ---
+// --- ၆။ Submit Order (Tracking ကို တန်းပို့သည့် Logic ပါဝင်သည်) ---
 const placeOrderBtn = document.getElementById('placeOrderBtn');
 if (placeOrderBtn) {
     placeOrderBtn.onclick = async () => {
@@ -256,37 +256,18 @@ if (placeOrderBtn) {
 
             await notifyTelegram(msg);
 
-            // Success Alert ပြပြီး Form Reset လုပ်ကာ Tab ရွှေ့ပေးခြင်း
+            // Success Alert ပြပြီး Tracking Page သို့ တန်းပို့ခြင်း
             Swal.fire({
                 title: 'အော်ဒါတင်ပြီးပါပြီ!',
-                text: 'နောက်ထပ်အော်ဒါများလည်း ထပ်မံတင်နိုင်ပါသည်ဗျာ။',
+                text: 'သင့်အော်ဒါကို ခြေရာခံနိုင်ရန် Tracking Page သို့ ပို့ပေးပါမည်။',
                 icon: 'success',
                 confirmButtonColor: '#ffcc00',
-                confirmButtonText: 'အော်ဒါစာရင်းကြည့်မည်',
+                confirmButtonText: 'အိုကေ',
                 background: '#1a1a1a', color: '#fff'
             }).then(() => {
-                // ၁။ Form Reset လုပ်ခြင်း
-                const form = document.getElementById('orderForm');
-                if(form) form.reset();
-                
-                // ၂။ Map markers များကို ရှင်းထုတ်ခြင်း
-                if (pickupMarker) map.removeLayer(pickupMarker);
-                if (dropoffMarker) map.removeLayer(dropoffMarker);
-                pickupCoords = null; 
-                dropoffCoords = null;
-                
-                // ၃။ Button Reset
-                placeOrderBtn.disabled = false;
-                placeOrderBtn.innerText = "ORDER NOW";
-                
-                // ၄။ Dropoff Township ကိုပါ ရှင်းထုတ်ခြင်း (Select Logic အဟောင်းကြောင့် လိုအပ်လျှင်)
-                if(dropoffSelect) dropoffSelect.innerHTML = '<option value="">မြို့နယ်ရွေးပါ</option>';
-                
-                // ၅။ My Orders Tab သို့ ရွှေ့ခြင်း (HTML ထဲက showSection function ကို ခေါ်ခြင်း)
-                if (typeof window.showSection === 'function') {
-                    const listTab = document.querySelectorAll('.nav-item')[1];
-                    window.showSection('list', listTab);
-                }
+                // Tracking Page ကို တန်းပို့လိုက်ပါပြီ။
+                // ဤနေရာတွင် href သုံးခြင်းဖြင့် History list ထဲမှာ customer.html အလိုအလျောက်ရှိနေပါမည်။
+                window.location.href = `track.html?id=${orderId}`;
             });
 
         } catch (e) {
