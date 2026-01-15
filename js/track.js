@@ -29,13 +29,11 @@ if (orderId) {
         
         const data = docSnap.data();
 
-        // --- (က) Completion Logic (ဒီအပိုင်းကို အပေါ်ဆုံးတင်လိုက်ပါသည်) ---
+        // --- (က) Completion Logic ---
         if (data.status === "completed") {
-            // Tracking ရပ်ဆိုင်းရန်
             if (riderMarker) { map.removeLayer(riderMarker); riderMarker = null; }
             if (riderUnsubscribe) { riderUnsubscribe(); riderUnsubscribe = null; }
 
-            // အောင်မြင်ကြောင်း Swal ပြသရန်
             await Swal.fire({
                 title: 'အောင်မြင်ပါသည်!',
                 text: 'လူကြီးမင်း၏ ပါဆယ်ပို့ဆောင်မှု အောင်မြင်ပြီးဆုံးပါပြီ။ ကျေးဇူးတင်ပါသည်။',
@@ -47,7 +45,7 @@ if (orderId) {
                 confirmButtonText: 'ပင်မစာမျက်နှာသို့'
             });
             window.location.href = "../index.html"; 
-            return; // ဆက်မလုပ်တော့ရန်
+            return;
         }
 
         // --- (ခ) Status Check & Rider Marker Cleanup ---
@@ -89,13 +87,21 @@ if (orderId) {
             }
         });
 
-        // --- (ဃ) Details Display ---
+        // --- (ဃ) Details Display (လိပ်စာပြသရန် ပြင်ဆင်ထားသော အပိုင်း) ---
         if (document.getElementById('status-badge')) {
             document.getElementById('status-badge').innerText = (data.status || "LOADING").replace("_", " ").toUpperCase();
         }
         if (document.getElementById('det-item')) document.getElementById('det-item').innerText = data.item || "-";
         if (document.getElementById('det-fee')) {
             document.getElementById('det-fee').innerText = data.deliveryFee ? data.deliveryFee.toLocaleString() + " KS" : "0 KS";
+        }
+        
+        // 🔥 လိပ်စာအသစ်များကို UI တွင် ပြသခြင်း
+        if (document.getElementById('det-pickup')) {
+            document.getElementById('det-pickup').innerText = data.pickup?.address || data.pickupAddress || "-";
+        }
+        if (document.getElementById('det-dropoff')) {
+            document.getElementById('det-dropoff').innerText = data.dropoff?.address || data.dropoffAddress || "-";
         }
 
         // --- (င) Rider Information Display ---
