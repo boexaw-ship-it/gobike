@@ -87,8 +87,8 @@ const createOrderMessage = (title, order, currentRiderName, statusText = "") => 
            `👤 Customer: <b>${order.customerName || "အမည်မသိသူ"}</b>\n` +
            `--------------------------\n` +
            `🚴 Rider: <b>${currentRiderName}</b>\n` +
-           `📍 ယူရန်: ${order.pickupAddress || order.pickup?.address || "မသိရပါ"}\n` +
-           `🏁 ပို့ရန်: ${order.dropoffAddress || order.dropoff?.address || "မသိရပါ"}`;
+           `📍 ယူရန်: ${order.pickup?.address || order.pickupAddress || "မသိရပါ"}\n` +
+           `🏁 ပို့ရန်: ${order.dropoff?.address || order.dropoffAddress || "မသိရပါ"}`;
     return msg;
 };
 
@@ -119,6 +119,7 @@ function startTracking() {
     if (!auth.currentUser) return;
     const myUid = auth.currentUser.uid;
 
+    // (က) Available Orders (အော်ဒါသစ်များ)
     onSnapshot(query(collection(db, "orders"), where("status", "==", "pending")), async (snap) => {
         const activeSnap = await getDocs(query(collection(db, "orders"), 
             where("riderId", "==", myUid),
@@ -137,12 +138,44 @@ function startTracking() {
             Object.values(markers).forEach(m => map.removeLayer(m));
             markers = {};
 
-            
+            snap.forEach(orderDoc => {
+                const order = orderDoc.data();
+                const id = orderDoc.id;
+                if (order.lastRejectedRiderId === myUid) return;
+
+                if(order.pickup) { markers[id] = L.marker([order.pickup.lat, order.pickup.lng]).addTo(map).bindPopup(order.item); }
+
+                const pAddr = order.pickup?.address || order.pickupAddress || "မသိရပါ";
+                const dAddr = order.dropoff?.address || order.dropoffAddress || "မသိရပါ";
+
+                const card = document.createElement('div');
+                card.className = 'order-card';
+                card.innerHTML = `
+                    <div class="item-info">
+                        <b class="item-name">📦 ${order.item}</b>
+                        <span class="price">${order.deliveryFee?.toLocaleString()} KS</span>
+                    </div>
+                    <div class="address-section" style="margin: 10px 0; padding: 10px; background: #222; border-radius: 8px; font-size: 0.9rem;">
+                        <div style="margin-bottom: 5px;"><b style="color:var(--primary);">📍 ယူရန်:</b> <span style="color:#fff;">${pAddr}</span></div>
+                        <div><b style="color:#ff4444;">🏁 ပို့ရန်:</b> <span style="color:#fff;">${dAddr}</span></div>
+                    </div>
+                    <div class="order-details">
+                        <b>👤 CUSTOMER:</b> ${order.customerName || "အမည်မသိသူ"}<br>
+                        <b>⚖️ အလေးချိန်:</b> ${order.weight || "0"} kg | <b>💰 တန်ဖိုး:</b> ${order.itemValue || order.itemPrice || "0"} KS<br>
+                        <b>💳 PAYMENT:</b> <span style="color:#00ff00;">${order.paymentMethod || "CASH"}</span><br>
+                        <b>📞 ဖုန်း:</b> <span style="color:#00ff00;">${order.phone}</span>
+                    </div>
+                    <div class="btn-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+                        <button class="btn btn-complete" style="background:var(--primary); color:#000;" onclick="handleAccept('${id}', 'now')">ချက်ချင်းယူမည်</button>
+                        <button class="btn btn-arrive" style="background:#444; color:white;" onclick="handleAccept('${id}', 'tomorrow')">မနက်ဖြန်မှ</button>
+                    </div>`;
+                container.appendChild(card);
             });
             if (!snap.empty && !isFull) alarmSound.play().catch(e => {});
         }
     });
 
+    // (ခ) My Active Orders (မိမိလက်ခံထားသော အော်ဒါများ)
     onSnapshot(query(collection(db, "orders"), where("riderId", "==", myUid)), (snap) => {
         const list = document.getElementById('active-orders-list');
         const rejectedSection = document.getElementById('rejected-orders-section');
@@ -156,49 +189,6 @@ function startTracking() {
 
             if (data.status === "cancelled") {
                 const rejCard = document.createElement('div');
-             snap.forEach(orderDoc => {
-    const order = orderDoc.data();
-    const id = orderDoc.id;
-    if (order.lastRejectedRiderId === myUid) return;
-
-    if(order.pickup) { markers[id] = L.marker([order.pickup.lat, order.pickup.lng]).addTo(map).bindPopup(order.item); }
-
-    // 🔥 လိပ်စာကို Firebase Path အမှန်အတိုင်း ဆွဲထုတ်ခြင်း
-    const pAddr = order.pickup?.address || order.pickupAddress || "လိပ်စာမရှိပါ";
-    const dAddr = order.dropoff?.address || order.dropoffAddress || "လိပ်စာမရှိပါ";
-
-    const card = document.createElement('div');
-    card.className = 'order-card';
-    card.innerHTML = `
-        <div class="item-info">
-            <b class="item-name">📦 ${order.item}</b>
-            <span class="price">${order.deliveryFee?.toLocaleString()} KS</span>
-        </div>
-        
-        <div class="address-section" style="margin: 10px 0; padding: 10px; background: #222; border-radius: 8px; font-size: 0.9rem;">
-            <div style="margin-bottom: 5px;">
-                <b style="color:var(--primary);">📍 ယူရန်:</b> <span style="color:#fff;">${pAddr}</span>
-            </div>
-            <div>
-                <b style="color:#ff4444;">🏁 ပို့ရန်:</b> <span style="color:#fff;">${dAddr}</span>
-            </div>
-        </div>
-
-        <div class="order-details">
-            <b>👤 CUSTOMER:</b> ${order.customerName || "အမည်မသိသူ"}<br>
-            <b>⚖️ အလေးချိန်:</b> ${order.weight || "0"} kg | <b>💰 တန်ဖိုး:</b> ${order.itemValue || order.itemPrice || "0"} KS<br>
-            <b>💳 PAYMENT:</b> <span style="color:#00ff00;">${order.paymentMethod || "CASH"}</span><br>
-            <b>📞 ဖုန်း:</b> <span style="color:#00ff00;">${order.phone}</span>
-        </div>
-        
-        <div class="btn-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
-            <button class="btn btn-complete" style="background:var(--primary); color:#000;" onclick="handleAccept('${id}', 'now')">ချက်ချင်းယူမည်</button>
-            <button class="btn btn-arrive" style="background:#444; color:white;" onclick="handleAccept('${id}', 'tomorrow')">မနက်ဖြန်မှ</button>
-        </div>`;
-    
-    const container = document.getElementById('available-orders');
-    if(container) container.appendChild(card);
-});
                 rejCard.className = 'order-card rejected-card';
                 rejCard.innerHTML = `
                     <b style="color:#ff4444;">⚠️ Customer မှ အော်ဒါဖျက်လိုက်ပါပြီ</b>
@@ -214,6 +204,9 @@ function startTracking() {
                 if(data.status === "on_the_way") { btnText = "📍 ရောက်ရှိကြောင်းပို့ရန်", nextStatus = "arrived", icon = "🚴"; }
                 if(data.status === "arrived") { btnText = "✅ ပစ္စည်းအပ်နှံပြီး (Complete)", nextStatus = "completed", icon = "🏁"; }
 
+                const pAddr = data.pickup?.address || data.pickupAddress || "မသိရပါ";
+                const dAddr = data.dropoff?.address || data.dropoffAddress || "မသိရပါ";
+
                 const div = document.createElement('div');
                 div.className = 'active-order-card';
                 div.innerHTML = `
@@ -221,9 +214,11 @@ function startTracking() {
                         <b>${icon} ${data.status.toUpperCase()}</b>
                         <span style="color:#ff4444; font-size:0.8rem; cursor:pointer;" onclick="cancelByRider('${id}')">✖ မယူတော့ပါ</span>
                     </div>
-                    <div class="order-details">
+                    <div class="order-details" style="margin: 8px 0;">
                         <b>📦 ${data.item}</b><br>
-                        📞 <b>ဖုန်း:</b> ${data.phone} | 💰 <b>ပို့ခ:</b> ${data.deliveryFee} KS
+                        📍 <b>ယူရန်:</b> ${pAddr}<br>
+                        🏁 <b>ပို့ရန်:</b> ${dAddr}<br>
+                        📞 <b>ဖုန်း:</b> <a href="tel:${data.phone}" style="color:var(--primary);">${data.phone}</a> | 💰 <b>ပို့ခ:</b> ${data.deliveryFee} KS
                     </div>
                     <button class="btn-status" onclick="${nextStatus === 'completed' ? `completeOrder('${id}')` : `updateStatus('${id}', '${nextStatus}')`}">${btnText}</button>
                 `;
@@ -266,7 +261,8 @@ window.handleAccept = async (id, time) => {
 window.updateStatus = async (id, status) => {
     try {
         const docRef = doc(db, "orders", id);
-        const order = (await getDoc(docRef)).data();
+        const orderSnap = await getDoc(docRef);
+        const order = orderSnap.data();
         const riderName = await getRiderName();
 
         await updateDoc(docRef, { status: status });
@@ -291,14 +287,14 @@ window.completeOrder = async (id) => {
     if (result.isConfirmed) {
         try {
             const docRef = doc(db, "orders", id);
-            const order = (await getDoc(docRef)).data();
+            const orderSnap = await getDoc(docRef);
+            const order = orderSnap.data();
             const riderName = await getRiderName();
 
             await updateDoc(docRef, { status: "completed", completedAt: serverTimestamp() });
             fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ action: "update", orderId: id, status: "COMPLETED" }) });
             await notifyTelegram(createOrderMessage("💰 <b>Order Completed!</b>", order, riderName, "အောင်မြင်စွာ ပို့ဆောင်ပြီးပါပြီ"));
             
-            // Swal ပေါ်ပြီးမှ မဟုတ်ဘဲ တိုက်ရိုက် Success ပြရန်
             await Swal.fire({
                 title: 'အောင်မြင်ပါသည်!',
                 text: 'လူကြီးမင်း၏ ပါဆယ်ပို့ဆောင်မှု အောင်မြင်ပြီးဆုံးပါပြီ။',
@@ -328,10 +324,10 @@ window.cancelByRider = async (id) => {
     if (result.isConfirmed) {
         try {
             const docRef = doc(db, "orders", id);
-            const order = (await getDoc(docRef)).data();
+            const orderSnap = await getDoc(docRef);
+            const order = orderSnap.data();
             const riderName = await getRiderName();
 
-            // Status ကို "pending" အစား "rider_rejected" သို့ ပြောင်းလဲခြင်း
             await updateDoc(docRef, {
                 status: "rider_rejected", 
                 riderId: null, 
@@ -356,3 +352,4 @@ window.dismissOrder = async (id) => {
     try { await updateDoc(doc(db, "orders", id), { riderId: "dismissed" }); } 
     catch (err) { console.error(err); }
 };
+
