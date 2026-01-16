@@ -1,6 +1,6 @@
 import { db, auth } from './firebase-config.js';
 import { 
-    doc, onSnapshot, updateDoc, serverTimestamp 
+    doc, onSnapshot, updateDoc 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const params = new URLSearchParams(window.location.search);
@@ -12,12 +12,28 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 let routingControl = null;
 
-// --- ၂။ Main Listener ---
+// --- ၂။ Back Button Logic (onSnapshot ရဲ့ အပြင်မှာ ထားပါ) ---
+// ဒါဆိုရင် Firebase က data မတက်ခင်ကတည်းက Back နှိပ်ရင် အလုပ်လုပ်ပါမယ်
+const backBtn = document.getElementById('back-to-list-btn');
+if (backBtn) {
+    backBtn.onclick = () => {
+        window.location.replace("delivery.html");
+    };
+}
+
+// --- ၃။ Main Listener ---
 if (orderId) {
     onSnapshot(doc(db, "orders", orderId), (docSnap) => {
-        if (!docSnap.exists()) return;
+        // Data မရှိရင်လည်း Loading ပိတ်ပေးဖို့လိုပါတယ်
+        const loadingDiv = document.getElementById('loading');
+        if (loadingDiv) loadingDiv.style.display = 'none';
+
+        if (!docSnap.exists()) {
+            console.error("Order not found");
+            return;
+        }
+
         const data = docSnap.data();
-        document.getElementById('loading').style.display = 'none';
 
         // UI Updates
         document.getElementById('status-badge').innerText = (data.status || "PENDING").toUpperCase().replace("_", " ");
@@ -27,17 +43,22 @@ if (orderId) {
         document.getElementById('det-fee').innerText = (data.deliveryFee || 0).toLocaleString() + " KS";
         document.getElementById('det-weight').innerText = (data.weight || 0) + " KG";
 
-        // Navigation Route
         if (data.pickup && data.dropoff) {
             drawRoute(data.pickup, data.dropoff);
         }
 
-        // Action Buttons
         updateButtons(data.status, data.phone);
+    }, (error) => {
+        // Error တက်ရင်လည်း Loading ပိတ်မယ်
+        console.error("Firebase error:", error);
+        const loadingDiv = document.getElementById('loading');
+        if (loadingDiv) loadingDiv.style.display = 'none';
     });
+} else {
+    window.location.replace("delivery.html");
 }
 
-// --- ၃။ Draw Route Function ---
+// --- ၄။ Draw Route Function ---
 function drawRoute(p, d) {
     if (routingControl) map.removeControl(routingControl);
     routingControl = L.Routing.control({
@@ -58,16 +79,8 @@ function drawRoute(p, d) {
     }).addTo(map);
 }
 
-// --- ၄။ Buttons Logic ---
+// --- ၅။ Buttons Logic ---
 function updateButtons(status, phone) {
-    // Back to List logic - window.location.replace ကို သုံးခြင်းက history ကနေ ဖယ်ရှားပေးသည်
-    const backToListBtn = document.getElementById('back-to-list-btn');
-    if (backToListBtn) {
-        backToListBtn.onclick = () => {
-            window.location.replace("delivery.html");
-        };
-    }
-
     const container = document.getElementById('action-buttons');
     container.innerHTML = "";
 
@@ -99,7 +112,7 @@ function updateButtons(status, phone) {
     if (status !== "completed") container.appendChild(nextBtn);
 }
 
-// --- ၅။ Change Status Function ---
+// --- ၆။ Change Status Function ---
 async function changeStatus(newStatus) {
     try {
         const orderRef = doc(db, "orders", orderId);
@@ -113,11 +126,8 @@ async function changeStatus(newStatus) {
         await updateDoc(orderRef, updateData);
         
         Swal.fire({
-            icon: 'success',
-            title: 'Success',
-            text: `Status changed to ${newStatus.replace("_", " ")}`,
-            timer: 1500,
-            showConfirmButton: false,
+            icon: 'success', title: 'Success',
+            timer: 1500, showConfirmButton: false,
             background: '#1a1a1a', color: '#fff'
         });
 
