@@ -43,7 +43,6 @@ const setupLogout = () => {
 setupLogout();
 
 // --- ၂။ Map & Live Rider Logic ---
-// window.map အဖြစ် သတ်မှတ်ပေးမှ အပြင် HTML က ခေါ်သုံးလို့ရမှာပါ
 window.map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 12); 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.map);
 
@@ -51,12 +50,12 @@ let pickupMarker = null, dropoffMarker = null;
 let pickupCoords = null, dropoffCoords = null;
 let riderMarkers = {}; 
 
-// Rider အတွက် စက်ဘီး Icon သတ်မှတ်ခြင်း
+// Rider အတွက် စက်ဘီး Icon
 const riderIcon = L.icon({
-    iconUrl: 'https://cdn-icons-png.flaticon.com/512/2263/2263051.png', // စက်ဘီးပုံ Icon
-    iconSize: [40, 40], // ပုံအရွယ်အစား
-    iconAnchor: [20, 40], // Icon ရဲ့ အလယ်ဗဟို
-    popupAnchor: [0, -40] // နာမည်ပေါ်မယ့်နေရာ
+    iconUrl: 'https://cdn-icons-png.flaticon.com/512/2263/2263051.png', 
+    iconSize: [40, 40],
+    iconAnchor: [20, 40],
+    popupAnchor: [0, -40]
 });
 
 // (က) "My Location" ခလုတ်နှိပ်လျှင် သွားမည့် Function
@@ -65,7 +64,7 @@ window.goToMyLocation = function() {
         navigator.geolocation.getCurrentPosition((pos) => {
             const { latitude, longitude } = pos.coords;
             const userLoc = [latitude, longitude];
-            window.map.flyTo(userLoc, 16); // မြေပုံကို ချောမွေ့စွာ ရွှေ့မယ်
+            window.map.flyTo(userLoc, 16);
             updatePickupMarker(userLoc);
             reverseGeocode(latitude, longitude);
         }, (err) => {
@@ -124,26 +123,29 @@ async function reverseGeocode(lat, lng) {
     }
 }
 
-// (င) Real-time ONLINE Riders display (Riders မပေါ်တာ ပြင်ထားသည်)
-const ridersQuery = query(collection(db, "active_riders"), where("isOnline", "==", true));
-onSnapshot(ridersQuery, (snap) => {
+// (င) Real-time ONLINE Riders display (Boolean & String "true" နှစ်မျိုးလုံးစစ်သည်)
+const ridersRef = collection(db, "active_riders");
+onSnapshot(ridersRef, (snap) => {
     snap.docChanges().forEach((change) => {
         const data = change.doc.data();
         const id = change.doc.id;
-        
+        const isOnline = data.isOnline === true || data.isOnline === "true";
+
         if (change.type === "added" || change.type === "modified") {
-            // Lat, Lng ရှိမရှိ သေချာစစ်ပါ
-            if (data.lat && data.lng) {
+            if (isOnline && data.lat && data.lng) {
                 const lat = parseFloat(data.lat);
                 const lng = parseFloat(data.lng);
                 
                 if (riderMarkers[id]) {
-                    riderMarkers[id].setLatLng([lat, lng]); // နေရာရွှေ့မယ်
+                    riderMarkers[id].setLatLng([lat, lng]);
                 } else {
                     riderMarkers[id] = L.marker([lat, lng], { icon: riderIcon })
                         .addTo(window.map)
                         .bindPopup(`🚴 Rider: ${data.name || 'Active'}`);
                 }
+            } else if (riderMarkers[id]) {
+                window.map.removeLayer(riderMarkers[id]);
+                delete riderMarkers[id];
             }
         } else if (change.type === "removed") {
             if (riderMarkers[id]) {
@@ -152,11 +154,9 @@ onSnapshot(ridersQuery, (snap) => {
             }
         }
     });
-}, (error) => {
-    console.error("Rider snapshot error:", error);
 });
 
-// (စ) မြို့နယ်ရွေးရင် မြေပုံရွှေ့ခြင်း
+// (စ) မြို့နယ်ရွေးရင် မြေပုံရွှေ့ခြင်း (Drop-off နှိပ်မရသည့်ပြဿနာ ပြင်ပြီး)
 window.updateLocation = function(type) {
     const select = document.getElementById(`${type}-township`);
     if (!select) return;
@@ -170,14 +170,23 @@ window.updateLocation = function(type) {
         updatePickupMarker({ lat, lng });
         reverseGeocode(lat, lng);
     } else {
+        // Drop-off Marker Logic
         dropoffCoords = { lat, lng };
         if (dropoffMarker) window.map.removeLayer(dropoffMarker);
         dropoffMarker = L.marker([lat, lng], { draggable: true }).addTo(window.map);
+        
+        // Drop-off Marker ကို ဆွဲရွှေ့ရင် ဈေးနှုန်းပြန်တွက်မယ်
+        dropoffMarker.on('dragend', (e) => {
+            const newPos = e.target.getLatLng();
+            dropoffCoords = { lat: newPos.lat, lng: newPos.lng };
+            calculatePrice();
+        });
     }
     window.map.flyTo([lat, lng], 15);
     calculatePrice();
 };
 
+// Select Dropdown များအတွက် Event Listeners
 const pSelect = document.getElementById('pickup-township');
 const dSelect = document.getElementById('dropoff-township');
 if (pSelect) pSelect.onchange = () => window.updateLocation('pickup');
