@@ -1,50 +1,25 @@
 import { db, auth } from './firebase-config.js';
 import { 
-    doc, onSnapshot, updateDoc 
+    doc, onSnapshot, updateDoc, serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// URL ကနေ ID ကိုယူမယ်
 const params = new URLSearchParams(window.location.search);
 const orderId = params.get('id');
 
-// --- ၁။ မြေပုံ အခြေခံ Setup ---
+// --- ၁။ Map Setup ---
 const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
 let routingControl = null;
 
-// --- ၂။ Back Button Logic (Data မစောင့်ဘဲ အလုပ်လုပ်ရန် ချက်ချင်း Run မည်) ---
-const backBtn = document.getElementById('back-to-list-btn');
-if (backBtn) {
-    backBtn.onclick = (e) => {
-        e.preventDefault();
-        window.location.href = "delivery.html";
-    };
-}
-
-// --- ၃။ Main Listener (Firebase Data) ---
+// --- ၂။ Main Listener ---
 if (orderId) {
-    // onSnapshot က data ရရမရရ ချက်ချင်း အလုပ်လုပ်ပါတယ်
     onSnapshot(doc(db, "orders", orderId), (docSnap) => {
-        
-        // ဘာပဲဖြစ်ဖြစ် Loading ကို အရင်ပိတ်မယ်
-        const loadingOverlay = document.getElementById('loading');
-        if (loadingOverlay) loadingOverlay.style.display = 'none';
-
-        if (!docSnap.exists()) {
-            Swal.fire({
-                icon: 'error',
-                title: 'ဒေတာမတွေ့ပါ',
-                text: 'ဤအော်ဒါမှာ မရှိတော့ပါ သို့မဟုတ် ပယ်ဖျက်လိုက်ပြီ ဖြစ်သည်။',
-                confirmButtonText: 'ပြန်သွားရန်'
-            }).then(() => {
-                window.location.href = "delivery.html";
-            });
-            return;
-        }
-
+        if (!docSnap.exists()) return;
         const data = docSnap.data();
+        document.getElementById('loading').style.display = 'none';
 
-        // UI ကို Data တွေနဲ့ ဖြည့်မယ်
+        // UI Updates
         document.getElementById('status-badge').innerText = (data.status || "PENDING").toUpperCase().replace("_", " ");
         document.getElementById('det-item').innerText = "📦 " + (data.item || "ပစ္စည်း");
         document.getElementById('det-pickup').innerText = data.pickup?.address || "-";
@@ -52,26 +27,17 @@ if (orderId) {
         document.getElementById('det-fee').innerText = (data.deliveryFee || 0).toLocaleString() + " KS";
         document.getElementById('det-weight').innerText = (data.weight || 0) + " KG";
 
-        // လမ်းကြောင်းဆွဲမယ်
+        // Navigation Route
         if (data.pickup && data.dropoff) {
             drawRoute(data.pickup, data.dropoff);
         }
 
-        // ခလုတ်တွေကို Update လုပ်မယ်
-        updateStatusButtons(data.status, data.phone);
-
-    }, (error) => {
-        // Firebase Error တက်ခဲ့ရင် Loading ကို ပိတ်လိုက်မယ်
-        console.error("Firebase Error:", error);
-        document.getElementById('loading').style.display = 'none';
-        Swal.fire("Error", "အချက်အလက်ရယူရာတွင် အမှားအယွင်းရှိနေပါသည်။", "error");
+        // Action Buttons
+        updateButtons(data.status, data.phone);
     });
-} else {
-    // ID မပါရင် Dashboard ပြန်ပို့မယ်
-    window.location.href = "delivery.html";
 }
 
-// --- ၄။ မြေပုံပေါ် လမ်းကြောင်းဆွဲသည့် Function ---
+// --- ၃။ Draw Route Function ---
 function drawRoute(p, d) {
     if (routingControl) map.removeControl(routingControl);
     routingControl = L.Routing.control({
@@ -92,8 +58,16 @@ function drawRoute(p, d) {
     }).addTo(map);
 }
 
-// --- ၅။ ခလုတ်များ Logic ---
-function updateStatusButtons(status, phone) {
+// --- ၄။ Buttons Logic ---
+function updateButtons(status, phone) {
+    // Back to List logic - window.location.replace ကို သုံးခြင်းက history ကနေ ဖယ်ရှားပေးသည်
+    const backToListBtn = document.getElementById('back-to-list-btn');
+    if (backToListBtn) {
+        backToListBtn.onclick = () => {
+            window.location.replace("delivery.html");
+        };
+    }
+
     const container = document.getElementById('action-buttons');
     container.innerHTML = "";
 
@@ -125,7 +99,7 @@ function updateStatusButtons(status, phone) {
     if (status !== "completed") container.appendChild(nextBtn);
 }
 
-// --- ၆။ အဆင့်မြှင့်တင်သည့် Function ---
+// --- ၅။ Change Status Function ---
 async function changeStatus(newStatus) {
     try {
         const orderRef = doc(db, "orders", orderId);
@@ -139,17 +113,19 @@ async function changeStatus(newStatus) {
         await updateDoc(orderRef, updateData);
         
         Swal.fire({
-            icon: 'success', title: 'အောင်မြင်ပါသည်',
-            timer: 1500, showConfirmButton: false,
+            icon: 'success',
+            title: 'Success',
+            text: `Status changed to ${newStatus.replace("_", " ")}`,
+            timer: 1500,
+            showConfirmButton: false,
             background: '#1a1a1a', color: '#fff'
         });
 
         if (newStatus === "completed") {
-            setTimeout(() => { window.location.href = "delivery.html"; }, 1600);
+            setTimeout(() => {
+                window.location.replace("delivery.html");
+            }, 1600);
         }
-    } catch (err) { 
-        console.error(err);
-        Swal.fire("Error", "Update လုပ်၍မရပါ။", "error");
-    }
+    } catch (err) { console.error(err); }
 }
 
