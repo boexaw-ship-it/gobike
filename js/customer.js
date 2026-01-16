@@ -55,17 +55,27 @@ const riderIcon = L.icon({
     iconAnchor: [16, 16]
 });
 
-// Current Location
+// --- (က) Customer Location (Blue Dot Display) ---
 navigator.geolocation.getCurrentPosition((pos) => {
     const { latitude, longitude } = pos.coords;
     map.setView([latitude, longitude], 13);
+    
+    // Customer လက်ရှိနေရာကို အပြာရောင်အဝိုင်းဖြင့် ပြခြင်း
+    L.circle([latitude, longitude], {
+        color: '#2196f3', fillColor: '#2196f3', fillOpacity: 0.5, radius: 20
+    }).addTo(map);
+    L.circle([latitude, longitude], {
+        color: '#2196f3', weight: 1, radius: 200, fill: false, opacity: 0.3
+    }).addTo(map);
 }, (err) => console.log("Location access denied"));
 
-// Real-time Riders display on map
-onSnapshot(collection(db, "active_riders"), (snap) => {
+// --- (ခ) Real-time ONLINE Riders display (Online ဖြစ်သူများသာပြရန် ပြင်ဆင်ပြီး) ---
+const ridersQuery = query(collection(db, "active_riders"), where("isOnline", "==", true));
+onSnapshot(ridersQuery, (snap) => {
     snap.docChanges().forEach((change) => {
         const data = change.doc.data();
         const id = change.doc.id;
+        
         if (change.type === "added" || change.type === "modified") {
             if (riderMarkers[id]) map.removeLayer(riderMarkers[id]);
             riderMarkers[id] = L.marker([data.lat, data.lng], { icon: riderIcon })
@@ -203,7 +213,6 @@ if (placeOrderBtn) {
             const pAddr = document.getElementById('pickup-address')?.value;
             const dAddr = document.getElementById('dropoff-address')?.value;
 
-            // Validation
             if (!feeInfo || !item || !phone || !pAddr || !dAddr || !pickupCoords || !dropoffCoords) {
                 Swal.fire({ icon: 'error', title: 'အချက်အလက်မစုံလင်ပါ', text: 'ကျေးဇူးပြု၍ နေရာနှင့် အချက်အလက်များ အကုန်ဖြည့်ပါ။', background: '#1a1a1a', color: '#fff' });
                 return;
@@ -232,11 +241,9 @@ if (placeOrderBtn) {
                 createdAt: serverTimestamp()
             };
 
-            // 1. Firebase Add
             const docRef = await addDoc(collection(db, "orders"), orderData);
             const orderId = docRef.id;
 
-            // 2. Google Sheet Update (Fire and forget)
             fetch(SCRIPT_URL, {
                 method: "POST", mode: "no-cors",
                 body: JSON.stringify({
@@ -247,7 +254,6 @@ if (placeOrderBtn) {
                 })
             }).catch(e => console.log("Sheet Error:", e));
 
-            // 3. Telegram Notification
             const trackUrl = `https://boexaw-ship-it.github.io/gobike/html/track.html?id=${orderId}`;
             const msg = `📦 <b>New Order Received!</b>\n` +
             `━━━━━━━━━━━━━━━━━━\n` +
@@ -263,7 +269,6 @@ if (placeOrderBtn) {
 
             await notifyTelegram(msg);
 
-            // 4. Success Alert & Redirect
             await Swal.fire({
                 title: 'အော်ဒါတင်ပြီးပါပြီ!',
                 text: 'Rider ကို အကြောင်းကြားထားပါသည်။',
@@ -282,3 +287,4 @@ if (placeOrderBtn) {
         }
     };
 }
+
