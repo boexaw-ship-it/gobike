@@ -14,12 +14,22 @@
         :root { --primary: #ffcc00; --dark: #121212; --card: #1e1e1e; --text: #ffffff; }
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--dark); color: var(--text); overflow: hidden; }
         
-        #map { height: 50vh; width: 100%; }
+        #map { height: 45vh; width: 100%; }
+
+        /* Back Button Style */
+        .back-btn {
+            position: fixed; top: 15px; left: 15px; z-index: 1000;
+            background: rgba(0,0,0,0.7); color: white; padding: 10px 15px;
+            border-radius: 50px; text-decoration: none; display: flex;
+            align-items: center; gap: 8px; border: 1px solid rgba(255,255,255,0.2);
+            backdrop-filter: blur(5px); transition: 0.3s;
+        }
+        .back-btn:hover { background: var(--primary); color: #000; }
 
         .detail-panel {
-            height: 50vh; background: var(--card); border-top-left-radius: 20px; border-top-right-radius: 20px;
+            height: 55vh; background: var(--card); border-top-left-radius: 20px; border-top-right-radius: 20px;
             padding: 20px; box-sizing: border-box; position: relative; box-shadow: 0 -5px 15px rgba(0,0,0,0.5);
-            overflow-y: auto;
+            overflow-y: auto; margin-top: -20px; z-index: 100;
         }
 
         .status-badge {
@@ -34,16 +44,15 @@
 
         .action-area {
             position: sticky; bottom: 0; background: var(--card); padding-top: 10px;
-            display: grid; grid-template-columns: 1fr; gap: 10px;
+            display: grid; grid-template-columns: 1fr; gap: 10px; padding-bottom: 20px;
         }
 
         .btn {
             border: none; padding: 15px; border-radius: 12px; font-weight: bold; font-size: 1rem;
-            cursor: pointer; transition: 0.3s; width: 100%;
+            cursor: pointer; transition: 0.3s; width: 100%; display: flex; justify-content: center; align-items: center; gap: 10px;
         }
         .btn-primary { background: var(--primary); color: #000; }
-        .btn-secondary { background: #333; color: #fff; }
-        .btn-phone { background: #28a745; color: #fff; text-decoration: none; display: flex; justify-content: center; align-items: center; }
+        .btn-phone { background: #28a745; color: #fff; text-decoration: none; }
         
         .loading-overlay {
             position: fixed; inset: 0; background: var(--dark); z-index: 9999;
@@ -53,10 +62,14 @@
 </head>
 <body>
 
+    <a href="rider.html" class="back-btn">
+        <i class="fas fa-arrow-left"></i> <span>Back to List</span>
+    </a>
+
     <div id="loading" class="loading-overlay">
         <div style="text-align: center;">
             <i class="fas fa-motorcycle fa-3x fa-bounce" style="color: var(--primary);"></i>
-            <p>Loading Order Details...</p>
+            <p>အချက်အလက်များရယူနေသည်...</p>
         </div>
     </div>
 
@@ -101,8 +114,7 @@
             </div>
         </div>
 
-        <div class="action-area" id="action-buttons">
-            </div>
+        <div class="action-area" id="action-buttons"></div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
