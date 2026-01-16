@@ -6,27 +6,32 @@ import {
 const params = new URLSearchParams(window.location.search);
 const orderId = params.get('id');
 
-// --- ၁။ Map Setup ---
+// --- ၁။ Hardware Back Key အတွက် Logic ---
+// ဖုန်းအောက်ခြေက မြှားလေးနှိပ်ပြီး ထွက်ရင်တောင် Dashboard က သိအောင် မှတ်ထားပေးခြင်း
+window.onbeforeunload = function() {
+    sessionStorage.setItem('justBackFromTrack', 'true');
+};
+
+// --- ၂။ Map Setup ---
 const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 let routingControl = null;
 
-// --- ၂။ Back Button Logic (Updated) ---
-// Dashboard ဆီ ပြန်သွားတဲ့အခါ parameter ပါသွားစေဖို့ ပြင်ဆင်ထားပါတယ်
+// --- ၃။ Screen Back Button Logic ---
 const backBtn = document.getElementById('back-to-list-btn');
 if (backBtn) {
     backBtn.onclick = (e) => {
         e.preventDefault();
-        // Dashboard မှာ auto-redirect မဖြစ်အောင် ?from=track ထည့်ပေးလိုက်တယ်
+        // Dashboard မှာ auto-redirect မဖြစ်အောင် session ရော parameter ရော သုံးပြီး ပြန်လွှတ်ခြင်း
+        sessionStorage.setItem('justBackFromTrack', 'true');
         window.location.replace("delivery.html?from=track");
     };
 }
 
-// --- ၃။ Main Listener ---
+// --- ၄။ Main Listener ---
 if (orderId) {
     onSnapshot(doc(db, "orders", orderId), (docSnap) => {
-        // Loading screen ကို ဖယ်ထုတ်မယ်
         const loadingDiv = document.getElementById('loading');
         if (loadingDiv) loadingDiv.style.display = 'none';
 
@@ -37,7 +42,7 @@ if (orderId) {
 
         const data = docSnap.data();
 
-        // UI အချက်အလက်များ Update လုပ်ခြင်း
+        // UI Updates
         document.getElementById('status-badge').innerText = (data.status || "PENDING").toUpperCase().replace("_", " ");
         document.getElementById('det-item').innerText = "📦 " + (data.item || "ပစ္စည်း");
         document.getElementById('det-pickup').innerText = data.pickup?.address || "-";
@@ -45,12 +50,10 @@ if (orderId) {
         document.getElementById('det-fee').innerText = (data.deliveryFee || 0).toLocaleString() + " KS";
         document.getElementById('det-weight').innerText = (data.weight || 0) + " KG";
 
-        // မြေပုံပေါ်မှာ လမ်းကြောင်းဆွဲခြင်း
         if (data.pickup && data.dropoff) {
             drawRoute(data.pickup, data.dropoff);
         }
 
-        // ခလုတ်များ (Call / Status Change) Update လုပ်ခြင်း
         updateButtons(data.status, data.phone);
     }, (error) => {
         console.error("Firebase error:", error);
@@ -58,11 +61,10 @@ if (orderId) {
         if (loadingDiv) loadingDiv.style.display = 'none';
     });
 } else {
-    // ID မပါရင် Dashboard ကိုပဲ ပြန်ပို့မယ်
     window.location.replace("delivery.html");
 }
 
-// --- ၄။ Draw Route Function ---
+// --- ၅။ Draw Route Function ---
 function drawRoute(p, d) {
     if (routingControl) map.removeControl(routingControl);
     routingControl = L.Routing.control({
@@ -83,12 +85,11 @@ function drawRoute(p, d) {
     }).addTo(map);
 }
 
-// --- ၅။ Buttons Logic ---
+// --- ၆။ Buttons Logic ---
 function updateButtons(status, phone) {
     const container = document.getElementById('action-buttons');
     container.innerHTML = "";
 
-    // ဖုန်းခေါ်ဆိုရန် ခလုတ်
     if (phone) {
         const callBtn = document.createElement('a');
         callBtn.href = `tel:${phone}`;
@@ -97,7 +98,6 @@ function updateButtons(status, phone) {
         container.appendChild(callBtn);
     }
 
-    // အဆင့်အလိုက် ပြောင်းလဲမည့် Status ခလုတ်
     const nextBtn = document.createElement('button');
     nextBtn.className = "btn btn-primary";
 
@@ -118,16 +118,16 @@ function updateButtons(status, phone) {
     if (status !== "completed") container.appendChild(nextBtn);
 }
 
-// --- ၆။ Change Status Function ---
+// --- ၇။ Change Status Function ---
 async function changeStatus(newStatus) {
     try {
         const orderRef = doc(db, "orders", orderId);
         let updateData = { status: newStatus };
 
-        // Accepted လုပ်လိုက်လျှင် Rider အချက်အလက် ထည့်သွင်းခြင်း
         if (newStatus === "accepted") {
+            const snap = await getDoc(doc(db, "riders", auth.currentUser.uid));
             updateData.riderId = auth.currentUser.uid;
-            updateData.riderName = auth.currentUser.displayName || "Rider";
+            updateData.riderName = snap.exists() ? snap.data().name : "Rider";
         }
 
         await updateDoc(orderRef, updateData);
@@ -135,21 +135,19 @@ async function changeStatus(newStatus) {
         Swal.fire({
             icon: 'success', 
             title: 'အောင်မြင်ပါသည်',
-            text: `Status: ${newStatus.replace("_", " ")}`,
             timer: 1500, 
             showConfirmButton: false,
             background: '#1a1a1a', 
             color: '#fff'
         });
 
-        // ပြီးဆုံးသွားလျှင် Dashboard သို့ ပြန်ပို့မယ်
         if (newStatus === "completed") {
             setTimeout(() => {
                 window.location.replace("delivery.html");
             }, 1600);
         }
     } catch (err) { 
-        console.error("Update status error:", err);
+        console.error(err);
         Swal.fire({ icon: 'error', title: 'မှားယွင်းမှုရှိပါသည်', background: '#1a1a1a', color: '#fff' });
     }
 }
