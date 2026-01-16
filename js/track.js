@@ -44,7 +44,8 @@ if (orderId) {
                 allowOutsideClick: false,
                 confirmButtonText: 'ပင်မစာမျက်နှာသို့'
             });
-            window.location.href = "../index.html"; 
+           // အောင်မြင်စွာ ပို့ဆောင်ပြီးပါက Dashboard သို့ ပြန်ပို့ရန်
+            window.location.href = "customer.html?tab=list"; 
             return;
         }
 
