@@ -29,16 +29,45 @@ function initMap() {
     }
 }
 
-// --- ၂။ Auth & Profile ---
+// --- ၂။ Auth & Profile & Auto Redirect ---
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         initMap();
         await getRiderData(); 
         startTracking(); 
+        
+        // 🔥 အော်ဒါလက်ခံထားပြီးသားရှိလျှင် Track Page သို့ အလိုအလျောက်သွားရန်
+        checkActiveOrderAndRedirect(user.uid);
     } else {
         window.location.href = "../index.html";
     }
 });
+
+// လက်ရှိလုပ်ဆောင်နေဆဲ အော်ဒါရှိမရှိ စစ်ဆေးပြီး Tracking Page သို့ ပို့ပေးသည့် function
+async function checkActiveOrderAndRedirect(uid) {
+    const q = query(
+        collection(db, "orders"), 
+        where("riderId", "==", uid), 
+        where("status", "in", ["accepted", "on_the_way", "arrived"]),
+        where("pickupSchedule", "==", "now")
+    );
+    
+    // ပထမဆုံး အကြိမ် စစ်ဆေးခြင်း (Existing Orders)
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+        window.location.href = `rider-track.html?id=${snap.docs[0].id}`;
+        return;
+    }
+
+    // နောက်ထပ် အသစ်ဝင်လာမည့် အပြောင်းအလဲများကို စောင့်ကြည့်ခြင်း
+    onSnapshot(q, (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+            if (change.type === "added" || (change.type === "modified" && change.doc.data().status === "accepted")) {
+                window.location.href = `rider-track.html?id=${change.doc.id}`;
+            }
+        });
+    });
+}
 
 async function getRiderData() {
     if (!auth.currentUser) return;
@@ -55,7 +84,6 @@ function startTracking() {
     if (!auth.currentUser) return;
     const myUid = auth.currentUser.uid;
 
-    // (A) Live Location Update
     if (navigator.geolocation) {
         navigator.geolocation.watchPosition(async (pos) => {
             const name = await getRiderName();
@@ -65,7 +93,6 @@ function startTracking() {
         }, null, { enableHighAccuracy: true });
     }
 
-    // (B) Available Orders
     onSnapshot(query(collection(db, "orders"), where("status", "==", "pending")), async (snap) => {
         const container = document.getElementById('available-orders');
         if(!container) return;
@@ -100,7 +127,7 @@ function startTracking() {
         if (!snap.empty && isSoundAllowed) alarmSound.play().catch(e => {});
     });
 
-    // (C) Active Tasks
+    // Active Tasks List (In case redirect fails or user navigates back)
     onSnapshot(query(collection(db, "orders"), where("riderId", "==", myUid)), (snap) => {
         const list = document.getElementById('active-orders-list');
         const activeCountDisplay = document.getElementById('active-count');
@@ -112,33 +139,17 @@ function startTracking() {
             if (["accepted", "on_the_way", "arrived"].includes(d.status) && d.pickupSchedule !== "tomorrow") {
                 activeCount++;
                 const id = orderDoc.id;
-                let btnText = "🚚 ပစ္စည်းစယူပြီ", nextStatus = "on_the_way";
-                if(d.status === "on_the_way") { btnText = "📍 ရောက်ရှိကြောင်းပို့ရန်", nextStatus = "arrived"; }
-                if(d.status === "arrived") { btnText = "✅ ပစ္စည်းအပ်နှံပြီး", nextStatus = "completed"; }
-
                 const div = document.createElement('div');
                 div.className = 'order-card';
                 div.style = "border-left: 5px solid #ffcc00; background:#1a1a1a; padding:15px; margin-bottom:12px; border-radius:10px;";
                 div.innerHTML = `
                     <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
                         <span style="color:#ffcc00; font-weight:bold; font-size:0.8rem;">STATUS: ${d.status.toUpperCase()}</span>
-                        <span style="color:#ff4444; font-weight:bold; cursor:pointer;" onclick="cancelByRider('${id}')">✖ Cancel</span>
                     </div>
-                    <div style="background:#222; padding:12px; border-radius:8px; margin-bottom:12px;">
-                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #444; padding-bottom:8px; margin-bottom:8px;">
-                             <b style="color:#fff; font-size:1.1rem;">📦 ${d.item}</b>
-                             <b style="color:#ffcc00; font-size:1.2rem;">${(d.deliveryFee || 0).toLocaleString()} KS</b>
-                        </div>
-                    </div>
-                    <div style="font-size:0.9rem; color:#eee; line-height:1.6; margin-bottom:15px;">
-                        👤 <b>Cust:</b> ${d.customerName || "User"}<br>
-                        📞 <b>ဖုန်း:</b> <a href="tel:${d.phone}" style="color:#00ff00; font-weight:bold; text-decoration:none;">${d.phone}</a><br>
-                        📍 <b>From:</b> ${d.pickup?.address || d.pickupAddress}<br>
-                        🏁 <b>To:</b> ${d.dropoff?.address || d.dropoffAddress}
-                    </div>
-                    <button style="width:100%; padding:15px; background:#ffcc00; color:#000; border:none; border-radius:8px; font-weight:bold; cursor:pointer;" 
-                        onclick="${nextStatus==='completed'?`completeOrder('${id}')`:`updateStatus('${id}','${nextStatus}')` }">
-                        ${btnText}
+                    <div style="font-size:1rem; color:#fff; margin-bottom:10px;">📦 ${d.item} - <b>${(d.deliveryFee || 0).toLocaleString()} KS</b></div>
+                    <button style="width:100%; padding:12px; background:#ffcc00; border:none; border-radius:8px; font-weight:bold; cursor:pointer;" 
+                        onclick="window.location.href='rider-track.html?id=${id}'">
+                        အော်ဒါအသေးစိတ်နှင့် မြေပုံကြည့်ရန်
                     </button>`;
                 list.appendChild(div);
             }
@@ -147,62 +158,34 @@ function startTracking() {
         if(activeCount === 0) list.innerHTML = "<div class='empty-msg'>လက်ခံထားသော အော်ဒါမရှိပါ</div>";
     });
 
-    // (D) Tomorrow Section - FIX: Details အစုံအလင်ပြသရန် ပြင်ဆင်ထားသည်
+    // (D) Tomorrow Section
     onSnapshot(query(collection(db, "orders"), where("pickupSchedule", "==", "tomorrow")), (snap) => {
         const tomList = document.getElementById('tomorrow-orders-list');
         if(!tomList) return;
         tomList.innerHTML = "";
         let tomCount = 0;
-
         snap.forEach(docSnap => {
             const d = docSnap.data();
             const id = docSnap.id;
-
             if (d.riderDismissedTomorrow === myUid) return;
-
             if (d.tempRiderId === myUid || d.riderId === myUid) {
                 tomCount++;
                 const isRejected = (d.status === "pending" || d.status === "rider_rejected" || d.status === "cancelled");
                 const isConfirmed = d.status === "accepted";
-
                 const div = document.createElement('div');
                 div.className = 'order-card';
                 div.style = `border-left: 5px solid ${isRejected ? '#ff4444' : (isConfirmed ? '#2ed573' : '#3498db')}; background:#1a1a1a; padding:15px; margin-bottom:12px; border-radius:12px;`;
-                
-                let statusLabel = isConfirmed ? '✅ TOMORROW CONFIRMED' : '⏳ WAITING CUSTOMER';
-                if (isRejected) statusLabel = '❌ ORDER REJECTED (ပယ်ဖျက်လိုက်ပြီ)';
-
                 div.innerHTML = `
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                        <span style="color:${isRejected ? '#ff4444' : (isConfirmed ? '#2ed573' : '#3498db')}; font-weight:bold; font-size:0.85rem;">
-                            📅 ${statusLabel}
-                        </span>
-                        <button onclick="dismissTomorrowOrder('${id}')" style="background:#444; color:#fff; border:none; border-radius:5px; padding:3px 10px; font-size:0.8rem; cursor:pointer;">✖ ဖယ်ထုတ်</button>
+                        <span style="color:${isRejected ? '#ff4444' : (isConfirmed ? '#2ed573' : '#3498db')}; font-weight:bold; font-size:0.85rem;">📅 ${isConfirmed ? '✅ TOMORROW CONFIRMED' : '⏳ WAITING'}</span>
+                        <button onclick="dismissTomorrowOrder('${id}')" style="background:#444; color:#fff; border:none; padding:3px 10px; font-size:0.8rem; border-radius:5px;">✖</button>
                     </div>
-
-                    <div style="background:#222; padding:12px; border-radius:8px; margin-bottom:12px;">
-                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:8px; margin-bottom:8px;">
-                             <b style="color:#fff; font-size:1rem;">📦 ${d.item} ${d.weight ? `(${d.weight}kg)` : ''}</b>
-                             <b style="color:#ffcc00; font-size:1.1rem;">${(d.deliveryFee || 0).toLocaleString()} KS</b>
-                        </div>
-                        <div style="font-size:0.85rem; color:#00ff00; font-weight:bold;">
-                            💰 ပစ္စည်းဖိုး: ${(d.itemValue || 0).toLocaleString()} KS
-                        </div>
-                    </div>
-
-                    <div style="font-size:0.9rem; color:#eee; line-height:1.6; background:#262626; padding:12px; border-radius:8px;">
-                        <div style="margin-bottom:8px;">
-                            <span style="color:#ffcc00;">📍 Pick-up:</span> ${d.pickup?.address || d.pickupAddress || 'မရှိပါ'}
-                        </div>
-                        <div>
-                            <span style="color:#0088ff;">🏁 Drop-off:</span> ${d.dropoff?.address || d.dropoffAddress || 'မရှိပါ'}
-                        </div>
-                    </div>
-
+                    <b style="color:#fff;">📦 ${d.item}</b><br>
+                    <small style="color:#aaa;">📍 ${d.pickup?.address || d.pickupAddress}</small>
                     <button onclick="${isRejected ? `dismissTomorrowOrder('${id}')` : `startTomorrowOrder('${id}')`}" 
-                        style="width:100%; margin-top:12px; padding:15px; background:${isRejected ? '#444' : (isConfirmed ? '#2ed573' : '#333')}; color:white; border:none; border-radius:10px; font-weight:bold; cursor:pointer; font-size:1rem;"
+                        style="width:100%; margin-top:10px; padding:12px; background:${isConfirmed ? '#2ed573' : '#333'}; color:#fff; border:none; border-radius:8px; font-weight:bold;"
                         ${(!isConfirmed && !isRejected) ? 'disabled' : ''}>
-                        ${isRejected ? 'အော်ဒါ ပယ်ဖျက်ခံရသည် (ဖယ်ထုတ်ရန်နှိပ်ပါ)' : (isConfirmed ? '🚀 ယနေ့အတွက် စတင်မည်' : 'Customer အတည်ပြုရန်စောင့်ပါ')}
+                        ${isRejected ? 'ပယ်ဖျက်လိုက်ပြီ' : (isConfirmed ? '🚀 ယနေ့အတွက် စတင်မည်' : 'အတည်ပြုစောင့်ဆိုင်းဆဲ')}
                     </button>`;
                 tomList.appendChild(div);
             }
@@ -228,8 +211,7 @@ function startTracking() {
                     <span style="color:#fff; font-weight:bold;">✅ ${h.item}</span>
                     <span style="color:#00ff00; font-weight:bold;">+${h.deliveryFee?.toLocaleString()} KS</span>
                 </div>
-                <small style="color:#666;">📅 ${h.completedAt?.toDate().toLocaleString() || ''}</small>
-                <button onclick="dismissHistory('${docSnap.id}')" style="position:absolute; bottom:10px; right:10px; background:none; border:none; color:#ff4444; font-size:0.75rem; cursor:pointer;">✖ ဖယ်ထုတ်မည်</button>`;
+                <small style="color:#666;">📅 ${h.completedAt?.toDate().toLocaleString() || ''}</small>`;
             historyList.appendChild(div);
         });
         if(earningsDisplay) earningsDisplay.innerText = `${totalEarnings.toLocaleString()} KS`;
@@ -238,20 +220,13 @@ function startTracking() {
 
 // --- Action Functions ---
 
-window.dismissTomorrowOrder = async (id) => {
-    try {
-        await updateDoc(doc(db, "orders", id), {
-            riderDismissedTomorrow: auth.currentUser.uid,
-            tempRiderId: null 
-        });
-    } catch (err) { console.error(err); }
-};
-
 window.handleAccept = async (id, time) => {
     try {
         const docRef = doc(db, "orders", id);
-        const order = (await getDoc(docRef)).data();
+        const orderSnap = await getDoc(docRef);
+        const order = orderSnap.data();
         const riderName = await getRiderName();
+
         if(time === 'tomorrow') {
             await updateDoc(docRef, { 
                 status: "pending_confirmation", 
@@ -261,8 +236,17 @@ window.handleAccept = async (id, time) => {
                 riderDismissedTomorrow: null 
             });
             await notifyTelegram(createOrderMessage("⏳ Tomorrow Scheduled", order, riderName, "မနက်ဖြန်အတွက် ကြိုယူထားသည်"));
+            Swal.fire({ title: 'အောင်မြင်ပါသည်', text: 'မနက်ဖြန်အတွက် Customer အတည်ပြုချက် စောင့်ပါမည်', icon: 'success' });
         } else {
-            await updateDoc(docRef, { status: "accepted", riderId: auth.currentUser.uid, riderName: riderName, acceptedAt: serverTimestamp(), tempRiderId: null, pickupSchedule: "now" });
+            // လက်ခံလိုက်တာနဲ့ Status ပြောင်းမယ်၊ Redirect က အပေါ်က Listener ကနေ အလိုအလျောက်သွားမယ်
+            await updateDoc(docRef, { 
+                status: "accepted", 
+                riderId: auth.currentUser.uid, 
+                riderName: riderName, 
+                acceptedAt: serverTimestamp(), 
+                tempRiderId: null, 
+                pickupSchedule: "now" 
+            });
             fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ action: "update", orderId: id, riderName, status: "Accepted" }) });
             await notifyTelegram(createOrderMessage("✅ Order Accepted", order, riderName, "Rider လက်ခံလိုက်ပါပြီ"));
         }
@@ -277,49 +261,12 @@ window.startTomorrowOrder = async (id) => {
     const order = (await getDoc(docRef)).data();
     const riderName = await getRiderName();
     
-    await updateDoc(docRef, { 
-        status: "accepted", 
-        pickupSchedule: "now", 
-        acceptedAt: serverTimestamp() 
-    });
-    
-    await notifyTelegram(createOrderMessage("🚀 Started Tomorrow Order", order, riderName, "မနက်ဖြန်အတွက် ကြိုယူထားသော အော်ဒါကို ယနေ့အတွက် စတင်လိုက်ပါပြီ"));
+    await updateDoc(docRef, { status: "accepted", pickupSchedule: "now", acceptedAt: serverTimestamp() });
+    await notifyTelegram(createOrderMessage("🚀 Started Tomorrow Order", order, riderName, "မနက်ဖြန်အော်ဒါကို ယနေ့အတွက် စတင်လိုက်ပါပြီ"));
 };
 
-window.updateStatus = async (id, status) => {
-    try {
-        const docRef = doc(db, "orders", id);
-        const order = (await getDoc(docRef)).data();
-        const riderName = await getRiderName();
-        await updateDoc(docRef, { status });
-        const text = status === "on_the_way" ? "🚚 ပစ္စည်းစယူပြီး ထွက်ခွာလာပါပြီ" : "📍 Rider ရောက်ရှိနေပါပြီ";
-        await notifyTelegram(createOrderMessage("🚀 Status Update", order, riderName, text));
-    } catch (err) { console.error(err); }
-};
-
-window.completeOrder = async (id) => {
-    const result = await Swal.fire({ title: 'ပြီးဆုံးပြီလား?', text: "ပို့ဆောင်ခ ရရှိပြီးပြီလား?", icon: 'question', showCancelButton: true, confirmButtonText: 'ဟုတ်ကဲ့', background: '#1a1a1a', color: '#fff' });
-    if (result.isConfirmed) {
-        try {
-            const docRef = doc(db, "orders", id);
-            const order = (await getDoc(docRef)).data();
-            const riderName = await getRiderName();
-            await updateDoc(docRef, { status: "completed", completedAt: serverTimestamp() });
-            fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ action: "update", orderId: id, status: "COMPLETED" }) });
-            await notifyTelegram(createOrderMessage("💰 Order Completed", order, riderName, "အောင်မြင်စွာ ပို့ဆောင်ပြီးပါပြီ"));
-        } catch (err) { console.error(err); }
-    }
-};
-
-window.cancelByRider = async (id) => {
-    const result = await Swal.fire({ title: 'သေချာပါသလား?', text: "အော်ဒါကို ငြင်းပယ်ပါမည်။", icon: 'warning', showCancelButton: true, confirmButtonColor: '#ffcc00', background: '#1a1a1a', color: '#fff' });
-    if (result.isConfirmed) {
-        try { await updateDoc(doc(db, "orders", id), { status: "rider_rejected", riderId: null, riderName: null, lastRejectedRiderId: auth.currentUser.uid, pickupSchedule: null }); } catch (err) { console.error(err); }
-    }
-};
-
-window.dismissHistory = async (id) => {
-    await updateDoc(doc(db, "orders", id), { riderId: "dismissed_" + auth.currentUser.uid });
+window.dismissTomorrowOrder = async (id) => {
+    try { await updateDoc(doc(db, "orders", id), { riderDismissedTomorrow: auth.currentUser.uid, tempRiderId: null }); } catch (err) { console.error(err); }
 };
 
 async function getRiderName() {
