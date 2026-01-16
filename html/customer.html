@@ -10,8 +10,8 @@
 
     <style>
         :root {
-            --primary: #4e342e; /* Dark Brown */
-            --accent: #d7ccc8; /* Light Brown */
+            --primary: #4e342e;
+            --accent: #d7ccc8;
             --dark: #1a1a1a;
             --bg: #f5f5f5;
             --card: #ffffff;
@@ -59,7 +59,7 @@
         #map-container { position: relative; height: calc(100vh - 120px); width: 100%; }
         #map { height: 100%; width: 100%; z-index: 1; }
         
-        /* Address Display at Top */
+        /* Pin Address Display (Static Label) */
         #pin-address-display {
             position: absolute; top: 10px; left: 10px; right: 10px;
             background: rgba(255, 255, 255, 0.95); padding: 10px; font-size: 0.75rem; 
@@ -69,7 +69,6 @@
             border-left: 4px solid var(--primary);
         }
 
-        /* My Location Button - အပေါ်သို့ တစ်ခုစာ (170px) ထပ်မြှင့်ထားသည် */
         .locate-btn {
             position: absolute; bottom: 170px; right: 15px; z-index: 1000;
             background: white; width: 48px; height: 48px; border-radius: 50%;
@@ -77,7 +76,6 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.2); border: 2px solid var(--primary);
             cursor: pointer; font-size: 1.3rem; transition: all 0.2s;
         }
-        .locate-btn:active { transform: scale(0.9); }
 
         /* Bottom Sheet */
         .bottom-sheet {
@@ -149,7 +147,7 @@
     <div id="order-section" class="page-section active">
         <div id="map-container">
             <div id="map"></div>
-            <div id="pin-address-display">📍 မြေပုံပေါ်တွင် တည်နေရာရွေးပါ</div>
+            <div id="pin-address-display">📍 မြို့နယ်ရွေးပြီး မြေပုံပေါ်တွင် တည်နေရာညှိပါ</div>
             <div class="locate-btn" onclick="goToMyLocation()">🎯</div>
         </div>
 
@@ -199,15 +197,15 @@
                                 <option value="Thanlyin" data-lat="16.7667" data-lng="96.2500">သန်လျင်</option>
                             </optgroup>
                         </select>
-                        <input type="text" id="pickup-address" placeholder="လမ်းအမည်/အိမ်အမှတ်" style="margin-top:10px;" required>
+                        <input type="text" id="pickup-address" placeholder="လမ်းအမည်/အိမ်အမှတ် (Manual)" style="margin-top:10px;" required>
                     </div>
 
                     <div class="loc-box" style="border-left: 4px solid var(--danger);">
                         <b>DROP-OFF (ပို့ဆောင်ရန်)</b>
                         <select id="dropoff-township" required>
                             <option value="">မြို့နယ်ရွေးပါ</option>
-                        </select>
-                        <input type="text" id="dropoff-address" placeholder="လမ်းအမည်/အိမ်အမှတ်" style="margin-top:10px;" required>
+                            </select>
+                        <input type="text" id="dropoff-address" placeholder="လမ်းအမည်/အိမ်အမှတ် (Manual)" style="margin-top:10px;" required>
                     </div>
 
                     <input type="text" id="item-detail" class="standard-input" placeholder="ဘာပစ္စည်းပို့မှာလဲ? (ဥပမာ- ထမင်းဘူး)" required>
@@ -258,20 +256,20 @@
             document.getElementById('bottomSheet').classList.toggle('expanded');
         }
 
+        // Auto expand sheet on focus
         document.querySelectorAll('input, select').forEach(el => {
             el.addEventListener('focus', () => {
                 document.getElementById('bottomSheet').classList.add('expanded');
             });
         });
 
-        const pSelect = document.getElementById('pickup-township');
-        const dSelect = document.getElementById('dropoff-township');
-
+        // Sync townships from Pickup to Dropoff dropdown
         window.addEventListener('load', () => {
+            const pSelect = document.getElementById('pickup-township');
+            const dSelect = document.getElementById('dropoff-township');
             if(pSelect && dSelect) {
-                Array.from(pSelect.childNodes).forEach(node => {
-                    dSelect.appendChild(node.cloneNode(true));
-                });
+                // clone internal HTML to preserve optgroups
+                dSelect.innerHTML = pSelect.innerHTML;
             }
         });
 
