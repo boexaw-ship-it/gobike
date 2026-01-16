@@ -37,13 +37,13 @@ if (orderId) {
     });
 }
 
-// --- ၃။ Draw Route Function (မြေပုံပေါ်က စာသားဖျောက်ရန် ပြင်ဆင်ပြီး) ---
+// --- ၃။ Draw Route Function (မြေပုံပေါ်က စာသားဖျောက်ရန်) ---
 function drawRoute(p, d) {
     if (routingControl) map.removeControl(routingControl);
     routingControl = L.Routing.control({
         waypoints: [L.latLng(p.lat, p.lng), L.latLng(d.lat, d.lng)],
         show: false,              // <--- ဤနေရာတွင် စာသား panel ကို ဖျောက်ထားသည်
-        addWaypoints: false,      // <--- User မှ လမ်းကြောင်းအမှတ်များ ထပ်တိုး၍မရအောင် ပိတ်ထားသည်
+        addWaypoints: false,      
         draggableWaypoints: false,
         lineOptions: { styles: [{ color: '#ffcc00', weight: 6 }] },
         createMarker: function(i, wp) {
@@ -63,12 +63,11 @@ function updateButtons(status, phone) {
     const container = document.getElementById('action-buttons');
     container.innerHTML = "";
 
-    // Back Button (GitHub 404 မဖြစ်စေရန် delivery.html သို့ တိုက်ရိုက်ညွှန်းထားသည်)
-    const backBtn = document.createElement('button');
-    backBtn.className = "btn btn-secondary";
-    backBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Back`;
-    backBtn.onclick = () => window.location.href = "delivery.html";
-    container.appendChild(backBtn);
+    // HTML ထဲရှိ Back to List ခလုတ်ကို ရှာဖွေပြီး Path ပြင်ဆင်ခြင်း
+    const backToListBtn = document.getElementById('back-to-list-btn'); // HTML ထဲက ID နှင့် ကိုက်ညီရပါမည်
+    if (backToListBtn) {
+        backToListBtn.onclick = () => window.location.href = "delivery.html";
+    }
 
     if (phone) {
         const callBtn = document.createElement('a');
@@ -98,7 +97,7 @@ function updateButtons(status, phone) {
     if (status !== "completed") container.appendChild(nextBtn);
 }
 
-// --- ၅။ Change Status Function (Order Complete ဖြစ်ပါက delivery.html သို့ ပြန်သွားရန် ပြင်ဆင်ပြီး) ---
+// --- ၅။ Change Status Function ---
 async function changeStatus(newStatus) {
     try {
         const orderRef = doc(db, "orders", orderId);
@@ -122,7 +121,7 @@ async function changeStatus(newStatus) {
 
         if (newStatus === "completed") {
             setTimeout(() => {
-                // rider.html အစား delivery.html သို့ ပြောင်းလဲထားပါသည်
+                // rider.html အစား delivery.html သို့ တိုက်ရိုက်သွားရန်
                 window.location.href = "delivery.html";
             }, 1600);
         }
