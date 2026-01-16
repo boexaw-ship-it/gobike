@@ -60,17 +60,16 @@ function drawRoute(p, d) {
 
 // --- ၄။ Buttons Logic ---
 function updateButtons(status, phone) {
-    const container = document.getElementById('action-buttons');
-    container.innerHTML = "";
-
-    // Back to List logic (Fixed Redirect)
+    // Back to List logic - window.location.replace ကို သုံးခြင်းက history ကနေ ဖယ်ရှားပေးသည်
     const backToListBtn = document.getElementById('back-to-list-btn');
     if (backToListBtn) {
         backToListBtn.onclick = () => {
-            // .replace ကိုသုံးခြင်းက history ထဲမှာ track page ကို overwrite လုပ်ပေးပါတယ်
             window.location.replace("delivery.html");
         };
     }
+
+    const container = document.getElementById('action-buttons');
+    container.innerHTML = "";
 
     if (phone) {
         const callBtn = document.createElement('a');
@@ -129,3 +128,4 @@ async function changeStatus(newStatus) {
         }
     } catch (err) { console.error(err); }
 }
+
