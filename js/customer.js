@@ -55,11 +55,13 @@ const riderIcon = L.icon({
     iconAnchor: [16, 16]
 });
 
+// Current Location
 navigator.geolocation.getCurrentPosition((pos) => {
     const { latitude, longitude } = pos.coords;
     map.setView([latitude, longitude], 13);
 }, (err) => console.log("Location access denied"));
 
+// Real-time Riders display on map
 onSnapshot(collection(db, "active_riders"), (snap) => {
     snap.docChanges().forEach((change) => {
         const data = change.doc.data();
@@ -112,8 +114,11 @@ function calculatePrice() {
         const p2 = L.latLng(dropoffCoords.lat, dropoffCoords.lng);
         const dist = (p1.distanceTo(p2) / 1000).toFixed(2); 
         
-        const weight = parseFloat(document.getElementById('item-weight').value) || 0;
-        const itemValue = parseFloat(document.getElementById('item-value').value) || 0;
+        const weightInput = document.getElementById('item-weight');
+        const valueInput = document.getElementById('item-value');
+        
+        const weight = weightInput ? parseFloat(weightInput.value) || 0 : 0;
+        const itemValue = valueInput ? parseFloat(valueInput.value) || 0 : 0;
 
         const weightExtra = weight > 5 ? (weight - 5) * 200 : 0;
         const total = Math.round(1500 + (dist * 500) + weightExtra + (itemValue > 50000 ? itemValue * 0.01 : 0));
@@ -124,8 +129,11 @@ function calculatePrice() {
     }
     return null;
 }
-document.getElementById('item-weight').oninput = calculatePrice;
-document.getElementById('item-value').oninput = calculatePrice;
+
+const weightEl = document.getElementById('item-weight');
+const valueEl = document.getElementById('item-value');
+if (weightEl) weightEl.oninput = calculatePrice;
+if (valueEl) valueEl.oninput = calculatePrice;
 
 // --- ၄။ My Orders Logic ---
 function displayMyOrders() {
@@ -145,8 +153,8 @@ function displayMyOrders() {
             card.style = `cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 12px; margin-bottom: 10px; background: #2a2a2a; border-radius: 12px; border-left: 5px solid ${order.status === 'completed' ? '#00ff00' : '#ffcc00'}; border: 1px solid #444;`;
             card.innerHTML = `
                 <div onclick="window.location.href='track.html?id=${id}'" style="flex-grow:1;">
-                    <b style="color: #fff;">📦 ${order.item}</b><br>
-                    <span style="font-size: 0.75rem; color: #aaa;">Status: ${order.status.toUpperCase()}</span><br>
+                    <b style="color: #fff;">📦 ${order.item || 'Parcel'}</b><br>
+                    <span style="font-size: 0.75rem; color: #aaa;">Status: ${(order.status || 'pending').toUpperCase()}</span><br>
                     <span style="font-size: 0.7rem; color: #ffcc00;">${(order.deliveryFee || 0).toLocaleString()} KS</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 15px;">
@@ -154,10 +162,13 @@ function displayMyOrders() {
                 </div>`;
             listDiv.appendChild(card);
 
-            document.getElementById(`del-btn-${id}`).onclick = (e) => {
-                e.stopPropagation();
-                window.deleteOrderPermanently(id);
-            };
+            const delBtn = document.getElementById(`del-btn-${id}`);
+            if (delBtn) {
+                delBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    window.deleteOrderPermanently(id);
+                };
+            }
         });
     });
 }
@@ -172,7 +183,9 @@ window.deleteOrderPermanently = async (id) => {
         background: '#1a1a1a', color: '#fff'
     });
     if (result.isConfirmed) {
-        await updateDoc(doc(db, "orders", id), { customerHide: true });
+        try {
+            await updateDoc(doc(db, "orders", id), { customerHide: true });
+        } catch (err) { console.error("Delete Error:", err); }
     }
 };
 
@@ -180,21 +193,22 @@ window.deleteOrderPermanently = async (id) => {
 const placeOrderBtn = document.getElementById('placeOrderBtn');
 if (placeOrderBtn) {
     placeOrderBtn.onclick = async () => {
-        const feeInfo = calculatePrice();
-        const item = document.getElementById('item-detail').value;
-        const phone = document.getElementById('receiver-phone').value;
-        const weight = document.getElementById('item-weight').value || 0;
-        const itemValue = document.getElementById('item-value').value || 0;
-        const payment = document.getElementById('payment-method').value;
-        const pAddr = document.getElementById('pickup-address').value;
-        const dAddr = document.getElementById('dropoff-address').value;
-
-        if (!feeInfo || !item || !phone || !pAddr || !dAddr || !pickupCoords || !dropoffCoords) {
-            Swal.fire({ icon: 'error', title: 'အချက်အလက်မစုံလင်ပါ', background: '#1a1a1a', color: '#fff' });
-            return;
-        }
-
         try {
+            const feeInfo = calculatePrice();
+            const item = document.getElementById('item-detail')?.value;
+            const phone = document.getElementById('receiver-phone')?.value;
+            const weight = document.getElementById('item-weight')?.value || 0;
+            const itemValue = document.getElementById('item-value')?.value || 0;
+            const payment = document.getElementById('payment-method')?.value;
+            const pAddr = document.getElementById('pickup-address')?.value;
+            const dAddr = document.getElementById('dropoff-address')?.value;
+
+            // Validation
+            if (!feeInfo || !item || !phone || !pAddr || !dAddr || !pickupCoords || !dropoffCoords) {
+                Swal.fire({ icon: 'error', title: 'အချက်အလက်မစုံလင်ပါ', text: 'ကျေးဇူးပြု၍ နေရာနှင့် အချက်အလက်များ အကုန်ဖြည့်ပါ။', background: '#1a1a1a', color: '#fff' });
+                return;
+            }
+
             placeOrderBtn.disabled = true;
             placeOrderBtn.innerText = "Processing...";
 
@@ -204,10 +218,13 @@ if (placeOrderBtn) {
 
             const orderData = {
                 userId: auth.currentUser.uid,
-                customerName,
+                customerName: customerName,
                 pickup: { ...pickupCoords, address: `${pTown}, ${pAddr}` },
                 dropoff: { ...dropoffCoords, address: `${dTown}, ${dAddr}` },
-                item, weight, itemValue, phone,
+                item: item, 
+                weight: weight, 
+                itemValue: itemValue, 
+                phone: phone,
                 paymentMethod: payment === "COD" ? "Cash on Delivery" : "Cash at Pickup",
                 deliveryFee: feeInfo.total, 
                 status: "pending", 
@@ -215,10 +232,11 @@ if (placeOrderBtn) {
                 createdAt: serverTimestamp()
             };
 
+            // 1. Firebase Add
             const docRef = await addDoc(collection(db, "orders"), orderData);
             const orderId = docRef.id;
 
-            // Google Sheet Update
+            // 2. Google Sheet Update (Fire and forget)
             fetch(SCRIPT_URL, {
                 method: "POST", mode: "no-cors",
                 body: JSON.stringify({
@@ -227,14 +245,14 @@ if (placeOrderBtn) {
                     payment: orderData.paymentMethod, phone, address: orderData.dropoff.address,
                     customerName, riderName: "-" 
                 })
-            });
+            }).catch(e => console.log("Sheet Error:", e));
 
-            // Telegram Notification
+            // 3. Telegram Notification
             const trackUrl = `https://boexaw-ship-it.github.io/gobike/html/track.html?id=${orderId}`;
             const msg = `📦 <b>New Order Received!</b>\n` +
             `━━━━━━━━━━━━━━━━━━\n` +
             `👤 Customer: <b>${customerName}</b>\n` +
-            `📞 ဖုန်းနံပါတ်: <b>${phone}</b>\n` + 
+            `📞 ဖုန်း: <b>${phone}</b>\n` + 
             `📝 ပစ္စည်း: <b>${item}</b>\n` +
             `⚖️ အလေးချိန်: <b>${weight} KG</b>\n` +
             `💰 တန်ဖိုး: <b>${parseFloat(itemValue).toLocaleString()} KS</b>\n` +
@@ -245,19 +263,22 @@ if (placeOrderBtn) {
 
             await notifyTelegram(msg);
 
-            Swal.fire({
+            // 4. Success Alert & Redirect
+            await Swal.fire({
                 title: 'အော်ဒါတင်ပြီးပါပြီ!',
+                text: 'Rider ကို အကြောင်းကြားထားပါသည်။',
                 icon: 'success',
                 confirmButtonColor: '#ffcc00',
                 background: '#1a1a1a', color: '#fff'
-            }).then(() => {
-                window.location.href = `track.html?id=${orderId}`;
             });
+            
+            window.location.href = `track.html?id=${orderId}`;
 
         } catch (e) {
+            console.error("Submission Error:", e);
             placeOrderBtn.disabled = false;
             placeOrderBtn.innerText = "ORDER NOW";
-            Swal.fire({ icon: 'error', title: 'Error', text: e.message });
+            Swal.fire({ icon: 'error', title: 'Error', text: e.message, background: '#1a1a1a', color: '#fff' });
         }
     };
 }
