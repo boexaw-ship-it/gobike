@@ -29,32 +29,23 @@ function initMap() {
     }
 }
 
-// --- ၂။ Auth & Profile & Auto Redirect (Hardware Back Key Support) ---
+// --- ၂။ Auth & Profile & Auto Redirect ---
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         initMap();
         await getRiderData(); 
         startTracking(); 
-        
         const urlParams = new URLSearchParams(window.location.search);
-        
-        // Parameter ပါလာခြင်း သို့မဟုတ် ဖုန်း Back Key ကြောင့် Session မှာ True ဖြစ်နေခြင်း ရှိမရှိ စစ်ဆေးခြင်း
         const isBackFromTrack = urlParams.get('from') === 'track' || sessionStorage.getItem('justBackFromTrack') === 'true';
-
-        // Track ကနေ ပြန်လာတာ မဟုတ်မှသာ (ဥပမာ- App ကို အသစ်စဖွင့်ခြင်း) Redirect လုပ်မည်
         if (!isBackFromTrack) {
             checkActiveOrderAndRedirect(user.uid);
         }
-
-        // Dashboard ရောက်သွားပြီဆိုရင်တော့ မှတ်ထားတာကို ချက်ချင်းပြန်ဖျက်မယ်
         sessionStorage.removeItem('justBackFromTrack');
-
     } else {
         window.location.href = "../index.html";
     }
 });
 
-// လက်ရှိလုပ်ဆောင်နေဆဲ အော်ဒါရှိမရှိ စစ်ဆေးပြီး Tracking Page သို့ ပို့ပေးသည့် function
 async function checkActiveOrderAndRedirect(uid) {
     const q = query(
         collection(db, "orders"), 
@@ -62,15 +53,11 @@ async function checkActiveOrderAndRedirect(uid) {
         where("status", "in", ["accepted", "on_the_way", "arrived"]),
         where("pickupSchedule", "==", "now")
     );
-    
-    // ပထမဆုံး အကြိမ် စစ်ဆေးခြင်း
     const snap = await getDocs(q);
     if (!snap.empty) {
         window.location.href = `rider-track.html?id=${snap.docs[0].id}`;
         return;
     }
-
-    // အော်ဒါအသစ် "လက်ခံ" လိုက်သည့်အချိန်တွင်သာ (Dashboard တွင်ရှိနေစဉ်) Redirect လုပ်မည်
     onSnapshot(q, (snapshot) => {
         snapshot.docChanges().forEach((change) => {
             if (change.type === "added") {
@@ -104,7 +91,7 @@ function startTracking() {
         }, null, { enableHighAccuracy: true });
     }
 
-    // (A) Available Orders
+    // (A) Available Orders (Fixed: Township + Address Combination)
     onSnapshot(query(collection(db, "orders"), where("status", "==", "pending")), async (snap) => {
         const container = document.getElementById('available-orders');
         if(!container) return;
@@ -115,6 +102,11 @@ function startTracking() {
         snap.forEach(orderDoc => {
             const d = orderDoc.data();
             if (d.lastRejectedRiderId === myUid || d.tempRiderId === myUid || d.pickupSchedule === "tomorrow") return;
+            
+            // Address Combiner
+            const pFull = d.pickup ? `${d.pickup.township}၊ ${d.pickup.address}` : (d.pickupAddress || "မသိရပါ");
+            const dFull = d.dropoff ? `${d.dropoff.township}၊ ${d.dropoff.address}` : (d.dropoffAddress || "မသိရပါ");
+
             const id = orderDoc.id;
             const card = document.createElement('div');
             card.className = 'order-card';
@@ -127,8 +119,8 @@ function startTracking() {
                     </div>
                 </div>
                 <div style="font-size:0.85rem; color:#aaa; margin:10px 0;">
-                    📍 <b>PICKUP:</b> ${d.pickup?.address || d.pickupAddress}<br>
-                    🏁 <b>DROP:</b> ${d.dropoff?.address || d.dropoffAddress}
+                    📍 <b>PICKUP:</b> <span style="color:#00e5ff;">${pFull}</span><br>
+                    🏁 <b>DROP:</b> <span style="color:#00e5ff;">${dFull}</span>
                 </div>
                 <div style="display:flex; gap:10px;">
                     <button class="btn-accept" style="flex:2; background:${isFull ? '#444' : '#ffcc00'}; border:none; padding:10px; border-radius:5px; font-weight:bold; cursor:pointer;" ${isFull ? 'disabled' : ''} onclick="handleAccept('${id}', 'now')">${isFull ? 'Limit Full' : 'လက်ခံမည်'}</button>
@@ -170,7 +162,7 @@ function startTracking() {
         if(activeCount === 0) list.innerHTML = "<div class='empty-msg'>လက်ခံထားသော အော်ဒါမရှိပါ</div>";
     });
 
-    // (D) Tomorrow Section
+    // (D) Tomorrow Section (Fixed Address Combination)
     onSnapshot(query(collection(db, "orders"), where("pickupSchedule", "==", "tomorrow")), (snap) => {
         const tomList = document.getElementById('tomorrow-orders-list');
         if(!tomList) return;
@@ -182,6 +174,7 @@ function startTracking() {
             if (d.riderDismissedTomorrow === myUid) return;
             if (d.tempRiderId === myUid || d.riderId === myUid) {
                 tomCount++;
+                const pFull = d.pickup ? `${d.pickup.township}၊ ${d.pickup.address}` : (d.pickupAddress || "မသိရပါ");
                 const isRejected = (d.status === "pending" || d.status === "rider_rejected" || d.status === "cancelled");
                 const isConfirmed = d.status === "accepted";
                 const div = document.createElement('div');
@@ -193,7 +186,7 @@ function startTracking() {
                         <button onclick="dismissTomorrowOrder('${id}')" style="background:#444; color:#fff; border:none; padding:3px 10px; font-size:0.8rem; border-radius:5px;">✖</button>
                     </div>
                     <b style="color:#fff;">📦 ${d.item}</b><br>
-                    <small style="color:#aaa;">📍 ${d.pickup?.address || d.pickupAddress}</small>
+                    <small style="color:#00e5ff;">📍 ${pFull}</small>
                     <button onclick="${isRejected ? `dismissTomorrowOrder('${id}')` : `startTomorrowOrder('${id}')`}" 
                         style="width:100%; margin-top:10px; padding:12px; background:${isConfirmed ? '#2ed573' : '#333'}; color:#fff; border:none; border-radius:8px; font-weight:bold;"
                         ${(!isConfirmed && !isRejected) ? 'disabled' : ''}>
@@ -230,7 +223,7 @@ function startTracking() {
     });
 }
 
-// --- Action Functions ---
+// --- Action Functions (Fixed Telegram Logic) ---
 
 window.handleAccept = async (id, time) => {
     try {
@@ -286,9 +279,11 @@ async function getRiderName() {
 }
 
 const createOrderMessage = (title, order, currentRiderName, statusText = "") => {
-    const pAddr = order.pickup?.address || order.pickupAddress || "မသိရပါ";
-    const dAddr = order.dropoff?.address || order.dropoffAddress || "မသိရပါ";
+    // Fixed Address Combiner for Telegram
+    const pAddr = order.pickup ? `${order.pickup.township}၊ ${order.pickup.address}` : (order.pickupAddress || "မသိရပါ");
+    const dAddr = order.dropoff ? `${order.dropoff.township}၊ ${order.dropoff.address}` : (order.dropoffAddress || "မသိရပါ");
     return `${title}\n📊 Status: <b>${statusText}</b>\n--------------------------\n📝 ပစ္စည်း: <b>${order.item}</b>\n💵 ပို့ခ: <b>${(order.deliveryFee || 0).toLocaleString()} KS</b>\n📍 ယူရန်: ${pAddr}\n🏁 ပို့ရန်: ${dAddr}\n--------------------------\n🚴 Rider: <b>${currentRiderName}</b>`;
 };
 
 window.handleLogout = async () => { try { await signOut(auth); } catch (e) { console.error(e); } };
+
