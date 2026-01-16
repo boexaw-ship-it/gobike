@@ -1,6 +1,6 @@
 import { db, auth } from './firebase-config.js';
 import { 
-    doc, onSnapshot, updateDoc, serverTimestamp 
+    doc, onSnapshot, updateDoc 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const params = new URLSearchParams(window.location.search);
@@ -12,48 +12,30 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 let routingControl = null;
 
-// --- ၂။ Main Listener ---
+// --- ၂။ Back Button Logic (Data မစောင့်ဘဲ ချက်ချင်းအလုပ်လုပ်ရန်) ---
+const initBackButton = () => {
+    const backBtn = document.getElementById('back-to-list-btn');
+    if (backBtn) {
+        backBtn.onclick = (e) => {
+            e.preventDefault();
+            window.location.href = "delivery.html";
+        };
+    }
+};
+
+// --- ၃။ Main Listener (Data ရယူခြင်း) ---
 if (orderId) {
     onSnapshot(doc(db, "orders", orderId), (docSnap) => {
-        if (!docSnap.exists()) return;
-        const data = docSnap.data();
-        document.getElementById('loading').style.display = 'none';
+        // Data ရပြီဆိုတာနဲ့ Loading ကို ဖျောက်မည်
+        const loadingOverlay = document.getElementById('loading');
+        if (loadingOverlay) loadingOverlay.style.display = 'none';
 
-        // UI Updates
-        document.getElementById('status-badge').innerText = (data.status || "PENDING").toUpperCase().replace("_", " ");
-        document.getElementById('det-item').innerText = "📦 " + (data.item || "ပစ္စည်း");
-        document.getElementById('det-pickup').innerText = data.pickup?.address || "-";
-        document.getElementById('det-dropoff').innerText = data.dropoff?.address || "-";
-        document.getElementById('det-fee').innerText = (data.deliveryFee || 0).toLocaleString() + " KS";
-        document.getElementById('det-weight').innerText = (data.weight || 0) + " KG";
-
-        // Navigation Route
-        if (data.pickup && data.dropoff) {
-            drawRoute(data.pickup, data.dropoff);
-        }
-import { db, auth } from './firebase-config.js';
-import { 
-    doc, onSnapshot, updateDoc, serverTimestamp 
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-const params = new URLSearchParams(window.location.search);
-const orderId = params.get('id');
-
-// --- ၁။ Map Setup ---
-const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-let routingControl = null;
-
-// --- ၂။ Main Listener (Data ရယူခြင်း) ---
-if (orderId) {
-    onSnapshot(doc(db, "orders", orderId), (docSnap) => {
         if (!docSnap.exists()) {
-            console.error("Order not found");
+            Swal.fire("Error", "Order မတွေ့ရှိပါ။", "error");
             return;
         }
+
         const data = docSnap.data();
-        document.getElementById('loading').style.display = 'none';
 
         // UI Updates
         document.getElementById('status-badge').innerText = (data.status || "PENDING").toUpperCase().replace("_", " ");
@@ -63,17 +45,24 @@ if (orderId) {
         document.getElementById('det-fee').innerText = (data.deliveryFee || 0).toLocaleString() + " KS";
         document.getElementById('det-weight').innerText = (data.weight || 0) + " KG";
 
-        // Navigation Route
+        // မြေပုံပေါ်တွင် လမ်းကြောင်းဆွဲခြင်း
         if (data.pickup && data.dropoff) {
             drawRoute(data.pickup, data.dropoff);
         }
 
-        // Status Buttons (Accept, Pick Up, etc.)
+        // အောက်ခြေခလုတ်များကို Update လုပ်ခြင်း
         updateStatusButtons(data.status, data.phone);
+    }, (error) => {
+        console.error("Snapshot error:", error);
+        // Error တက်ရင်လည်း Loading ကို ဖျောက်ပေးရန်
+        document.getElementById('loading').style.display = 'none';
     });
+} else {
+    // orderId မပါလာရင် Dashboard ပြန်လွှတ်မည်
+    window.location.href = "delivery.html";
 }
 
-// --- ၃။ Draw Route Function ---
+// --- ၄။ Draw Route Function ---
 function drawRoute(p, d) {
     if (routingControl) map.removeControl(routingControl);
     routingControl = L.Routing.control({
@@ -94,7 +83,7 @@ function drawRoute(p, d) {
     }).addTo(map);
 }
 
-// --- ၄။ Status Buttons Logic (Accept/Pick Up/Complete) ---
+// --- ၅။ Status Buttons Logic ---
 function updateStatusButtons(status, phone) {
     const container = document.getElementById('action-buttons');
     container.innerHTML = "";
@@ -127,7 +116,7 @@ function updateStatusButtons(status, phone) {
     if (status !== "completed") container.appendChild(nextBtn);
 }
 
-// --- ၅။ Change Status Function ---
+// --- ၆။ Change Status Function ---
 async function changeStatus(newStatus) {
     try {
         const orderRef = doc(db, "orders", orderId);
@@ -148,21 +137,11 @@ async function changeStatus(newStatus) {
 
         if (newStatus === "completed") {
             setTimeout(() => {
-                window.location.replace("delivery.html");
+                window.location.href = "delivery.html";
             }, 1600);
         }
     } catch (err) { console.error(err); }
 }
 
-// --- ၆။ Back to List Logic (သီးသန့်ခွဲထုတ်ထားသည် - Data မတက်ခင်ကတည်းက အလုပ်လုပ်ရန်) ---
-document.addEventListener('DOMContentLoaded', () => {
-    const backBtn = document.getElementById('back-to-list-btn');
-    if (backBtn) {
-        backBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            console.log("Navigating to dashboard...");
-            window.location.replace("delivery.html");
-        });
-    }
-});
-
+// ခေါ်ယူအသုံးပြုခြင်း
+initBackButton();
