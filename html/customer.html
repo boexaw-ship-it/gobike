@@ -121,7 +121,7 @@
             box-shadow: 0 4px 12px rgba(78, 52, 46, 0.3); margin-top: 10px;
         }
 
-        /* History */
+        /* History Card Style */
         .orders-list-container { padding: 15px; overflow-y: auto; height: calc(100vh - 180px); }
         .order-card {
             background: white; padding: 16px; border-radius: 16px; 
@@ -129,9 +129,6 @@
             display: flex; justify-content: space-between; align-items: center;
             box-shadow: 0 2px 8px rgba(0,0,0,0.02);
         }
-        .status-pill { padding: 4px 10px; border-radius: 8px; font-size: 0.65rem; font-weight: bold; }
-        .status-pending { background: #fff3e0; color: #ef6c00; }
-        .status-completed { background: #e8f5e9; color: #2e7d32; }
 
         /* Bottom Nav */
         .bottom-nav {
@@ -173,42 +170,55 @@
                         <b>PICK-UP (ပစ္စည်းယူရန်)</b>
                         <select id="pickup-township" required>
                             <option value="">မြို့နယ်ရွေးပါ</option>
-                            <option value="Insein" data-lat="16.8906" data-lng="96.1017">အင်းစိန်</option>
-                            <option value="Mingaladon" data-lat="16.9038" data-lng="96.1557">မင်္ဂလာဒုံ</option>
-                            <option value="HlaingTharyar" data-lat="16.8573" data-lng="96.0620">လှိုင်သာယာ</option>
-                            <option value="Shwepyithar" data-lat="16.9417" data-lng="96.0822">ရွှေပြည်သာ</option>
-                            
-                            <option value="Dagon_North" data-lat="16.9042" data-lng="96.1917">ဒဂုံမြို့သစ်(မြောက်ပိုင်း)</option>
-                            <option value="Dagon_South" data-lat="16.8572" data-lng="96.2161">ဒဂုံမြို့သစ်(တောင်ပိုင်း)</option>
-                            <option value="Dagon_East" data-lat="16.9061" data-lng="96.2239">ဒဂုံမြို့သစ်(အရှေ့ပိုင်း)</option>
-                            <option value="Dagon_Seikkan" data-lat="16.8524" data-lng="96.2514">ဒဂုံမြို့သစ်(ဆိပ်ကမ်း)</option>
-                            <option value="North_Okkalapa" data-lat="16.9142" data-lng="96.1717">မြောက်ဥက္ကလာပ</option>
-                            <option value="South_Okkalapa" data-lat="16.8525" data-lng="96.1831">တောင်ဥက္ကလာပ</option>
-                            <option value="Thingangyun" data-lat="16.8322" data-lng="96.1950">သင်္ဃန်းကျွန်း</option>
-                            <option value="Tamwe" data-lat="16.8111" data-lng="96.1750">တာမွေ</option>
-                            <option value="Yankin" data-lat="16.8353" data-lng="96.1583">ရန်ကင်း</option>
-
-                            <option value="Ahlone" data-lat="16.7875" data-lng="96.1261">အလုံ</option>
-                            <option value="Bahan" data-lat="16.8115" data-lng="96.1518">ဗဟန်း</option>
-                            <option value="Dagon" data-lat="16.7971" data-lng="96.1475">ဒဂုံ</option>
-                            <option value="Kyauktada" data-lat="16.7725" data-lng="96.1611">ကျောက်တံတား</option>
-                            <option value="Kyimyindaing" data-lat="16.7936" data-lng="96.1150">ကြည့်မြင်တိုင်</option>
-                            <option value="Lanmadaw" data-lat="16.7794" data-lng="96.1439">လမ်းမတော်</option>
-                            <option value="Latha" data-lat="16.7778" data-lng="96.1511">လသာ</option>
-                            <option value="Pabedan" data-lat="16.7772" data-lng="96.1567">ပန်းဘဲတန်း</option>
-                            <option value="Sanchaung" data-lat="16.8028" data-lng="96.1311">စမ်းချောင်း</option>
-                            <option value="Hlaing" data-lat="16.8409" data-lng="96.1264">လှိုင်</option>
-                            <option value="Kamayut" data-lat="16.8286" data-lng="96.1284">ကမာရွတ်</option>
-                            <option value="Mayangone" data-lat="16.8697" data-lng="96.1436">မရမ်းကုန်း</option>
-
-                            <option value="Botahtaung" data-lat="16.7818" data-lng="96.1706">ဗိုလ်တထောင်</option>
-                            <option value="Dawbon" data-lat="16.7853" data-lng="96.1883">ဒေါပုံ</option>
-                            <option value="MingalaTaungnyunt" data-lat="16.7917" data-lng="96.1683">မင်္ဂလာတောင်ညွန့်</option>
-                            <option value="Pazundaung" data-lat="16.7867" data-lng="96.1764">ပုဇွန်တောင်</option>
-                            <option value="Thaketa" data-lat="16.7931" data-lng="96.2100">သာကေတ</option>
-                            <option value="Seikkan" data-lat="16.7683" data-lng="96.1664">ဆိပ်ကမ်း</option>
-                            <option value="Taikkyi" data-lat="17.3000" data-lng="96.0333">တိုက်ကြီး</option>
-                            <option value="Thanlyin" data-lat="16.7667" data-lng="96.2500">သန်လျင်</option>
+                            <optgroup label="Western (Downtown)">
+                                <option value="Ahlone" data-lat="16.7875" data-lng="96.1261">အလုံ</option>
+                                <option value="Bahan" data-lat="16.8115" data-lng="96.1518">ဗဟန်း</option>
+                                <option value="Dagon" data-lat="16.7971" data-lng="96.1475">ဒဂုံ</option>
+                                <option value="Kyauktada" data-lat="16.7725" data-lng="96.1611">ကျောက်တံတား</option>
+                                <option value="Kyimyindaing" data-lat="16.7936" data-lng="96.1150">ကြည့်မြင်တိုင်</option>
+                                <option value="Lanmadaw" data-lat="16.7794" data-lng="96.1439">လမ်းမတော်</option>
+                                <option value="Latha" data-lat="16.7778" data-lng="96.1511">လသာ</option>
+                                <option value="Pabedan" data-lat="16.7772" data-lng="96.1567">ပန်းဘဲတန်း</option>
+                                <option value="Sanchaung" data-lat="16.8028" data-lng="96.1311">စမ်းချောင်း</option>
+                                <option value="Seikkan" data-lat="16.7683" data-lng="96.1664">ဆိပ်ကမ်း</option>
+                            </optgroup>
+                            <optgroup label="Northern Region">
+                                <option value="Insein" data-lat="16.8906" data-lng="96.1017">အင်းစိန်</option>
+                                <option value="Hlaing" data-lat="16.8409" data-lng="96.1264">လှိုင်</option>
+                                <option value="Kamayut" data-lat="16.8286" data-lng="96.1284">ကမာရွတ်</option>
+                                <option value="Mayangone" data-lat="16.8697" data-lng="96.1436">မရမ်းကုန်း</option>
+                                <option value="Mingaladon" data-lat="16.9038" data-lng="96.1557">မင်္ဂလာဒုံ</option>
+                                <option value="North_Okkalapa" data-lat="16.9142" data-lng="96.1717">မြောက်ဥက္ကလာပ</option>
+                                <option value="Shwepyithar" data-lat="16.9417" data-lng="96.0822">ရွှေပြည်သာ</option>
+                                <option value="HlaingTharyar" data-lat="16.8573" data-lng="96.0620">လှိုင်သာယာ</option>
+                            </optgroup>
+                            <optgroup label="Eastern Region">
+                                <option value="Botahtaung" data-lat="16.7818" data-lng="96.1706">ဗိုလ်တထောင်</option>
+                                <option value="Dagon_North" data-lat="16.9042" data-lng="96.1917">ဒဂုံ(မြောက်ပိုင်း)</option>
+                                <option value="Dagon_South" data-lat="16.8572" data-lng="96.2161">ဒဂုံ(တောင်ပိုင်း)</option>
+                                <option value="Dagon_East" data-lat="16.9061" data-lng="96.2239">ဒဂုံ(အရှေ့ပိုင်း)</option>
+                                <option value="Dagon_Seikkan" data-lat="16.8524" data-lng="96.2514">ဒဂုံ(ဆိပ်ကမ်း)</option>
+                                <option value="Dawbon" data-lat="16.7853" data-lng="96.1883">ဒေါပုံ</option>
+                                <option value="MingalaTaungnyunt" data-lat="16.7917" data-lng="96.1683">မင်္ဂလာတောင်ညွန့်</option>
+                                <option value="Pazundaung" data-lat="16.7867" data-lng="96.1764">ပုဇွန်တောင်</option>
+                                <option value="South_Okkalapa" data-lat="16.8525" data-lng="96.1831">တောင်ဥက္ကလာပ</option>
+                                <option value="Tamwe" data-lat="16.8111" data-lng="96.1750">တာမွေ</option>
+                                <option value="Thaketa" data-lat="16.7931" data-lng="96.2100">သာကေတ</option>
+                                <option value="Thingangyun" data-lat="16.8322" data-lng="96.1950">သင်္ဃန်းကျွန်း</option>
+                                <option value="Yankin" data-lat="16.8353" data-lng="96.1583">ရန်ကင်း</option>
+                            </optgroup>
+                            <optgroup label="Southern Region">
+                                <option value="Dala" data-lat="16.7589" data-lng="96.1542">ဒလ</option>
+                                <option value="Kawhmu" data-lat="16.4833" data-lng="96.0833">ကော့မှူး</option>
+                                <option value="Kayan" data-lat="16.9167" data-lng="96.5667">ခရမ်း</option>
+                                <option value="Kungyangon" data-lat="16.4333" data-lng="96.0333">ကွမ်းခြံကုန်း</option>
+                                <option value="Kyauktan" data-lat="16.6333" data-lng="96.3333">ကျောက်တန်း</option>
+                                <option value="Seikkyi_Kanaungto" data-lat="16.7500" data-lng="96.1167">ဆိပ်ကြီးခနောင်တို</option>
+                                <option value="Taikkyi" data-lat="17.3000" data-lng="96.0333">တိုက်ကြီး</option>
+                                <option value="Thanlyin" data-lat="16.7667" data-lng="96.2500">သန်လျင်</option>
+                                <option value="Thongwa" data-lat="16.7667" data-lng="96.5167">သုံးခွ</option>
+                                <option value="Twante" data-lat="16.7167" data-lng="95.9333">တွံတေး</option>
+                            </optgroup>
                         </select>
                         <input type="text" id="pickup-address" placeholder="လမ်းအမည်/အိမ်အမှတ်" style="margin-top:10px;" required>
                     </div>
@@ -217,11 +227,11 @@
                         <b>DROP-OFF (ပို့ဆောင်ရန်)</b>
                         <select id="dropoff-township" required>
                             <option value="">မြို့နယ်ရွေးပါ</option>
-                        </select>
+                            </select>
                         <input type="text" id="dropoff-address" placeholder="လမ်းအမည်/အိမ်အမှတ်" style="margin-top:10px;" required>
                     </div>
 
-                    <input type="text" id="item-detail" class="standard-input" placeholder="ဘာပစ္စည်းပို့မှာလဲ?" required>
+                    <input type="text" id="item-detail" class="standard-input" placeholder="ဘာပစ္စည်းပို့မှာလဲ? (ဥပမာ- ထမင်းဘူး)" required>
 
                     <div class="input-row">
                         <input type="number" id="item-weight" placeholder="အလေးချိန် (kg)">
@@ -231,11 +241,12 @@
                     <input type="tel" id="receiver-phone" class="standard-input" placeholder="လက်ခံသူဖုန်းနံပါတ်" required>
 
                     <select id="payment-method" class="standard-input">
-                        <option value="COD">Cash on Delivery</option>
-                        <option value="PickupCash">Cash at Pickup</option>
+                        <option value="COD">Cash on Delivery (ပစ္စည်းရောက်မှရှင်းမည်)</option>
+                        <option value="PickupCash">Cash at Pickup (ပစ္စည်းယူစဉ်ရှင်းမည်)</option>
                     </select>
 
                     <button id="placeOrderBtn" type="button" class="btn-confirm">ORDER NOW</button>
+                    <div style="height: 20px;"></div>
                 </form>
             </div>
         </div>
@@ -264,29 +275,30 @@
     <script type="module" src="../js/customer.js"></script>
 
     <script>
-        // --- ၁။ Bottom Sheet Toggle ---
+        // --- ၁။ Bottom Sheet Logic ---
         function toggleSheet() {
             document.getElementById('bottomSheet').classList.toggle('expanded');
         }
 
+        // input နှိပ်ရင် sheet ကို အပေါ်တင်ပေးရန်
         document.querySelectorAll('input, select').forEach(el => {
             el.addEventListener('focus', () => {
                 document.getElementById('bottomSheet').classList.add('expanded');
             });
         });
 
-        // --- ၂။ Township Logic (Clone to Drop-off) ---
+        // --- ၂။ Township Cloning Logic ---
+        // Pickup မှာရှိတဲ့ မြို့နယ်တွေကို Dropoff ထဲကို အလိုအလျောက်ကူးပေးတာပါ
         const pSelect = document.getElementById('pickup-township');
         const dSelect = document.getElementById('dropoff-township');
-        pSelect.addEventListener('change', () => {
-            if(dSelect.options.length <= 1) {
-                Array.from(pSelect.options).forEach((opt, i) => {
-                    if(i > 0) dSelect.add(opt.cloneNode(true));
-                });
-            }
+
+        window.addEventListener('load', () => {
+            Array.from(pSelect.childNodes).forEach(node => {
+                dSelect.appendChild(node.cloneNode(true));
+            });
         });
 
-        // --- ၃။ Tab Switching ---
+        // --- ၃။ Navigation Section Switching ---
         function showSection(sectionId, el) {
             document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
             document.getElementById(sectionId + '-section').classList.add('active');
@@ -294,7 +306,9 @@
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             if(el) el.classList.add('active');
             
-            if(sectionId === 'list') document.getElementById('bottomSheet').classList.remove('expanded');
+            if(sectionId === 'list') {
+                document.getElementById('bottomSheet').classList.remove('expanded');
+            }
         }
 
         // --- ၄။ Go To My Location ---
@@ -304,20 +318,19 @@
                     const lat = position.coords.latitude;
                     const lng = position.coords.longitude;
                     
-                    // global variable 'map' ကို customer.js မှာ ကြေညာထားရပါမယ်
                     if(window.map) {
                         window.map.setView([lat, lng], 16);
-                        // Marker ကို ရွှေ့ပေးခြင်း
                         if (window.currentMarker) {
                             window.currentMarker.setLatLng([lat, lng]);
                         }
                     }
                 }, (error) => {
-                    Swal.fire("Error", "တည်နေရာကြည့်ရှုခွင့်ကို ပိတ်ထားပါသည်", "error");
+                    Swal.fire("Error", "GPS ဖွင့်ရန် လိုအပ်ပါသည်", "error");
                 }, { enableHighAccuracy: true });
             }
         };
 
+        // Deep Link Check
         window.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('tab') === 'list') {
