@@ -16,13 +16,13 @@
         
         #map { height: 45vh; width: 100%; }
 
-        /* Back Button Style */
+        /* Back Button Style ပြင်ဆင်မှု - cursor: pointer ထည့်ထားသည် */
         .back-btn {
             position: fixed; top: 15px; left: 15px; z-index: 1000;
             background: rgba(0,0,0,0.7); color: white; padding: 10px 15px;
             border-radius: 50px; text-decoration: none; display: flex;
             align-items: center; gap: 8px; border: 1px solid rgba(255,255,255,0.2);
-            backdrop-filter: blur(5px); transition: 0.3s;
+            backdrop-filter: blur(5px); transition: 0.3s; cursor: pointer;
         }
         .back-btn:hover { background: var(--primary); color: #000; }
 
@@ -62,9 +62,9 @@
 </head>
 <body>
 
-    <a href="delivery.html" class="back-btn" id="back-to-list-btn">
+    <div class="back-btn" id="back-to-list-btn">
         <i class="fas fa-arrow-left"></i> <span>Back to List</span>
-    </a>
+    </div>
 
     <div id="loading" class="loading-overlay">
         <div style="text-align: center;">
