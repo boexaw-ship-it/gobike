@@ -147,7 +147,7 @@ function displayMyOrders() {
                 <div onclick="window.location.href='track.html?id=${id}'" style="flex-grow:1;">
                     <b style="color: #fff;">📦 ${order.item}</b><br>
                     <span style="font-size: 0.75rem; color: #aaa;">Status: ${order.status.toUpperCase()}</span><br>
-                    <span style="font-size: 0.7rem; color: #ffcc00;">${order.deliveryFee.toLocaleString()} KS</span>
+                    <span style="font-size: 0.7rem; color: #ffcc00;">${(order.deliveryFee || 0).toLocaleString()} KS</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 15px;">
                     <span id="del-btn-${id}" style="color: #ff4444; font-size: 1.1rem; cursor: pointer;">🗑️</span>
@@ -176,7 +176,7 @@ window.deleteOrderPermanently = async (id) => {
     }
 };
 
-// --- ၅။ Submit Order (Telegram Message တွင် KG နှင့် တန်ဖိုး ဖြည့်စွက်ထားသည်) ---
+// --- ၅။ Submit Order ---
 const placeOrderBtn = document.getElementById('placeOrderBtn');
 if (placeOrderBtn) {
     placeOrderBtn.onclick = async () => {
@@ -203,18 +203,22 @@ if (placeOrderBtn) {
             const customerName = auth.currentUser?.displayName || "Customer";
 
             const orderData = {
-                userId: auth.currentUser.uid, customerName,
+                userId: auth.currentUser.uid,
+                customerName,
                 pickup: { ...pickupCoords, address: `${pTown}, ${pAddr}` },
                 dropoff: { ...dropoffCoords, address: `${dTown}, ${dAddr}` },
                 item, weight, itemValue, phone,
                 paymentMethod: payment === "COD" ? "Cash on Delivery" : "Cash at Pickup",
-                deliveryFee: feeInfo.total, status: "pending", customerHide: false, createdAt: serverTimestamp()
+                deliveryFee: feeInfo.total, 
+                status: "pending", 
+                customerHide: false, 
+                createdAt: serverTimestamp()
             };
 
             const docRef = await addDoc(collection(db, "orders"), orderData);
             const orderId = docRef.id;
 
-            // Google Sheet
+            // Google Sheet Update
             fetch(SCRIPT_URL, {
                 method: "POST", mode: "no-cors",
                 body: JSON.stringify({
@@ -225,14 +229,12 @@ if (placeOrderBtn) {
                 })
             });
 
-            // Telegram Message (Weight နှင့် Value ဖြည့်စွက်ထားသည်)
-            const trackUrl = `https://boexaw-ship-it.github.io/gobike/html/track.html?id=${orderId}`;
-            // Telegram Message (ဖုန်းနံပါတ် ဖြည့်စွက်ထားသည်)
+            // Telegram Notification
             const trackUrl = `https://boexaw-ship-it.github.io/gobike/html/track.html?id=${orderId}`;
             const msg = `📦 <b>New Order Received!</b>\n` +
             `━━━━━━━━━━━━━━━━━━\n` +
             `👤 Customer: <b>${customerName}</b>\n` +
-            `📞 ဖုန်းနံပါတ်: <b>${phone}</b>\n` + // ဖုန်းနံပါတ် ထည့်သွင်းထားသည်
+            `📞 ဖုန်းနံပါတ်: <b>${phone}</b>\n` + 
             `📝 ပစ္စည်း: <b>${item}</b>\n` +
             `⚖️ အလေးချိန်: <b>${weight} KG</b>\n` +
             `💰 တန်ဖိုး: <b>${parseFloat(itemValue).toLocaleString()} KS</b>\n` +
@@ -242,6 +244,7 @@ if (placeOrderBtn) {
             `✨ <a href="${trackUrl}"><b>📍 ခြေရာခံရန်နှိပ်ပါ</b></a>`;
 
             await notifyTelegram(msg);
+
             Swal.fire({
                 title: 'အော်ဒါတင်ပြီးပါပြီ!',
                 icon: 'success',
