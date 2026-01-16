@@ -5,7 +5,6 @@ import {
 import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { notifyTelegram } from './telegram.js';
 
-// --- 0. Setup ---
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzoqWIjISI8MrzFYu-B7CBldle8xuo-B5jNQtCRsqHLOaLPEPelYX84W5lRXoB9RhL6uw/exec";
 
 // --- ၁။ Auth & Profile Logic ---
@@ -15,9 +14,7 @@ onAuthStateChanged(auth, (user) => {
         if (nameDisplay) nameDisplay.innerText = user.displayName || "User";
         displayMyOrders(); 
     } else {
-        if (!window.location.pathname.includes('index.html')) {
-            window.location.href = "../index.html";
-        }
+        if (!window.location.pathname.includes('index.html')) window.location.href = "../index.html";
     }
 });
 
@@ -40,16 +37,16 @@ const setupLogout = () => {
 };
 setupLogout();
 
-// --- ၂။ Map & Live Rider Logic ---
+// --- ၂။ Map & Logic Setup ---
 const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 12); 
-window.map = map; // Global scope သို့ပို့ခြင်း
+window.map = map; 
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap'
-}).addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-let pickupMarker, dropoffMarker;
-let pickupCoords = null, dropoffCoords = null;
+let pickupMarker = null; 
+let dropoffMarker = null;
+let pickupCoords = null; 
+let dropoffCoords = null;
 let riderMarkers = {}; 
 
 const riderIcon = L.icon({
@@ -58,56 +55,73 @@ const riderIcon = L.icon({
     iconAnchor: [16, 16]
 });
 
-// --- (က) Customer Location (Initial Blue Dot) ---
-navigator.geolocation.getCurrentPosition((pos) => {
-    const { latitude, longitude } = pos.coords;
-    map.setView([latitude, longitude], 13);
-    
-    L.circleMarker([latitude, longitude], {
-        radius: 8,
-        fillColor: "#2196f3",
-        color: "#fff",
-        weight: 2,
-        opacity: 1,
-        fillOpacity: 1
-    }).addTo(map).bindPopup("သင်၏လက်ရှိတည်နေရာ");
+// လိပ်စာရှာဖွေပေးသည့် Function
+async function fetchAddress(lat, lng) {
+    try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`);
+        const data = await res.json();
+        const addr = data.display_name;
+        document.getElementById('pin-address-display').innerText = `📍 ${addr}`;
+        document.getElementById('pickup-address').value = addr;
+    } catch (e) { console.log("Geocode error"); }
+}
 
-    L.circle([latitude, longitude], {
-        color: '#2196f3',
-        weight: 1,
-        radius: 150,
-        fill: true,
-        fillOpacity: 0.1
-    }).addTo(map);
-}, (err) => console.log("Location access denied"));
+// --- (က) Go To My Location ---
+window.goToMyLocation = function() {
+    if (navigator.geolocation) {
+        const locateBtn = document.querySelector('.locate-btn');
+        if(locateBtn) locateBtn.innerText = "⏳"; 
 
-// --- (ခ) Real-time ONLINE Riders ---
+        navigator.geolocation.getCurrentPosition((position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            map.flyTo([lat, lng], 16);
+            
+            if (!pickupMarker) {
+                pickupMarker = L.marker([lat, lng], { draggable: true }).addTo(map);
+                window.currentMarker = pickupMarker;
+                pickupMarker.on('dragend', () => {
+                    const pos = pickupMarker.getLatLng();
+                    pickupCoords = { lat: pos.lat, lng: pos.lng };
+                    fetchAddress(pos.lat, pos.lng);
+                    calculatePrice();
+                });
+            } else {
+                pickupMarker.setLatLng([lat, lng]);
+            }
+
+            pickupCoords = { lat, lng };
+            fetchAddress(lat, lng);
+            calculatePrice();
+            if(locateBtn) locateBtn.innerText = "🎯";
+        }, (err) => {
+            if(locateBtn) locateBtn.innerText = "🎯";
+            Swal.fire("Error", "GPS ဖွင့်ထားရန် လိုအပ်ပါသည်", "error");
+        }, { enableHighAccuracy: true });
+    }
+};
+
+// --- (ခ) Live Riders ---
 const ridersQuery = query(collection(db, "active_riders"), where("isOnline", "==", true));
 onSnapshot(ridersQuery, (snap) => {
     snap.docChanges().forEach((change) => {
         const data = change.doc.data();
         const id = change.doc.id;
-        
         if (change.type === "added" || change.type === "modified") {
             if (riderMarkers[id]) map.removeLayer(riderMarkers[id]);
             riderMarkers[id] = L.marker([data.lat, data.lng], { icon: riderIcon })
-                .addTo(map)
-                .bindPopup(`🚴 Rider: ${data.name || 'Active'}`);
+                .addTo(map).bindPopup(`<b style="color:#4e342e;">🚴 Rider: ${data.name || 'Active'}</b>`);
         } else if (change.type === "removed") {
-            if (riderMarkers[id]) {
-                map.removeLayer(riderMarkers[id]);
-                delete riderMarkers[id];
-            }
+            if (riderMarkers[id]) { map.removeLayer(riderMarkers[id]); delete riderMarkers[id]; }
         }
     });
 });
 
-// --- (ဂ) Update Pickup/Dropoff Location From Dropdown ---
+// --- (ဂ) Update From Dropdown ---
 window.updateLocation = function(type) {
     const select = document.getElementById(`${type}-township`);
-    if (!select) return;
-    const option = select.options[select.selectedIndex];
-    if (!option || !option.value) return;
+    const option = select?.options[select.selectedIndex];
+    if (!option?.value) return;
 
     const lat = parseFloat(option.getAttribute('data-lat'));
     const lng = parseFloat(option.getAttribute('data-lng'));
@@ -117,18 +131,18 @@ window.updateLocation = function(type) {
         if (pickupMarker) map.removeLayer(pickupMarker);
         pickupMarker = L.marker([lat, lng], { draggable: true }).addTo(map);
         window.currentMarker = pickupMarker;
-        
-        pickupMarker.on('dragend', function() {
+        fetchAddress(lat, lng);
+        pickupMarker.on('dragend', () => {
             const pos = pickupMarker.getLatLng();
             pickupCoords = { lat: pos.lat, lng: pos.lng };
+            fetchAddress(pos.lat, pos.lng);
             calculatePrice();
         });
     } else {
         dropoffCoords = { lat, lng };
         if (dropoffMarker) map.removeLayer(dropoffMarker);
         dropoffMarker = L.marker([lat, lng], { draggable: true }).addTo(map);
-        
-        dropoffMarker.on('dragend', function() {
+        dropoffMarker.on('dragend', () => {
             const pos = dropoffMarker.getLatLng();
             dropoffCoords = { lat: pos.lat, lng: pos.lng };
             calculatePrice();
@@ -138,135 +152,78 @@ window.updateLocation = function(type) {
     calculatePrice();
 };
 
-// Event Listeners for Township Selects
 document.addEventListener('change', (e) => {
     if (e.target.id === 'pickup-township') window.updateLocation('pickup');
     if (e.target.id === 'dropoff-township') window.updateLocation('dropoff');
 });
 
-// Map click functionality
 map.on('click', (e) => {
     if (!pickupCoords) {
         pickupCoords = { lat: e.latlng.lat, lng: e.latlng.lng };
         pickupMarker = L.marker(e.latlng, { draggable: true }).addTo(map);
         window.currentMarker = pickupMarker;
+        fetchAddress(e.latlng.lat, e.latlng.lng);
         calculatePrice();
     }
 });
 
-// --- (ဃ) Go To My Location Function ---
-window.goToMyLocation = function() {
-    if (navigator.geolocation) {
-        const locateBtn = document.querySelector('.locate-btn');
-        if(locateBtn) locateBtn.innerText = "⏳"; 
-
-        navigator.geolocation.getCurrentPosition((position) => {
-            const lat = position.coords.latitude;
-            const lng = position.coords.longitude;
-            
-            if(window.map) {
-                window.map.flyTo([lat, lng], 16);
-                if (!pickupMarker) {
-                    pickupMarker = L.marker([lat, lng], { draggable: true }).addTo(window.map);
-                    window.currentMarker = pickupMarker;
-                } else {
-                    pickupMarker.setLatLng([lat, lng]);
-                }
-                pickupCoords = { lat, lng };
-                calculatePrice();
-                if(locateBtn) locateBtn.innerText = "🎯";
-            }
-        }, (error) => {
-            if(locateBtn) locateBtn.innerText = "🎯";
-            Swal.fire("Error", "တည်နေရာရှာမတွေ့ပါ", "error");
-        }, { enableHighAccuracy: true });
-    }
-};
-
-// --- ၃။ Auto Pricing Logic ---
+// --- ၃။ Auto Pricing ---
 function calculatePrice() {
     if (pickupCoords && dropoffCoords) {
         const p1 = L.latLng(pickupCoords.lat, pickupCoords.lng);
         const p2 = L.latLng(dropoffCoords.lat, dropoffCoords.lng);
         const dist = (p1.distanceTo(p2) / 1000).toFixed(2); 
+        const weight = parseFloat(document.getElementById('item-weight')?.value) || 0;
+        const itemValue = parseFloat(document.getElementById('item-value')?.value) || 0;
         
-        const weightInput = document.getElementById('item-weight');
-        const valueInput = document.getElementById('item-value');
-        
-        const weight = weightInput ? parseFloat(weightInput.value) || 0 : 0;
-        const itemValue = valueInput ? parseFloat(valueInput.value) || 0 : 0;
-
         const weightExtra = weight > 5 ? (weight - 5) * 200 : 0;
         const total = Math.round(1500 + (dist * 500) + weightExtra + (itemValue > 50000 ? itemValue * 0.01 : 0));
         
         const btn = document.getElementById('placeOrderBtn');
-        if (btn) {
-            btn.innerText = `ORDER NOW - ${total.toLocaleString()} KS (${dist} km)`;
-        }
+        if (btn) btn.innerText = `ORDER NOW - ${total.toLocaleString()} KS (${dist} km)`;
         return { dist, total };
     }
     return null;
 }
 
 ['item-weight', 'item-value'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.oninput = calculatePrice;
+    document.getElementById(id)?.addEventListener('input', calculatePrice);
 });
 
-// --- ၄။ My Orders Logic ---
+// --- ၄။ My Orders ---
 function displayMyOrders() {
     const listDiv = document.getElementById('orders-list');
     if (!listDiv || !auth.currentUser) return;
-
     const q = query(collection(db, "orders"), where("userId", "==", auth.currentUser.uid));
     onSnapshot(q, (snap) => {
         listDiv.innerHTML = snap.empty ? "<p style='text-align:center; color:#888; margin-top:30px;'>မှတ်တမ်းမရှိသေးပါ</p>" : "";
         snap.forEach((orderDoc) => {
             const order = orderDoc.data();
-            const id = orderDoc.id;
             if (order.customerHide) return;
-
             const card = document.createElement('div');
             card.className = "order-card";
             card.innerHTML = `
-                <div onclick="window.location.href='track.html?id=${id}'" style="flex-grow:1;">
-                    <b style="color: var(--primary);">📦 ${order.item || 'Parcel'}</b><br>
-                    <span class="status-pill status-${order.status || 'pending'}">${(order.status || 'pending').toUpperCase()}</span><br>
-                    <span style="font-size: 0.8rem; font-weight:bold;">${(order.deliveryFee || 0).toLocaleString()} KS</span>
+                <div onclick="window.location.href='track.html?id=${orderDoc.id}'" style="flex-grow:1;">
+                    <b style="color:var(--primary);">📦 ${order.item}</b><br>
+                    <span style="font-size:0.7rem; color:gray;">${order.status.toUpperCase()}</span><br>
+                    <b>${(order.deliveryFee || 0).toLocaleString()} KS</b>
                 </div>
-                <div style="display: flex; align-items: center; gap: 15px;">
-                    <span id="del-btn-${id}" style="color: var(--danger); font-size: 1.2rem; cursor: pointer; padding: 10px;">🗑️</span>
-                </div>`;
+                <span id="del-btn-${orderDoc.id}" style="color:red; font-size:1.2rem; cursor:pointer;">🗑️</span>`;
             listDiv.appendChild(card);
-
-            const delBtn = document.getElementById(`del-btn-${id}`);
-            if (delBtn) {
-                delBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    window.deleteOrderPermanently(id);
-                };
-            }
+            document.getElementById(`del-btn-${orderDoc.id}`).onclick = (e) => {
+                e.stopPropagation();
+                window.deleteOrderPermanently(orderDoc.id);
+            };
         });
     });
 }
 
 window.deleteOrderPermanently = async (id) => {
-    const result = await Swal.fire({
-        title: 'ဖယ်ထုတ်မလား?',
-        text: 'ဤအော်ဒါမှတ်တမ်းကို စာရင်းမှ ဖယ်ထုတ်ပါလိမ့်မည်။',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#4e342e',
-        cancelButtonColor: '#d33'
-    });
-    if (result.isConfirmed) {
-        try {
-            await updateDoc(doc(db, "orders", id), { customerHide: true });
-        } catch (err) { console.error("Delete Error:", err); }
-    }
+    const res = await Swal.fire({ title: 'ဖယ်ထုတ်မလား?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#4e342e' });
+    if (res.isConfirmed) await updateDoc(doc(db, "orders", id), { customerHide: true });
 };
 
-// --- ၅။ Submit Order ---
+// --- ၅။ Submit Order (Telegram format အပြည့်စုံဖြင့်) ---
 const placeOrderBtn = document.getElementById('placeOrderBtn');
 if (placeOrderBtn) {
     placeOrderBtn.onclick = async () => {
@@ -276,13 +233,10 @@ if (placeOrderBtn) {
             const phone = document.getElementById('receiver-phone')?.value;
             const weight = document.getElementById('item-weight')?.value || 0;
             const itemValue = document.getElementById('item-value')?.value || 0;
-            const payment = document.getElementById('payment-method')?.value;
             const pAddr = document.getElementById('pickup-address')?.value;
             const dAddr = document.getElementById('dropoff-address')?.value;
-            const pickupSelect = document.getElementById('pickup-township');
-            const dropoffSelect = document.getElementById('dropoff-township');
 
-            if (!feeInfo || !item || !phone || !pAddr || !dAddr || !pickupCoords || !dropoffCoords) {
+            if (!feeInfo || !item || !phone || !pAddr || !dAddr) {
                 Swal.fire({ icon: 'error', title: 'အချက်အလက်မစုံလင်ပါ', text: 'ကျေးဇူးပြု၍ နေရာနှင့် အချက်အလက်များ အကုန်ဖြည့်ပါ။' });
                 return;
             }
@@ -290,42 +244,21 @@ if (placeOrderBtn) {
             placeOrderBtn.disabled = true;
             placeOrderBtn.innerText = "Processing...";
 
-            const pTown = pickupSelect.options[pickupSelect.selectedIndex].text;
-            const dTown = dropoffSelect.options[dropoffSelect.selectedIndex].text;
             const customerName = auth.currentUser?.displayName || "Customer";
-
             const orderData = {
                 userId: auth.currentUser.uid,
                 customerName: customerName,
-                pickup: { ...pickupCoords, address: `${pTown}, ${pAddr}` },
-                dropoff: { ...dropoffCoords, address: `${dTown}, ${dAddr}` },
-                item: item, 
-                weight: weight, 
-                itemValue: itemValue, 
-                phone: phone,
-                paymentMethod: payment === "COD" ? "Cash on Delivery" : "Cash at Pickup",
-                deliveryFee: feeInfo.total, 
-                status: "pending", 
-                customerHide: false, 
-                createdAt: serverTimestamp()
+                pickup: { ...pickupCoords, address: pAddr },
+                dropoff: { ...dropoffCoords, address: dAddr },
+                item, weight, itemValue, phone,
+                paymentMethod: document.getElementById('payment-method').value,
+                deliveryFee: feeInfo.total, status: "pending", createdAt: serverTimestamp()
             };
 
             const docRef = await addDoc(collection(db, "orders"), orderData);
-            const orderId = docRef.id;
+            const trackUrl = `https://boexaw-ship-it.github.io/gobike/html/track.html?id=${docRef.id}`;
 
-            // Log to Sheets
-            fetch(SCRIPT_URL, {
-                method: "POST", mode: "no-cors",
-                body: JSON.stringify({
-                    action: "create", orderId, item, weight: weight + " kg",
-                    price: itemValue + " KS", deliveryFee: feeInfo.total,
-                    payment: orderData.paymentMethod, phone, address: orderData.dropoff.address,
-                    customerName, riderName: "-" 
-                })
-            }).catch(e => console.log("Sheet Error:", e));
-
-            // Notify Telegram
-            const trackUrl = `https://boexaw-ship-it.github.io/gobike/html/track.html?id=${orderId}`;
+            // --- Telegram Message Format အတိအကျ ---
             const msg = `📦 <b>New Order Received!</b>\n` +
             `━━━━━━━━━━━━━━━━━━\n` +
             `👤 Customer: <b>${customerName}</b>\n` +
@@ -340,17 +273,16 @@ if (placeOrderBtn) {
 
             await notifyTelegram(msg);
 
-            await Swal.fire({
-                title: 'အော်ဒါတင်ပြီးပါပြီ!',
-                text: 'Rider ကို အကြောင်းကြားထားပါသည်။',
-                icon: 'success',
-                confirmButtonColor: '#4e342e'
-            });
-            
-            window.location.href = `track.html?id=${orderId}`;
+            // Sheet Sync
+            fetch(SCRIPT_URL, {
+                method: "POST", mode: "no-cors",
+                body: JSON.stringify({ action: "create", orderId: docRef.id, ...orderData, deliveryFee: feeInfo.total })
+            }).catch(e => console.log("Sheet error"));
+
+            await Swal.fire({ title: 'အော်ဒါတင်ပြီးပါပြီ!', icon: 'success', confirmButtonColor: '#4e342e' });
+            window.location.href = `track.html?id=${docRef.id}`;
 
         } catch (e) {
-            console.error("Submission Error:", e);
             placeOrderBtn.disabled = false;
             placeOrderBtn.innerText = "ORDER NOW";
             Swal.fire({ icon: 'error', title: 'Error', text: e.message });
