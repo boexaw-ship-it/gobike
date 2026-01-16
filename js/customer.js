@@ -5,16 +5,14 @@ import {
 import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { notifyTelegram } from './telegram.js';
 
-// --- 0. Google Apps Script URL ---
+// --- 0. Setup ---
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzoqWIjISI8MrzFYu-B7CBldle8xuo-B5jNQtCRsqHLOaLPEPelYX84W5lRXoB9RhL6uw/exec";
 
 // --- ၁။ Auth & Profile Logic ---
 onAuthStateChanged(auth, (user) => {
     const nameDisplay = document.getElementById('display-name');
-    const roleDisplay = document.getElementById('display-role');
     if (user) {
         if (nameDisplay) nameDisplay.innerText = user.displayName || "User";
-        if (roleDisplay) roleDisplay.innerText = "Customer Account";
         displayMyOrders(); 
     } else {
         if (!window.location.pathname.includes('index.html')) {
@@ -23,7 +21,6 @@ onAuthStateChanged(auth, (user) => {
     }
 });
 
-// Logout Logic
 const setupLogout = () => {
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
@@ -33,30 +30,53 @@ const setupLogout = () => {
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#ffcc00',
-                cancelButtonColor: '#d33',
                 confirmButtonText: 'ထွက်မည်',
                 cancelButtonText: 'မထွက်တော့ပါ',
-                background: '#1a1a1a',
-                color: '#ffffff'
+                background: '#1a1a1a', color: '#ffffff'
             }).then(async (result) => {
-                if (result.isConfirmed) {
-                    await signOut(auth);
-                }
+                if (result.isConfirmed) await signOut(auth);
             });
         };
     }
 };
 setupLogout();
 
-// --- ၂။ Map Setup ---
+// --- ၂။ Map & Live Rider Logic ---
 const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 12); 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 let pickupMarker, dropoffMarker;
 let pickupCoords = null, dropoffCoords = null;
+let riderMarkers = {}; 
 
-const pickupSelect = document.getElementById('pickup-township');
-const dropoffSelect = document.getElementById('dropoff-township');
+const riderIcon = L.icon({
+    iconUrl: 'https://cdn-icons-png.flaticon.com/512/3198/3198336.png',
+    iconSize: [32, 32],
+    iconAnchor: [16, 16]
+});
+
+navigator.geolocation.getCurrentPosition((pos) => {
+    const { latitude, longitude } = pos.coords;
+    map.setView([latitude, longitude], 13);
+}, (err) => console.log("Location access denied"));
+
+onSnapshot(collection(db, "active_riders"), (snap) => {
+    snap.docChanges().forEach((change) => {
+        const data = change.doc.data();
+        const id = change.doc.id;
+        if (change.type === "added" || change.type === "modified") {
+            if (riderMarkers[id]) map.removeLayer(riderMarkers[id]);
+            riderMarkers[id] = L.marker([data.lat, data.lng], { icon: riderIcon })
+                .addTo(map)
+                .bindPopup(`🚴 Rider: ${data.name || 'Active'}`);
+        } else if (change.type === "removed") {
+            if (riderMarkers[id]) {
+                map.removeLayer(riderMarkers[id]);
+                delete riderMarkers[id];
+            }
+        }
+    });
+});
 
 window.updateLocation = function(type) {
     const select = document.getElementById(`${type}-township`);
@@ -80,6 +100,8 @@ window.updateLocation = function(type) {
     calculatePrice();
 };
 
+const pickupSelect = document.getElementById('pickup-township');
+const dropoffSelect = document.getElementById('dropoff-township');
 if (pickupSelect) pickupSelect.onchange = () => window.updateLocation('pickup');
 if (dropoffSelect) dropoffSelect.onchange = () => window.updateLocation('dropoff');
 
@@ -89,10 +111,13 @@ function calculatePrice() {
         const p1 = L.latLng(pickupCoords.lat, pickupCoords.lng);
         const p2 = L.latLng(dropoffCoords.lat, dropoffCoords.lng);
         const dist = (p1.distanceTo(p2) / 1000).toFixed(2); 
+        
         const weight = parseFloat(document.getElementById('item-weight').value) || 0;
         const itemValue = parseFloat(document.getElementById('item-value').value) || 0;
 
-        const total = Math.round(1500 + (dist * 500) + (weight > 5 ? (weight - 5) * 200 : 0) + (itemValue > 50000 ? itemValue * 0.01 : 0));
+        const weightExtra = weight > 5 ? (weight - 5) * 200 : 0;
+        const total = Math.round(1500 + (dist * 500) + weightExtra + (itemValue > 50000 ? itemValue * 0.01 : 0));
+        
         const btn = document.getElementById('placeOrderBtn');
         if (btn) btn.innerText = `ORDER NOW - ${total.toLocaleString()} KS (${dist} km)`;
         return { dist, total };
@@ -125,7 +150,6 @@ function displayMyOrders() {
                     <span style="font-size: 0.7rem; color: #ffcc00;">${order.deliveryFee.toLocaleString()} KS</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <span style="color:#ffcc00; font-size: 1.2rem;" onclick="window.location.href='track.html?id=${id}'">📍</span>
                     <span id="del-btn-${id}" style="color: #ff4444; font-size: 1.1rem; cursor: pointer;">🗑️</span>
                 </div>`;
             listDiv.appendChild(card);
@@ -138,78 +162,35 @@ function displayMyOrders() {
     });
 }
 
-// --- ၅။ Rider Accept & Delete Logic ---
-window.acceptRiderFromCustomer = async (orderId, riderId, riderName) => {
-    try {
-        const orderRef = doc(db, "orders", orderId);
-        const orderSnap = await getDoc(orderRef);
-        if (!orderSnap.exists()) return;
-        const currentOrderData = orderSnap.data();
-
-        const scheduleType = currentOrderData.pickupSchedule || "now";
-        const isTomorrow = scheduleType === "tomorrow";
-
-        await updateDoc(orderRef, {
-            status: "accepted",
-            riderId: riderId,
-            riderName: riderName,
-            pickupSchedule: scheduleType,
-            tempRiderId: null,
-            confirmedAt: serverTimestamp()
-        });
-
-        Swal.fire({
-            title: isTomorrow ? 'မနက်ဖြန်အတွက် အတည်ပြုပြီး!' : 'Rider လက်ခံပြီးပါပြီ!',
-            text: isTomorrow ? 'အော်ဒါသည် Rider ၏ မနက်ဖြန်စာရင်းတွင် ဆက်ရှိနေပါမည်။' : 'Rider ပစ္စည်းလာယူပါလိမ့်မည်။',
-            icon: 'success',
-            background: '#1a1a1a', color: '#fff'
-        });
-
-        fetch(SCRIPT_URL, {
-            method: "POST", mode: "no-cors",
-            body: JSON.stringify({ action: "update", orderId, status: "Accepted", riderName })
-        });
-
-        await notifyTelegram(`✅ <b>Rider Confirmed!</b>\n📝 ပစ္စည်း: ${currentOrderData.item}\n📅 Schedule: <b>${isTomorrow ? 'Tomorrow' : 'Now'}</b>\n🚴 Rider: <b>${riderName}</b>`);
-
-    } catch (e) {
-        console.error("Error:", e);
-        Swal.fire({ icon: 'error', title: 'Error', text: 'လုပ်ဆောင်ချက် မအောင်မြင်ပါ။' });
-    }
-};
-
 window.deleteOrderPermanently = async (id) => {
-    Swal.fire({
+    const result = await Swal.fire({
         title: 'ဖယ်ထုတ်မလား?',
         text: 'ဤအော်ဒါမှတ်တမ်းကို Dashboard မှ ဖယ်ထုတ်ပါလိမ့်မည်။',
         icon: 'question',
         showCancelButton: true,
         confirmButtonColor: '#ffcc00',
-        confirmButtonText: 'ဖယ်မည်',
-        cancelButtonText: 'မဖယ်ပါ',
         background: '#1a1a1a', color: '#fff'
-    }).then(async (result) => {
-        if (result.isConfirmed) {
-            await updateDoc(doc(db, "orders", id), { customerHide: true });
-        }
     });
+    if (result.isConfirmed) {
+        await updateDoc(doc(db, "orders", id), { customerHide: true });
+    }
 };
 
-// --- ၆။ Submit Order (Tracking ကို တန်းပို့သည့် Logic ပါဝင်သည်) ---
+// --- ၅။ Submit Order (Telegram Message တွင် KG နှင့် တန်ဖိုး ဖြည့်စွက်ထားသည်) ---
 const placeOrderBtn = document.getElementById('placeOrderBtn');
 if (placeOrderBtn) {
     placeOrderBtn.onclick = async () => {
         const feeInfo = calculatePrice();
         const item = document.getElementById('item-detail').value;
         const phone = document.getElementById('receiver-phone').value;
-        const weight = document.getElementById('item-weight').value;
-        const itemValue = document.getElementById('item-value').value;
+        const weight = document.getElementById('item-weight').value || 0;
+        const itemValue = document.getElementById('item-value').value || 0;
         const payment = document.getElementById('payment-method').value;
         const pAddr = document.getElementById('pickup-address').value;
         const dAddr = document.getElementById('dropoff-address').value;
 
         if (!feeInfo || !item || !phone || !pAddr || !dAddr || !pickupCoords || !dropoffCoords) {
-            Swal.fire({ icon: 'error', title: 'အချက်အလက်မစုံလင်ပါ', text: 'မြို့နယ်နှင့် လိပ်စာအပြည့်အစုံ ဖြည့်ပေးပါ', background: '#1a1a1a', color: '#fff' });
+            Swal.fire({ icon: 'error', title: 'အချက်အလက်မစုံလင်ပါ', background: '#1a1a1a', color: '#fff' });
             return;
         }
 
@@ -233,7 +214,7 @@ if (placeOrderBtn) {
             const docRef = await addDoc(collection(db, "orders"), orderData);
             const orderId = docRef.id;
 
-            // Google Sheet & Telegram Notifications
+            // Google Sheet
             fetch(SCRIPT_URL, {
                 method: "POST", mode: "no-cors",
                 body: JSON.stringify({
@@ -244,11 +225,14 @@ if (placeOrderBtn) {
                 })
             });
 
+            // Telegram Message (Weight နှင့် Value ဖြည့်စွက်ထားသည်)
             const trackUrl = `https://boexaw-ship-it.github.io/gobike/html/track.html?id=${orderId}`;
             const msg = `📦 <b>New Order Received!</b>\n` +
                         `━━━━━━━━━━━━━━━━━━\n` +
                         `👤 Customer: <b>${customerName}</b>\n` +
                         `📝 ပစ္စည်း: <b>${item}</b>\n` +
+                        `⚖️ အလေးချိန်: <b>${weight} KG</b>\n` +
+                        `💰 တန်ဖိုး: <b>${parseFloat(itemValue).toLocaleString()} KS</b>\n` +
                         `💵 <b>ပို့ခ: ${feeInfo.total.toLocaleString()} KS</b>\n` +
                         `📍 ယူရန်: ${orderData.pickup.address}\n` +
                         `🏁 ပို့ရန်: ${orderData.dropoff.address}\n\n` +
@@ -256,24 +240,19 @@ if (placeOrderBtn) {
 
             await notifyTelegram(msg);
 
-            // Success Alert ပြပြီး Tracking Page သို့ တန်းပို့ခြင်း
             Swal.fire({
                 title: 'အော်ဒါတင်ပြီးပါပြီ!',
-                text: 'သင့်အော်ဒါကို ခြေရာခံနိုင်ရန် Tracking Page သို့ ပို့ပေးပါမည်။',
                 icon: 'success',
                 confirmButtonColor: '#ffcc00',
-                confirmButtonText: 'အိုကေ',
                 background: '#1a1a1a', color: '#fff'
             }).then(() => {
-                // Tracking Page ကို တန်းပို့လိုက်ပါပြီ။
-                // ဤနေရာတွင် href သုံးခြင်းဖြင့် History list ထဲမှာ customer.html အလိုအလျောက်ရှိနေပါမည်။
                 window.location.href = `track.html?id=${orderId}`;
             });
 
         } catch (e) {
             placeOrderBtn.disabled = false;
             placeOrderBtn.innerText = "ORDER NOW";
-            Swal.fire({ icon: 'error', title: 'Error', text: e.message, background: '#1a1a1a', color: '#fff' });
+            Swal.fire({ icon: 'error', title: 'Error', text: e.message });
         }
     };
 }
