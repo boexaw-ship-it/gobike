@@ -29,10 +29,9 @@ const setupLogout = () => {
                 title: 'အကောင့်မှ ထွက်မလား?',
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonColor: '#ffcc00',
+                confirmButtonColor: '#4e342e',
                 confirmButtonText: 'ထွက်မည်',
                 cancelButtonText: 'မထွက်တော့ပါ',
-                background: '#1a1a1a', color: '#ffffff'
             }).then(async (result) => {
                 if (result.isConfirmed) await signOut(auth);
             });
@@ -43,7 +42,11 @@ setupLogout();
 
 // --- ၂။ Map & Live Rider Logic ---
 const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 12); 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+window.map = map; // Global scope သို့ပို့ခြင်း (HTML မှ ခေါ်သုံးနိုင်ရန်)
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+}).addTo(map);
 
 let pickupMarker, dropoffMarker;
 let pickupCoords = null, dropoffCoords = null;
@@ -55,12 +58,11 @@ const riderIcon = L.icon({
     iconAnchor: [16, 16]
 });
 
-// --- (က) Customer Location (Blue Dot Display Only) ---
+// --- (က) Customer Location (Blue Dot) ---
 navigator.geolocation.getCurrentPosition((pos) => {
     const { latitude, longitude } = pos.coords;
     map.setView([latitude, longitude], 13);
     
-    // Customer လက်ရှိနေရာကို Blue Dot ဖြင့်သာပြခြင်း
     L.circleMarker([latitude, longitude], {
         radius: 8,
         fillColor: "#2196f3",
@@ -114,6 +116,8 @@ window.updateLocation = function(type) {
         pickupCoords = { lat, lng };
         if (pickupMarker) map.removeLayer(pickupMarker);
         pickupMarker = L.marker([lat, lng], { draggable: true }).addTo(map);
+        window.currentMarker = pickupMarker; // My Location button အတွက်
+        
         pickupMarker.on('dragend', function() {
             const pos = pickupMarker.getLatLng();
             pickupCoords = { lat: pos.lat, lng: pos.lng };
@@ -123,6 +127,7 @@ window.updateLocation = function(type) {
         dropoffCoords = { lat, lng };
         if (dropoffMarker) map.removeLayer(dropoffMarker);
         dropoffMarker = L.marker([lat, lng], { draggable: true }).addTo(map);
+        
         dropoffMarker.on('dragend', function() {
             const pos = dropoffMarker.getLatLng();
             dropoffCoords = { lat: pos.lat, lng: pos.lng };
@@ -133,16 +138,18 @@ window.updateLocation = function(type) {
     calculatePrice();
 };
 
-const pickupSelect = document.getElementById('pickup-township');
-const dropoffSelect = document.getElementById('dropoff-township');
-if (pickupSelect) pickupSelect.onchange = () => window.updateLocation('pickup');
-if (dropoffSelect) dropoffSelect.onchange = () => window.updateLocation('dropoff');
+// Event Listeners for Township Selects
+document.addEventListener('change', (e) => {
+    if (e.target.id === 'pickup-township') window.updateLocation('pickup');
+    if (e.target.id === 'dropoff-township') window.updateLocation('dropoff');
+});
 
-// မြေပုံပေါ်နှိပ်၍ Pickup သတ်မှတ်ခြင်း
+// Map click functionality
 map.on('click', (e) => {
     if (!pickupCoords) {
         pickupCoords = { lat: e.latlng.lat, lng: e.latlng.lng };
         pickupMarker = L.marker(e.latlng, { draggable: true }).addTo(map);
+        window.currentMarker = pickupMarker;
         calculatePrice();
     }
 });
@@ -161,19 +168,23 @@ function calculatePrice() {
         const itemValue = valueInput ? parseFloat(valueInput.value) || 0 : 0;
 
         const weightExtra = weight > 5 ? (weight - 5) * 200 : 0;
+        // Base 1500 + 500 per km + weight extra + value insurance (1%)
         const total = Math.round(1500 + (dist * 500) + weightExtra + (itemValue > 50000 ? itemValue * 0.01 : 0));
         
         const btn = document.getElementById('placeOrderBtn');
-        if (btn) btn.innerText = `ORDER NOW - ${total.toLocaleString()} KS (${dist} km)`;
+        if (btn) {
+            btn.innerText = `ORDER NOW - ${total.toLocaleString()} KS (${dist} km)`;
+        }
         return { dist, total };
     }
     return null;
 }
 
-const weightEl = document.getElementById('item-weight');
-const valueEl = document.getElementById('item-value');
-if (weightEl) weightEl.oninput = calculatePrice;
-if (valueEl) valueEl.oninput = calculatePrice;
+// Input change listeners for price
+['item-weight', 'item-value'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.oninput = calculatePrice;
+});
 
 // --- ၄။ My Orders Logic ---
 function displayMyOrders() {
@@ -182,7 +193,7 @@ function displayMyOrders() {
 
     const q = query(collection(db, "orders"), where("userId", "==", auth.currentUser.uid));
     onSnapshot(q, (snap) => {
-        listDiv.innerHTML = snap.empty ? "<p style='text-align:center; color:#888; font-size:0.8rem;'>မှတ်တမ်းမရှိသေးပါ</p>" : "";
+        listDiv.innerHTML = snap.empty ? "<p style='text-align:center; color:#888; margin-top:30px;'>မှတ်တမ်းမရှိသေးပါ</p>" : "";
         snap.forEach((orderDoc) => {
             const order = orderDoc.data();
             const id = orderDoc.id;
@@ -190,15 +201,14 @@ function displayMyOrders() {
 
             const card = document.createElement('div');
             card.className = "order-card";
-            card.style = `cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 12px; margin-bottom: 10px; background: #2a2a2a; border-radius: 12px; border-left: 5px solid ${order.status === 'completed' ? '#00ff00' : '#ffcc00'}; border: 1px solid #444;`;
             card.innerHTML = `
                 <div onclick="window.location.href='track.html?id=${id}'" style="flex-grow:1;">
-                    <b style="color: #fff;">📦 ${order.item || 'Parcel'}</b><br>
-                    <span style="font-size: 0.75rem; color: #aaa;">Status: ${(order.status || 'pending').toUpperCase()}</span><br>
-                    <span style="font-size: 0.7rem; color: #ffcc00;">${(order.deliveryFee || 0).toLocaleString()} KS</span>
+                    <b style="color: var(--primary);">📦 ${order.item || 'Parcel'}</b><br>
+                    <span class="status-pill status-${order.status || 'pending'}">${(order.status || 'pending').toUpperCase()}</span><br>
+                    <span style="font-size: 0.8rem; font-weight:bold;">${(order.deliveryFee || 0).toLocaleString()} KS</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <span id="del-btn-${id}" style="color: #ff4444; font-size: 1.1rem; cursor: pointer;">🗑️</span>
+                    <span id="del-btn-${id}" style="color: var(--danger); font-size: 1.2rem; cursor: pointer; padding: 10px;">🗑️</span>
                 </div>`;
             listDiv.appendChild(card);
 
@@ -216,11 +226,11 @@ function displayMyOrders() {
 window.deleteOrderPermanently = async (id) => {
     const result = await Swal.fire({
         title: 'ဖယ်ထုတ်မလား?',
-        text: 'ဤအော်ဒါမှတ်တမ်းကို Dashboard မှ ဖယ်ထုတ်ပါလိမ့်မည်။',
+        text: 'ဤအော်ဒါမှတ်တမ်းကို စာရင်းမှ ဖယ်ထုတ်ပါလိမ့်မည်။',
         icon: 'question',
         showCancelButton: true,
-        confirmButtonColor: '#ffcc00',
-        background: '#1a1a1a', color: '#fff'
+        confirmButtonColor: '#4e342e',
+        cancelButtonColor: '#d33'
     });
     if (result.isConfirmed) {
         try {
@@ -242,9 +252,11 @@ if (placeOrderBtn) {
             const payment = document.getElementById('payment-method')?.value;
             const pAddr = document.getElementById('pickup-address')?.value;
             const dAddr = document.getElementById('dropoff-address')?.value;
+            const pickupSelect = document.getElementById('pickup-township');
+            const dropoffSelect = document.getElementById('dropoff-township');
 
             if (!feeInfo || !item || !phone || !pAddr || !dAddr || !pickupCoords || !dropoffCoords) {
-                Swal.fire({ icon: 'error', title: 'အချက်အလက်မစုံလင်ပါ', text: 'ကျေးဇူးပြု၍ နေရာနှင့် အချက်အလက်များ အကုန်ဖြည့်ပါ။', background: '#1a1a1a', color: '#fff' });
+                Swal.fire({ icon: 'error', title: 'အချက်အလက်မစုံလင်ပါ', text: 'ကျေးဇူးပြု၍ နေရာနှင့် အချက်အလက်များ အကုန်ဖြည့်ပါ။' });
                 return;
             }
 
@@ -305,8 +317,7 @@ if (placeOrderBtn) {
                 title: 'အော်ဒါတင်ပြီးပါပြီ!',
                 text: 'Rider ကို အကြောင်းကြားထားပါသည်။',
                 icon: 'success',
-                confirmButtonColor: '#ffcc00',
-                background: '#1a1a1a', color: '#fff'
+                confirmButtonColor: '#4e342e'
             });
             
             window.location.href = `track.html?id=${orderId}`;
@@ -315,7 +326,7 @@ if (placeOrderBtn) {
             console.error("Submission Error:", e);
             placeOrderBtn.disabled = false;
             placeOrderBtn.innerText = "ORDER NOW";
-            Swal.fire({ icon: 'error', title: 'Error', text: e.message, background: '#1a1a1a', color: '#fff' });
+            Swal.fire({ icon: 'error', title: 'Error', text: e.message });
         }
     };
 }
