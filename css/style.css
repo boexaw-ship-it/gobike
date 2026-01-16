@@ -1,139 +1,149 @@
-/* --- Root Variables --- */
-:root {
-    --primary-color: #ffcc00; /* GoBike Yellow */
-    --secondary-color: #333;
-    --bg-color: #f8f9fa;
-    --card-bg: #ffffff;
-    --text-color: #2d3436;
-    --input-border: #dfe6e9;
-    --shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-}
-
-/* --- Base Styles --- */
+/* --- Global Styles --- */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-body {
-    background-color: var(--bg-color);
-    height: 100vh;
+body.dark-theme {
+    background: #2b1d1a; /* Very Dark Brown Background */
     display: flex;
     justify-content: center;
     align-items: center;
+    min-height: 100vh;
     padding: 20px;
 }
 
-/* --- Auth Box --- */
+/* --- Auth Box Container --- */
 .auth-box {
-    background: var(--card-bg);
+    background: #3e2723; /* Medium Dark Brown */
     width: 100%;
-    max-width: 420px;
-    padding: 40px 30px;
+    max-width: 400px;
+    padding: 35px 25px;
     border-radius: 24px;
-    box-shadow: var(--shadow);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
     text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.logo-container img {
-    width: 70px;
-    margin-bottom: 10px;
-}
-
+/* --- Logo & Header --- */
 .logo-container h1 {
-    font-size: 24px;
-    color: var(--secondary-color);
-    font-weight: 800;
+    color: #ffc107; /* Gold/Yellow */
+    font-size: 2.2rem;
+    margin-top: 10px;
+    letter-spacing: 1px;
 }
 
 .logo-container p {
-    font-size: 13px;
-    color: #888;
+    color: #bcaaa4; /* Light Brown Text */
+    font-size: 0.9rem;
     margin-bottom: 30px;
+}
+
+.logo-bg {
+    background: #ffc107;
+    width: 80px;
+    height: 80px;
+    margin: 0 auto;
+    border-radius: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 8px 20px rgba(255, 193, 7, 0.3);
+}
+
+.logo {
+    width: 50px;
+    height: 50px;
 }
 
 /* --- Tabs --- */
 .tabs {
     display: flex;
-    background: #f1f2f6;
-    padding: 6px;
-    border-radius: 14px;
-    margin-bottom: 30px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 5px;
+    border-radius: 12px;
+    margin-bottom: 25px;
 }
 
 .tabs button {
     flex: 1;
-    padding: 12px;
+    padding: 10px;
     border: none;
     background: transparent;
-    font-weight: 600;
-    color: #747d8c;
+    color: #bcaaa4;
+    font-weight: bold;
     cursor: pointer;
+    border-radius: 8px;
     transition: 0.3s;
-    border-radius: 10px;
 }
 
 .tabs button.active {
-    background: #fff;
-    color: var(--secondary-color);
-    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    background: #4e342e;
+    color: #ffc107;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
-/* --- Forms & Inputs --- */
+/* --- Form Elements --- */
+.form-container {
+    width: 100%;
+}
+
 .input-group {
     margin-bottom: 15px;
 }
 
-input, select {
+.input-group input, 
+.input-group select {
     width: 100%;
     padding: 14px 18px;
-    border: 1.5px solid var(--input-border);
     border-radius: 12px;
-    font-size: 14px;
+    border: 1px solid #5d4037;
+    background: #4e342e;
+    color: #fff;
+    font-size: 1rem;
     outline: none;
     transition: 0.3s;
-    background: #fdfdfd;
 }
 
-input:focus, select:focus {
-    border-color: var(--primary-color);
-    background: #fff;
+.input-group input:focus {
+    border-color: #ffc107;
+    background: #5d4037;
+}
+
+.input-group input::placeholder {
+    color: #a1887f;
 }
 
 /* --- Buttons --- */
 .main-btn {
     width: 100%;
     padding: 15px;
-    background: var(--primary-color);
-    border: none;
     border-radius: 12px;
-    font-size: 16px;
-    font-weight: 700;
-    color: #000;
+    border: none;
+    background: #ffc107;
+    color: #3e2723;
+    font-size: 1.1rem;
+    font-weight: bold;
     cursor: pointer;
-    transition: 0.3s;
     margin-top: 10px;
+    transition: 0.3s;
+    box-shadow: 0 6px 15px rgba(255, 193, 7, 0.2);
 }
 
 .main-btn:hover {
-    background: #f1c40f;
+    background: #ffca28;
     transform: translateY(-2px);
 }
 
-/* --- Footer --- */
-.footer-links {
-    margin-top: 25px;
-    font-size: 11px;
-    color: #bdc3c7;
+.main-btn:active {
+    transform: translateY(0);
 }
 
-/* --- Mobile Responsive --- */
-@media (max-width: 480px) {
-    .auth-box {
-        box-shadow: none;
-        background: transparent;
-        padding: 20px;
-    }
+/* --- Footer --- */
+.footer-links p {
+    margin-top: 30px;
+    font-size: 0.75rem;
+    color: #6d4c41;
 }
