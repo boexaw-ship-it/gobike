@@ -43,8 +43,9 @@ const setupLogout = () => {
 setupLogout();
 
 // --- ၂။ Map & Live Rider Logic ---
-const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 12); 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+// window.map အဖြစ် သတ်မှတ်ပေးမှ အပြင် HTML က ခေါ်သုံးလို့ရမှာပါ
+window.map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 12); 
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.map);
 
 let pickupMarker = null, dropoffMarker = null;
 let pickupCoords = null, dropoffCoords = null;
@@ -57,25 +58,40 @@ const riderIcon = L.icon({
     popupAnchor: [0, -34]
 });
 
-// (က) Customer လက်ရှိနေရာကို ရှာဖွေခြင်း
+// (က) "My Location" ခလုတ်နှိပ်လျှင် သွားမည့် Function
+window.goToMyLocation = function() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition((pos) => {
+            const { latitude, longitude } = pos.coords;
+            const userLoc = [latitude, longitude];
+            window.map.flyTo(userLoc, 16); // မြေပုံကို ချောမွေ့စွာ ရွှေ့မယ်
+            updatePickupMarker(userLoc);
+            reverseGeocode(latitude, longitude);
+        }, (err) => {
+            Swal.fire("Error", "တည်နေရာကြည့်ရှုခွင့်ကို ခွင့်ပြုပေးပါ", "error");
+        }, { enableHighAccuracy: true });
+    }
+};
+
+// (ခ) Customer စဖွင့်ချင်း လက်ရှိနေရာ ရှာဖွေခြင်း
 function findMyInitialLocation() {
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition((pos) => {
             const { latitude, longitude } = pos.coords;
             const userLoc = [latitude, longitude];
-            map.setView(userLoc, 15);
+            window.map.setView(userLoc, 15);
             updatePickupMarker(userLoc);
             reverseGeocode(latitude, longitude);
-            L.circle(userLoc, { color: '#2196f3', fillColor: '#2196f3', fillOpacity: 0.2, radius: 100 }).addTo(map);
+            L.circle(userLoc, { color: '#2196f3', fillColor: '#2196f3', fillOpacity: 0.2, radius: 100 }).addTo(window.map);
         }, (err) => console.log("Location access denied"));
     }
 }
 
-// (ခ) Pickup Pin Update လုပ်ခြင်း
+// (ဂ) Pickup Pin Update လုပ်ခြင်း
 function updatePickupMarker(latlng) {
     const pos = Array.isArray(latlng) ? { lat: latlng[0], lng: latlng[1] } : latlng;
     if (!pickupMarker) {
-        pickupMarker = L.marker(pos, { draggable: true, zIndexOffset: 1000 }).addTo(map);
+        pickupMarker = L.marker(pos, { draggable: true, zIndexOffset: 1000 }).addTo(window.map);
         pickupMarker.on('dragend', (e) => {
             const newPos = e.target.getLatLng();
             pickupCoords = { lat: newPos.lat, lng: newPos.lng };
@@ -88,13 +104,13 @@ function updatePickupMarker(latlng) {
     pickupCoords = { lat: pos.lat, lng: pos.lng };
 }
 
-map.on('click', (e) => {
+window.map.on('click', (e) => {
     updatePickupMarker(e.latlng);
     reverseGeocode(e.latlng.lat, e.latlng.lng);
     calculatePrice();
 });
 
-// (ဂ) လိပ်စာကို Lat/Lng မှ စာအဖြစ်ပြောင်းခြင်း
+// (ဃ) လိပ်စာကို Lat/Lng မှ စာအဖြစ်ပြောင်းခြင်း
 async function reverseGeocode(lat, lng) {
     try {
         const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`);
@@ -107,31 +123,39 @@ async function reverseGeocode(lat, lng) {
     }
 }
 
-// (ဃ) Real-time ONLINE Riders display
+// (င) Real-time ONLINE Riders display (Riders မပေါ်တာ ပြင်ထားသည်)
 const ridersQuery = query(collection(db, "active_riders"), where("isOnline", "==", true));
 onSnapshot(ridersQuery, (snap) => {
     snap.docChanges().forEach((change) => {
         const data = change.doc.data();
         const id = change.doc.id;
-        const lat = parseFloat(data.lat);
-        const lng = parseFloat(data.lng);
         
         if (change.type === "added" || change.type === "modified") {
-            if (riderMarkers[id]) map.removeLayer(riderMarkers[id]);
-            if (!isNaN(lat) && !isNaN(lng)) {
-                riderMarkers[id] = L.marker([lat, lng], { icon: riderIcon })
-                    .addTo(map)
-                    .bindPopup(`🚴 Rider: ${data.name || 'Active'}`);
+            // Lat, Lng ရှိမရှိ သေချာစစ်ပါ
+            if (data.lat && data.lng) {
+                const lat = parseFloat(data.lat);
+                const lng = parseFloat(data.lng);
+                
+                if (riderMarkers[id]) {
+                    riderMarkers[id].setLatLng([lat, lng]); // နေရာရွှေ့မယ်
+                } else {
+                    riderMarkers[id] = L.marker([lat, lng], { icon: riderIcon })
+                        .addTo(window.map)
+                        .bindPopup(`🚴 Rider: ${data.name || 'Active'}`);
+                }
             }
         } else if (change.type === "removed") {
             if (riderMarkers[id]) {
-                map.removeLayer(riderMarkers[id]);
+                window.map.removeLayer(riderMarkers[id]);
                 delete riderMarkers[id];
             }
         }
     });
+}, (error) => {
+    console.error("Rider snapshot error:", error);
 });
 
+// (စ) မြို့နယ်ရွေးရင် မြေပုံရွှေ့ခြင်း
 window.updateLocation = function(type) {
     const select = document.getElementById(`${type}-township`);
     if (!select) return;
@@ -146,17 +170,17 @@ window.updateLocation = function(type) {
         reverseGeocode(lat, lng);
     } else {
         dropoffCoords = { lat, lng };
-        if (dropoffMarker) map.removeLayer(dropoffMarker);
-        dropoffMarker = L.marker([lat, lng], { draggable: true }).addTo(map);
+        if (dropoffMarker) window.map.removeLayer(dropoffMarker);
+        dropoffMarker = L.marker([lat, lng], { draggable: true }).addTo(window.map);
     }
-    map.flyTo([lat, lng], 15);
+    window.map.flyTo([lat, lng], 15);
     calculatePrice();
 };
 
-const pickupSelect = document.getElementById('pickup-township');
-const dropoffSelect = document.getElementById('dropoff-township');
-if (pickupSelect) pickupSelect.onchange = () => window.updateLocation('pickup');
-if (dropoffSelect) dropoffSelect.onchange = () => window.updateLocation('dropoff');
+const pSelect = document.getElementById('pickup-township');
+const dSelect = document.getElementById('dropoff-township');
+if (pSelect) pSelect.onchange = () => window.updateLocation('pickup');
+if (dSelect) dSelect.onchange = () => window.updateLocation('dropoff');
 
 // --- ၃။ Auto Pricing Logic ---
 function calculatePrice() {
@@ -180,10 +204,10 @@ function calculatePrice() {
     return null;
 }
 
-const weightEl = document.getElementById('item-weight');
-const valueEl = document.getElementById('item-value');
-if (weightEl) weightEl.oninput = calculatePrice;
-if (valueEl) valueEl.oninput = calculatePrice;
+const wInput = document.getElementById('item-weight');
+const vInput = document.getElementById('item-value');
+if (wInput) wInput.oninput = calculatePrice;
+if (vInput) vInput.oninput = calculatePrice;
 
 // --- ၄။ My Orders Logic ---
 function displayMyOrders() {
@@ -284,7 +308,6 @@ if (placeOrderBtn) {
 
             const trackUrl = `https://boexaw-ship-it.github.io/gobike/html/track.html?id=${orderId}`;
             
-            // --- Telegram Message Format အတိအကျ ---
             const msg = `📦 <b>New Order Received!</b>\n` +
             `━━━━━━━━━━━━━━━━━━\n` +
             `👤 Customer: <b>${customerName}</b>\n` +
