@@ -12,19 +12,21 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 let routingControl = null;
 
-// --- ၂။ Back Button Logic (onSnapshot ရဲ့ အပြင်မှာ ထားပါ) ---
-// ဒါဆိုရင် Firebase က data မတက်ခင်ကတည်းက Back နှိပ်ရင် အလုပ်လုပ်ပါမယ်
+// --- ၂။ Back Button Logic (Updated) ---
+// Dashboard ဆီ ပြန်သွားတဲ့အခါ parameter ပါသွားစေဖို့ ပြင်ဆင်ထားပါတယ်
 const backBtn = document.getElementById('back-to-list-btn');
 if (backBtn) {
-    backBtn.onclick = () => {
-        window.location.replace("delivery.html");
+    backBtn.onclick = (e) => {
+        e.preventDefault();
+        // Dashboard မှာ auto-redirect မဖြစ်အောင် ?from=track ထည့်ပေးလိုက်တယ်
+        window.location.replace("delivery.html?from=track");
     };
 }
 
 // --- ၃။ Main Listener ---
 if (orderId) {
     onSnapshot(doc(db, "orders", orderId), (docSnap) => {
-        // Data မရှိရင်လည်း Loading ပိတ်ပေးဖို့လိုပါတယ်
+        // Loading screen ကို ဖယ်ထုတ်မယ်
         const loadingDiv = document.getElementById('loading');
         if (loadingDiv) loadingDiv.style.display = 'none';
 
@@ -35,7 +37,7 @@ if (orderId) {
 
         const data = docSnap.data();
 
-        // UI Updates
+        // UI အချက်အလက်များ Update လုပ်ခြင်း
         document.getElementById('status-badge').innerText = (data.status || "PENDING").toUpperCase().replace("_", " ");
         document.getElementById('det-item').innerText = "📦 " + (data.item || "ပစ္စည်း");
         document.getElementById('det-pickup').innerText = data.pickup?.address || "-";
@@ -43,18 +45,20 @@ if (orderId) {
         document.getElementById('det-fee').innerText = (data.deliveryFee || 0).toLocaleString() + " KS";
         document.getElementById('det-weight').innerText = (data.weight || 0) + " KG";
 
+        // မြေပုံပေါ်မှာ လမ်းကြောင်းဆွဲခြင်း
         if (data.pickup && data.dropoff) {
             drawRoute(data.pickup, data.dropoff);
         }
 
+        // ခလုတ်များ (Call / Status Change) Update လုပ်ခြင်း
         updateButtons(data.status, data.phone);
     }, (error) => {
-        // Error တက်ရင်လည်း Loading ပိတ်မယ်
         console.error("Firebase error:", error);
         const loadingDiv = document.getElementById('loading');
         if (loadingDiv) loadingDiv.style.display = 'none';
     });
 } else {
+    // ID မပါရင် Dashboard ကိုပဲ ပြန်ပို့မယ်
     window.location.replace("delivery.html");
 }
 
@@ -84,6 +88,7 @@ function updateButtons(status, phone) {
     const container = document.getElementById('action-buttons');
     container.innerHTML = "";
 
+    // ဖုန်းခေါ်ဆိုရန် ခလုတ်
     if (phone) {
         const callBtn = document.createElement('a');
         callBtn.href = `tel:${phone}`;
@@ -92,6 +97,7 @@ function updateButtons(status, phone) {
         container.appendChild(callBtn);
     }
 
+    // အဆင့်အလိုက် ပြောင်းလဲမည့် Status ခလုတ်
     const nextBtn = document.createElement('button');
     nextBtn.className = "btn btn-primary";
 
@@ -118,6 +124,7 @@ async function changeStatus(newStatus) {
         const orderRef = doc(db, "orders", orderId);
         let updateData = { status: newStatus };
 
+        // Accepted လုပ်လိုက်လျှင် Rider အချက်အလက် ထည့်သွင်းခြင်း
         if (newStatus === "accepted") {
             updateData.riderId = auth.currentUser.uid;
             updateData.riderName = auth.currentUser.displayName || "Rider";
@@ -126,16 +133,24 @@ async function changeStatus(newStatus) {
         await updateDoc(orderRef, updateData);
         
         Swal.fire({
-            icon: 'success', title: 'Success',
-            timer: 1500, showConfirmButton: false,
-            background: '#1a1a1a', color: '#fff'
+            icon: 'success', 
+            title: 'အောင်မြင်ပါသည်',
+            text: `Status: ${newStatus.replace("_", " ")}`,
+            timer: 1500, 
+            showConfirmButton: false,
+            background: '#1a1a1a', 
+            color: '#fff'
         });
 
+        // ပြီးဆုံးသွားလျှင် Dashboard သို့ ပြန်ပို့မယ်
         if (newStatus === "completed") {
             setTimeout(() => {
                 window.location.replace("delivery.html");
             }, 1600);
         }
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+        console.error("Update status error:", err);
+        Swal.fire({ icon: 'error', title: 'မှားယွင်းမှုရှိပါသည်', background: '#1a1a1a', color: '#fff' });
+    }
 }
 
