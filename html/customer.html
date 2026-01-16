@@ -59,7 +59,6 @@
         #map-container { position: relative; height: calc(100vh - 120px); width: 100%; }
         #map { height: 100%; width: 100%; z-index: 1; }
         
-        /* တည်နေရာပြ စာသားခွက် - အပေါ်ဆုံးသို့ ရွှေ့ထားသည် */
         #pin-address-display {
             position: absolute; top: 10px; left: 10px; right: 10px;
             background: rgba(255, 255, 255, 0.95); padding: 10px; font-size: 0.75rem; 
@@ -69,9 +68,9 @@
             border-left: 4px solid var(--primary);
         }
 
-        /* My Location Button - အပေါ်သို့ မြှင့်တင်ထားသည် */
+        /* My Location Button */
         .locate-btn {
-            position: absolute; bottom: 110px; right: 15px; z-index: 1000;
+            position: absolute; bottom: 120px; right: 15px; z-index: 1000;
             background: white; width: 48px; height: 48px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2); border: 2px solid var(--primary);
@@ -204,15 +203,8 @@
                             </optgroup>
                             <optgroup label="Southern Region">
                                 <option value="Dala" data-lat="16.7589" data-lng="96.1542">ဒလ</option>
-                                <option value="Kawhmu" data-lat="16.4833" data-lng="96.0833">ကော့မှူး</option>
-                                <option value="Kayan" data-lat="16.9167" data-lng="96.5667">ခရမ်း</option>
-                                <option value="Kungyangon" data-lat="16.4333" data-lng="96.0333">ကွမ်းခြံကုန်း</option>
-                                <option value="Kyauktan" data-lat="16.6333" data-lng="96.3333">ကျောက်တန်း</option>
-                                <option value="Seikkyi_Kanaungto" data-lat="16.7500" data-lng="96.1167">ဆိပ်ကြီးခနောင်တို</option>
-                                <option value="Taikkyi" data-lat="17.3000" data-lng="96.0333">တိုက်ကြီး</option>
                                 <option value="Thanlyin" data-lat="16.7667" data-lng="96.2500">သန်လျင်</option>
-                                <option value="Thongwa" data-lat="16.7667" data-lng="96.5167">သုံးခွ</option>
-                                <option value="Twante" data-lat="16.7167" data-lng="95.9333">တွံတေး</option>
+                                <option value="Hmawbi" data-lat="17.1167" data-lng="96.0500">မှော်ဘီ</option>
                             </optgroup>
                         </select>
                         <input type="text" id="pickup-address" placeholder="လမ်းအမည်/အိမ်အမှတ်" style="margin-top:10px;" required>
@@ -270,6 +262,7 @@
     <script type="module" src="../js/customer.js"></script>
 
     <script>
+        // --- ၁။ Bottom Sheet Logic ---
         function toggleSheet() {
             document.getElementById('bottomSheet').classList.toggle('expanded');
         }
@@ -280,6 +273,7 @@
             });
         });
 
+        // --- ၂။ Township Cloning ---
         const pSelect = document.getElementById('pickup-township');
         const dSelect = document.getElementById('dropoff-township');
 
@@ -289,6 +283,7 @@
             });
         });
 
+        // --- ၃။ Navigation Logic ---
         function showSection(sectionId, el) {
             document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
             document.getElementById(sectionId + '-section').classList.add('active');
