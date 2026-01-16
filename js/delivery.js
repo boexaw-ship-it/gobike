@@ -29,21 +29,26 @@ function initMap() {
     }
 }
 
-// --- ၂။ Auth & Profile & Auto Redirect (Updated Logic) ---
+// --- ၂။ Auth & Profile & Auto Redirect (Hardware Back Key Support) ---
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         initMap();
         await getRiderData(); 
         startTracking(); 
         
-        // Tracking Page ကနေ Back နှိပ်ပြီး ပြန်လာတာလား စစ်ဆေးခြင်း
         const urlParams = new URLSearchParams(window.location.search);
-        const isBackFromTrack = urlParams.get('from') === 'track';
+        
+        // Parameter ပါလာခြင်း သို့မဟုတ် ဖုန်း Back Key ကြောင့် Session မှာ True ဖြစ်နေခြင်း ရှိမရှိ စစ်ဆေးခြင်း
+        const isBackFromTrack = urlParams.get('from') === 'track' || sessionStorage.getItem('justBackFromTrack') === 'true';
 
-        // 'track' ကနေ ပြန်လာတာမဟုတ်မှသာ Active အော်ဒါရှိလျှင် Redirect လုပ်မည်
+        // Track ကနေ ပြန်လာတာ မဟုတ်မှသာ (ဥပမာ- App ကို အသစ်စဖွင့်ခြင်း) Redirect လုပ်မည်
         if (!isBackFromTrack) {
             checkActiveOrderAndRedirect(user.uid);
         }
+
+        // Dashboard ရောက်သွားပြီဆိုရင်တော့ မှတ်ထားတာကို ချက်ချင်းပြန်ဖျက်မယ်
+        sessionStorage.removeItem('justBackFromTrack');
+
     } else {
         window.location.href = "../index.html";
     }
@@ -65,7 +70,7 @@ async function checkActiveOrderAndRedirect(uid) {
         return;
     }
 
-    // အော်ဒါအသစ် "လက်ခံ" လိုက်သည့်အချိန်တွင်သာ Redirect လုပ်မည်
+    // အော်ဒါအသစ် "လက်ခံ" လိုက်သည့်အချိန်တွင်သာ (Dashboard တွင်ရှိနေစဉ်) Redirect လုပ်မည်
     onSnapshot(q, (snapshot) => {
         snapshot.docChanges().forEach((change) => {
             if (change.type === "added") {
@@ -99,7 +104,7 @@ function startTracking() {
         }, null, { enableHighAccuracy: true });
     }
 
-    // (A) Available Orders (အော်ဒါသစ်များ ကြည့်ရှုခြင်း)
+    // (A) Available Orders
     onSnapshot(query(collection(db, "orders"), where("status", "==", "pending")), async (snap) => {
         const container = document.getElementById('available-orders');
         if(!container) return;
@@ -134,7 +139,7 @@ function startTracking() {
         if (!snap.empty && isSoundAllowed) alarmSound.play().catch(e => {});
     });
 
-    // (B) Active Tasks List (လက်ခံထားသော အော်ဒါများကို ပြန်သွားရန်)
+    // (B) Active Tasks List
     onSnapshot(query(collection(db, "orders"), where("riderId", "==", myUid)), (snap) => {
         const list = document.getElementById('active-orders-list');
         const activeCountDisplay = document.getElementById('active-count');
