@@ -26,7 +26,7 @@
             margin: 0; 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
             color: var(--text-main);
-            overflow: hidden; /* Bottom sheet သုံးမှာမို့ body scroll ပိတ်ထားမယ် */
+            overflow: hidden;
         }
 
         /* Profile Bar */
@@ -72,13 +72,23 @@
             border-left: 4px solid var(--primary);
         }
 
-        /* Bottom Sheet Logic */
+        /* My Location Button */
+        .locate-btn {
+            position: absolute; bottom: 120px; right: 15px; z-index: 1000;
+            background: white; width: 45px; height: 45px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2); border: 2px solid var(--primary);
+            cursor: pointer; font-size: 1.2rem; transition: all 0.2s;
+        }
+        .locate-btn:active { transform: scale(0.9); }
+
+        /* Bottom Sheet */
         .bottom-sheet {
             position: fixed; bottom: 65px; left: 0; width: 100%;
             background: white; border-top-left-radius: 25px; border-top-right-radius: 25px;
             box-shadow: 0 -10px 30px rgba(0,0,0,0.15); z-index: 1050;
             transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.1);
-            transform: translateY(calc(100% - 100px)); /* အောက်နားလေးပဲ ပေါ်နေမယ် */
+            transform: translateY(calc(100% - 100px));
         }
         .bottom-sheet.expanded { transform: translateY(0); }
 
@@ -89,11 +99,8 @@
         .handle-bar { width: 40px; height: 4px; background: #e0e0e0; border-radius: 2px; }
         .handle-text { font-size: 0.75rem; color: var(--text-muted); margin-top: 5px; font-weight: 600; }
 
-        .order-scroll-area {
-            max-height: 70vh; overflow-y: auto; padding: 0 20px 30px;
-        }
+        .order-scroll-area { max-height: 70vh; overflow-y: auto; padding: 0 20px 30px; }
 
-        /* Inputs & Form */
         .loc-box { background: #fdfdfd; padding: 15px; border-radius: 15px; border: 1px solid #eee; margin-bottom: 15px; }
         .loc-box b { display: block; font-size: 0.7rem; color: var(--primary); margin-bottom: 8px; opacity: 0.8; }
         
@@ -111,11 +118,10 @@
             background: var(--primary); color: white; width: 100%;
             padding: 18px; border: none; border-radius: 15px;
             font-weight: 700; font-size: 1rem; cursor: pointer;
-            box-shadow: 0 4px 12px rgba(78, 52, 46, 0.3);
-            margin-top: 10px;
+            box-shadow: 0 4px 12px rgba(78, 52, 46, 0.3); margin-top: 10px;
         }
 
-        /* History List */
+        /* History */
         .orders-list-container { padding: 15px; overflow-y: auto; height: calc(100vh - 180px); }
         .order-card {
             background: white; padding: 16px; border-radius: 16px; 
@@ -123,9 +129,7 @@
             display: flex; justify-content: space-between; align-items: center;
             box-shadow: 0 2px 8px rgba(0,0,0,0.02);
         }
-        .status-pill {
-            padding: 4px 10px; border-radius: 8px; font-size: 0.65rem; font-weight: bold;
-        }
+        .status-pill { padding: 4px 10px; border-radius: 8px; font-size: 0.65rem; font-weight: bold; }
         .status-pending { background: #fff3e0; color: #ef6c00; }
         .status-completed { background: #e8f5e9; color: #2e7d32; }
 
@@ -154,6 +158,7 @@
         <div id="map-container">
             <div id="map"></div>
             <div id="pin-address-display">📍 မြေပုံပေါ်တွင် တည်နေရာရွေးပါ</div>
+            <div class="locate-btn" onclick="goToMyLocation()">🎯</div>
         </div>
 
         <div class="bottom-sheet" id="bottomSheet">
@@ -168,19 +173,43 @@
                         <b>PICK-UP (ပစ္စည်းယူရန်)</b>
                         <select id="pickup-township" required>
                             <option value="">မြို့နယ်ရွေးပါ</option>
-                            <option value="Ahlone" data-lat="16.7875" data-lng="96.1261">အလုံ</option>
-                            <option value="Bahan" data-lat="16.8115" data-lng="96.1518">ဗဟန်း</option>
-                            <option value="Botahtaung" data-lat="16.7818" data-lng="96.1706">ဗိုလ်တထောင်</option>
-                            <option value="Dagon" data-lat="16.7971" data-lng="96.1475">ဒဂုံ</option>
-                            <option value="Dagon_East" data-lat="16.9061" data-lng="96.2239">ဒဂုံမြို့သစ်(အရှေ့ပိုင်း)</option>
+                            <option value="Insein" data-lat="16.8906" data-lng="96.1017">အင်းစိန်</option>
+                            <option value="Mingaladon" data-lat="16.9038" data-lng="96.1557">မင်္ဂလာဒုံ</option>
+                            <option value="HlaingTharyar" data-lat="16.8573" data-lng="96.0620">လှိုင်သာယာ</option>
+                            <option value="Shwepyithar" data-lat="16.9417" data-lng="96.0822">ရွှေပြည်သာ</option>
+                            
                             <option value="Dagon_North" data-lat="16.9042" data-lng="96.1917">ဒဂုံမြို့သစ်(မြောက်ပိုင်း)</option>
                             <option value="Dagon_South" data-lat="16.8572" data-lng="96.2161">ဒဂုံမြို့သစ်(တောင်ပိုင်း)</option>
+                            <option value="Dagon_East" data-lat="16.9061" data-lng="96.2239">ဒဂုံမြို့သစ်(အရှေ့ပိုင်း)</option>
+                            <option value="Dagon_Seikkan" data-lat="16.8524" data-lng="96.2514">ဒဂုံမြို့သစ်(ဆိပ်ကမ်း)</option>
+                            <option value="North_Okkalapa" data-lat="16.9142" data-lng="96.1717">မြောက်ဥက္ကလာပ</option>
+                            <option value="South_Okkalapa" data-lat="16.8525" data-lng="96.1831">တောင်ဥက္ကလာပ</option>
+                            <option value="Thingangyun" data-lat="16.8322" data-lng="96.1950">သင်္ဃန်းကျွန်း</option>
+                            <option value="Tamwe" data-lat="16.8111" data-lng="96.1750">တာမွေ</option>
+                            <option value="Yankin" data-lat="16.8353" data-lng="96.1583">ရန်ကင်း</option>
+
+                            <option value="Ahlone" data-lat="16.7875" data-lng="96.1261">အလုံ</option>
+                            <option value="Bahan" data-lat="16.8115" data-lng="96.1518">ဗဟန်း</option>
+                            <option value="Dagon" data-lat="16.7971" data-lng="96.1475">ဒဂုံ</option>
+                            <option value="Kyauktada" data-lat="16.7725" data-lng="96.1611">ကျောက်တံတား</option>
+                            <option value="Kyimyindaing" data-lat="16.7936" data-lng="96.1150">ကြည့်မြင်တိုင်</option>
+                            <option value="Lanmadaw" data-lat="16.7794" data-lng="96.1439">လမ်းမတော်</option>
+                            <option value="Latha" data-lat="16.7778" data-lng="96.1511">လသာ</option>
+                            <option value="Pabedan" data-lat="16.7772" data-lng="96.1567">ပန်းဘဲတန်း</option>
+                            <option value="Sanchaung" data-lat="16.8028" data-lng="96.1311">စမ်းချောင်း</option>
                             <option value="Hlaing" data-lat="16.8409" data-lng="96.1264">လှိုင်</option>
                             <option value="Kamayut" data-lat="16.8286" data-lng="96.1284">ကမာရွတ်</option>
                             <option value="Mayangone" data-lat="16.8697" data-lng="96.1436">မရမ်းကုန်း</option>
-                            <option value="Tamwe" data-lat="16.8111" data-lng="96.1750">တာမွေ</option>
-                            <option value="Yankin" data-lat="16.8353" data-lng="96.1583">ရန်ကင်း</option>
-                            </select>
+
+                            <option value="Botahtaung" data-lat="16.7818" data-lng="96.1706">ဗိုလ်တထောင်</option>
+                            <option value="Dawbon" data-lat="16.7853" data-lng="96.1883">ဒေါပုံ</option>
+                            <option value="MingalaTaungnyunt" data-lat="16.7917" data-lng="96.1683">မင်္ဂလာတောင်ညွန့်</option>
+                            <option value="Pazundaung" data-lat="16.7867" data-lng="96.1764">ပုဇွန်တောင်</option>
+                            <option value="Thaketa" data-lat="16.7931" data-lng="96.2100">သာကေတ</option>
+                            <option value="Seikkan" data-lat="16.7683" data-lng="96.1664">ဆိပ်ကမ်း</option>
+                            <option value="Taikkyi" data-lat="17.3000" data-lng="96.0333">တိုက်ကြီး</option>
+                            <option value="Thanlyin" data-lat="16.7667" data-lng="96.2500">သန်လျင်</option>
+                        </select>
                         <input type="text" id="pickup-address" placeholder="လမ်းအမည်/အိမ်အမှတ်" style="margin-top:10px;" required>
                     </div>
 
@@ -240,14 +269,13 @@
             document.getElementById('bottomSheet').classList.toggle('expanded');
         }
 
-        // Input ကို နှိပ်ရင် အလိုအလျောက် ပွင့်လာစေမယ်
         document.querySelectorAll('input, select').forEach(el => {
             el.addEventListener('focus', () => {
                 document.getElementById('bottomSheet').classList.add('expanded');
             });
         });
 
-        // --- ၂။ Township Logic ---
+        // --- ၂။ Township Logic (Clone to Drop-off) ---
         const pSelect = document.getElementById('pickup-township');
         const dSelect = document.getElementById('dropoff-township');
         pSelect.addEventListener('change', () => {
@@ -266,9 +294,29 @@
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             if(el) el.classList.add('active');
             
-            // History ရောက်ရင် Sheet ပိတ်ထားမယ်
             if(sectionId === 'list') document.getElementById('bottomSheet').classList.remove('expanded');
         }
+
+        // --- ၄။ Go To My Location ---
+        window.goToMyLocation = function() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition((position) => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    
+                    // global variable 'map' ကို customer.js မှာ ကြေညာထားရပါမယ်
+                    if(window.map) {
+                        window.map.setView([lat, lng], 16);
+                        // Marker ကို ရွှေ့ပေးခြင်း
+                        if (window.currentMarker) {
+                            window.currentMarker.setLatLng([lat, lng]);
+                        }
+                    }
+                }, (error) => {
+                    Swal.fire("Error", "တည်နေရာကြည့်ရှုခွင့်ကို ပိတ်ထားပါသည်", "error");
+                }, { enableHighAccuracy: true });
+            }
+        };
 
         window.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
