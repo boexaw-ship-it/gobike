@@ -8,15 +8,16 @@ import { notifyTelegram } from './telegram.js';
 // --- 0. Setup ---
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzoqWIjISI8MrzFYu-B7CBldle8xuo-B5jNQtCRsqHLOaLPEPelYX84W5lRXoB9RhL6uw/exec";
 
-// --- ၁။ Auth Logic ---
+// --- ၁။ Auth & Profile Logic ---
 onAuthStateChanged(auth, (user) => {
     const nameDisplay = document.getElementById('display-name');
     if (user) {
         if (nameDisplay) nameDisplay.innerText = user.displayName || "User";
         displayMyOrders(); 
-        findMyInitialLocation(); 
-    } else if (!window.location.pathname.includes('index.html')) {
-        window.location.href = "../index.html";
+    } else {
+        if (!window.location.pathname.includes('index.html')) {
+            window.location.href = "../index.html";
+        }
     }
 });
 
@@ -28,9 +29,10 @@ const setupLogout = () => {
                 title: 'အကောင့်မှ ထွက်မလား?',
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonColor: '#4e342e',
+                confirmButtonColor: '#ffcc00',
                 confirmButtonText: 'ထွက်မည်',
-                cancelButtonText: 'မထွက်တော့ပါ'
+                cancelButtonText: 'မထွက်တော့ပါ',
+                background: '#1a1a1a', color: '#ffffff'
             }).then(async (result) => {
                 if (result.isConfirmed) await signOut(auth);
             });
@@ -39,110 +41,127 @@ const setupLogout = () => {
 };
 setupLogout();
 
-// --- ၂။ Map & Marker Logic ---
-window.map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 12); 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.map);
+// --- ၂။ Map & Live Rider Logic ---
+const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 12); 
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-let pickupMarker = null, dropoffMarker = null;
+let pickupMarker, dropoffMarker;
 let pickupCoords = null, dropoffCoords = null;
 let riderMarkers = {}; 
 
 const riderIcon = L.icon({
-    iconUrl: 'https://cdn-icons-png.flaticon.com/512/2263/2263051.png', 
-    iconSize: [40, 40], iconAnchor: [20, 40]
+    iconUrl: 'https://cdn-icons-png.flaticon.com/512/3198/3198336.png',
+    iconSize: [32, 32],
+    iconAnchor: [16, 16]
 });
 
-const redIcon = L.icon({
-    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-    iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
-});
+// --- (က) Customer Location (Blue Dot Display Only) ---
+navigator.geolocation.getCurrentPosition((pos) => {
+    const { latitude, longitude } = pos.coords;
+    map.setView([latitude, longitude], 13);
+    
+    // Customer လက်ရှိနေရာကို Blue Dot ဖြင့်သာပြခြင်း
+    L.circleMarker([latitude, longitude], {
+        radius: 8,
+        fillColor: "#2196f3",
+        color: "#fff",
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 1
+    }).addTo(map).bindPopup("သင်၏လက်ရှိတည်နေရာ");
 
-// Pickup Marker Logic
-function updatePickupMarker(latlng) {
-    const pos = Array.isArray(latlng) ? { lat: latlng[0], lng: latlng[1] } : latlng;
-    if (!pickupMarker) {
-        pickupMarker = L.marker(pos, { draggable: true, zIndexOffset: 1000 }).addTo(window.map);
-        pickupMarker.on('dragend', (e) => {
-            const newPos = e.target.getLatLng();
-            pickupCoords = { lat: newPos.lat, lng: newPos.lng };
-            reverseGeocode(newPos.lat, newPos.lng);
-            calculatePrice();
-        });
-    } else {
-        pickupMarker.setLatLng(pos);
-    }
-    pickupCoords = { lat: pos.lat, lng: pos.lng };
-}
+    L.circle([latitude, longitude], {
+        color: '#2196f3',
+        weight: 1,
+        radius: 150,
+        fill: true,
+        fillOpacity: 0.1
+    }).addTo(map);
+}, (err) => console.log("Location access denied"));
 
-// Map Click Logic
-window.map.on('click', (e) => {
-    if (!pickupCoords) {
-        updatePickupMarker(e.latlng);
-        reverseGeocode(e.latlng.lat, e.latlng.lng);
-    } else if (!dropoffCoords) {
-        updateDropoffMarker(e.latlng);
-    } else {
-        // အကယ်၍ marker နှစ်ခုလုံးရှိနေရင် pickup ကို အရင်ရွှေ့ပေးပါမယ်
-        updatePickupMarker(e.latlng);
-        reverseGeocode(e.latlng.lat, e.latlng.lng);
-    }
-    calculatePrice();
-});
-
-function updateDropoffMarker(pos) {
-    if (dropoffMarker) window.map.removeLayer(dropoffMarker);
-    dropoffMarker = L.marker(pos, { draggable: true, icon: redIcon }).addTo(window.map);
-    dropoffCoords = { lat: pos.lat, lng: pos.lng };
-    dropoffMarker.on('dragend', (e) => {
-        const newPos = e.target.getLatLng();
-        dropoffCoords = { lat: newPos.lat, lng: newPos.lng };
-        calculatePrice();
+// --- (ခ) Real-time ONLINE Riders ---
+const ridersQuery = query(collection(db, "active_riders"), where("isOnline", "==", true));
+onSnapshot(ridersQuery, (snap) => {
+    snap.docChanges().forEach((change) => {
+        const data = change.doc.data();
+        const id = change.doc.id;
+        
+        if (change.type === "added" || change.type === "modified") {
+            if (riderMarkers[id]) map.removeLayer(riderMarkers[id]);
+            riderMarkers[id] = L.marker([data.lat, data.lng], { icon: riderIcon })
+                .addTo(map)
+                .bindPopup(`🚴 Rider: ${data.name || 'Active'}`);
+        } else if (change.type === "removed") {
+            if (riderMarkers[id]) {
+                map.removeLayer(riderMarkers[id]);
+                delete riderMarkers[id];
+            }
+        }
     });
-}
+});
 
-// Reverse Geocoding
-async function reverseGeocode(lat, lng) {
-    try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`);
-        const data = await res.json();
-        const address = data.display_name;
-        if (document.getElementById('pin-address-display')) 
-            document.getElementById('pin-address-display').innerText = `📍 ${address}`;
-        if (document.getElementById('pickup-address'))
-            document.getElementById('pickup-address').value = address;
-    } catch (e) { console.error("Geocode error"); }
-}
-
-// --- ၃။ Auto Pricing & Location Select ---
+// --- (ဂ) Update Pickup/Dropoff Location From Dropdown ---
 window.updateLocation = function(type) {
     const select = document.getElementById(`${type}-township`);
-    if (!select || !select.value) return;
+    if (!select) return;
     const option = select.options[select.selectedIndex];
+    if (!option || !option.value) return;
+
     const lat = parseFloat(option.getAttribute('data-lat'));
     const lng = parseFloat(option.getAttribute('data-lng'));
 
     if (type === 'pickup') {
-        updatePickupMarker({ lat, lng });
-        reverseGeocode(lat, lng);
+        pickupCoords = { lat, lng };
+        if (pickupMarker) map.removeLayer(pickupMarker);
+        pickupMarker = L.marker([lat, lng], { draggable: true }).addTo(map);
+        pickupMarker.on('dragend', function() {
+            const pos = pickupMarker.getLatLng();
+            pickupCoords = { lat: pos.lat, lng: pos.lng };
+            calculatePrice();
+        });
     } else {
-        updateDropoffMarker({ lat, lng });
+        dropoffCoords = { lat, lng };
+        if (dropoffMarker) map.removeLayer(dropoffMarker);
+        dropoffMarker = L.marker([lat, lng], { draggable: true }).addTo(map);
+        dropoffMarker.on('dragend', function() {
+            const pos = dropoffMarker.getLatLng();
+            dropoffCoords = { lat: pos.lat, lng: pos.lng };
+            calculatePrice();
+        });
     }
-    window.map.flyTo([lat, lng], 15);
+    map.flyTo([lat, lng], 15);
     calculatePrice();
 };
 
+const pickupSelect = document.getElementById('pickup-township');
+const dropoffSelect = document.getElementById('dropoff-township');
+if (pickupSelect) pickupSelect.onchange = () => window.updateLocation('pickup');
+if (dropoffSelect) dropoffSelect.onchange = () => window.updateLocation('dropoff');
+
+// မြေပုံပေါ်နှိပ်၍ Pickup သတ်မှတ်ခြင်း
+map.on('click', (e) => {
+    if (!pickupCoords) {
+        pickupCoords = { lat: e.latlng.lat, lng: e.latlng.lng };
+        pickupMarker = L.marker(e.latlng, { draggable: true }).addTo(map);
+        calculatePrice();
+    }
+});
+
+// --- ၃။ Auto Pricing Logic ---
 function calculatePrice() {
     if (pickupCoords && dropoffCoords) {
         const p1 = L.latLng(pickupCoords.lat, pickupCoords.lng);
         const p2 = L.latLng(dropoffCoords.lat, dropoffCoords.lng);
         const dist = (p1.distanceTo(p2) / 1000).toFixed(2); 
-
-        const weight = parseFloat(document.getElementById('item-weight')?.value) || 0;
-        const itemVal = parseFloat(document.getElementById('item-value')?.value) || 0;
+        
+        const weightInput = document.getElementById('item-weight');
+        const valueInput = document.getElementById('item-value');
+        
+        const weight = weightInput ? parseFloat(weightInput.value) || 0 : 0;
+        const itemValue = valueInput ? parseFloat(valueInput.value) || 0 : 0;
 
         const weightExtra = weight > 5 ? (weight - 5) * 200 : 0;
-        const total = Math.round(1500 + (dist * 500) + weightExtra + (itemVal > 50000 ? itemVal * 0.01 : 0));
+        const total = Math.round(1500 + (dist * 500) + weightExtra + (itemValue > 50000 ? itemValue * 0.01 : 0));
         
         const btn = document.getElementById('placeOrderBtn');
         if (btn) btn.innerText = `ORDER NOW - ${total.toLocaleString()} KS (${dist} km)`;
@@ -151,45 +170,66 @@ function calculatePrice() {
     return null;
 }
 
-// Event Listeners for inputs
-['item-weight', 'item-value'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.oninput = calculatePrice;
-});
+const weightEl = document.getElementById('item-weight');
+const valueEl = document.getElementById('item-value');
+if (weightEl) weightEl.oninput = calculatePrice;
+if (valueEl) valueEl.oninput = calculatePrice;
 
-// --- ၄။ Order Management ---
+// --- ၄။ My Orders Logic ---
 function displayMyOrders() {
     const listDiv = document.getElementById('orders-list');
     if (!listDiv || !auth.currentUser) return;
 
     const q = query(collection(db, "orders"), where("userId", "==", auth.currentUser.uid));
     onSnapshot(q, (snap) => {
-        listDiv.innerHTML = snap.empty ? "<p style='text-align:center; color:#888;'>မှတ်တမ်းမရှိသေးပါ</p>" : "";
+        listDiv.innerHTML = snap.empty ? "<p style='text-align:center; color:#888; font-size:0.8rem;'>မှတ်တမ်းမရှိသေးပါ</p>" : "";
         snap.forEach((orderDoc) => {
             const order = orderDoc.data();
+            const id = orderDoc.id;
             if (order.customerHide) return;
+
             const card = document.createElement('div');
             card.className = "order-card";
-            card.style = "padding:16px; margin-bottom:12px; border:1px solid #eee; border-radius:12px; display:flex; justify-content:space-between; align-items:center; background:#fff;";
+            card.style = `cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 12px; margin-bottom: 10px; background: #2a2a2a; border-radius: 12px; border-left: 5px solid ${order.status === 'completed' ? '#00ff00' : '#ffcc00'}; border: 1px solid #444;`;
             card.innerHTML = `
-                <div onclick="window.location.href='track.html?id=${orderDoc.id}'" style="cursor:pointer; flex-grow:1;">
-                    <b>📦 ${order.item || 'Parcel'}</b><br>
-                    <small>Status: ${order.status}</small><br>
-                    <span style="color:#4e342e; font-weight:bold;">${(order.deliveryFee || 0).toLocaleString()} KS</span>
+                <div onclick="window.location.href='track.html?id=${id}'" style="flex-grow:1;">
+                    <b style="color: #fff;">📦 ${order.item || 'Parcel'}</b><br>
+                    <span style="font-size: 0.75rem; color: #aaa;">Status: ${(order.status || 'pending').toUpperCase()}</span><br>
+                    <span style="font-size: 0.7rem; color: #ffcc00;">${(order.deliveryFee || 0).toLocaleString()} KS</span>
                 </div>
-                <span onclick="window.deleteOrderPermanently('${orderDoc.id}')" style="cursor:pointer; color:red;">🗑️</span>
-            `;
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <span id="del-btn-${id}" style="color: #ff4444; font-size: 1.1rem; cursor: pointer;">🗑️</span>
+                </div>`;
             listDiv.appendChild(card);
+
+            const delBtn = document.getElementById(`del-btn-${id}`);
+            if (delBtn) {
+                delBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    window.deleteOrderPermanently(id);
+                };
+            }
         });
     });
 }
 
 window.deleteOrderPermanently = async (id) => {
-    const res = await Swal.fire({ title: 'ဖယ်ထုတ်မလား?', icon: 'warning', showCancelButton: true });
-    if (res.isConfirmed) await updateDoc(doc(db, "orders", id), { customerHide: true });
+    const result = await Swal.fire({
+        title: 'ဖယ်ထုတ်မလား?',
+        text: 'ဤအော်ဒါမှတ်တမ်းကို Dashboard မှ ဖယ်ထုတ်ပါလိမ့်မည်။',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#ffcc00',
+        background: '#1a1a1a', color: '#fff'
+    });
+    if (result.isConfirmed) {
+        try {
+            await updateDoc(doc(db, "orders", id), { customerHide: true });
+        } catch (err) { console.error("Delete Error:", err); }
+    }
 };
 
-// --- ၅။ Submit Order (Telegram logic အပြည့်အစုံ) ---
+// --- ၅။ Submit Order ---
 const placeOrderBtn = document.getElementById('placeOrderBtn');
 if (placeOrderBtn) {
     placeOrderBtn.onclick = async () => {
@@ -201,82 +241,81 @@ if (placeOrderBtn) {
             const itemValue = document.getElementById('item-value')?.value || 0;
             const payment = document.getElementById('payment-method')?.value;
             const pAddr = document.getElementById('pickup-address')?.value;
-            const dAddr = document.getElementById('dropoff-address')?.value || "မြေပုံပေါ်ရှိ သတ်မှတ်နေရာ";
+            const dAddr = document.getElementById('dropoff-address')?.value;
 
-            if (!feeInfo || !item || !phone || !pAddr || !pickupCoords || !dropoffCoords) {
-                Swal.fire("သတိပေးချက်", "အချက်အလက်များ ပြည့်စုံစွာဖြည့်ပါ", "warning");
+            if (!feeInfo || !item || !phone || !pAddr || !dAddr || !pickupCoords || !dropoffCoords) {
+                Swal.fire({ icon: 'error', title: 'အချက်အလက်မစုံလင်ပါ', text: 'ကျေးဇူးပြု၍ နေရာနှင့် အချက်အလက်များ အကုန်ဖြည့်ပါ။', background: '#1a1a1a', color: '#fff' });
                 return;
             }
 
             placeOrderBtn.disabled = true;
             placeOrderBtn.innerText = "Processing...";
 
+            const pTown = pickupSelect.options[pickupSelect.selectedIndex].text;
+            const dTown = dropoffSelect.options[dropoffSelect.selectedIndex].text;
             const customerName = auth.currentUser?.displayName || "Customer";
+
             const orderData = {
                 userId: auth.currentUser.uid,
                 customerName: customerName,
-                pickup: { ...pickupCoords, address: pAddr },
-                dropoff: { ...dropoffCoords, address: dAddr },
-                item, weight, itemValue, phone,
+                pickup: { ...pickupCoords, address: `${pTown}, ${pAddr}` },
+                dropoff: { ...dropoffCoords, address: `${dTown}, ${dAddr}` },
+                item: item, 
+                weight: weight, 
+                itemValue: itemValue, 
+                phone: phone,
                 paymentMethod: payment === "COD" ? "Cash on Delivery" : "Cash at Pickup",
-                deliveryFee: feeInfo.total, status: "pending", customerHide: false, createdAt: serverTimestamp()
+                deliveryFee: feeInfo.total, 
+                status: "pending", 
+                customerHide: false, 
+                createdAt: serverTimestamp()
             };
 
             const docRef = await addDoc(collection(db, "orders"), orderData);
-            const trackUrl = `https://boexaw-ship-it.github.io/gobike/html/track.html?id=${docRef.id}`;
+            const orderId = docRef.id;
 
-            // Telegram Message
+            // Log to Sheets
+            fetch(SCRIPT_URL, {
+                method: "POST", mode: "no-cors",
+                body: JSON.stringify({
+                    action: "create", orderId, item, weight: weight + " kg",
+                    price: itemValue + " KS", deliveryFee: feeInfo.total,
+                    payment: orderData.paymentMethod, phone, address: orderData.dropoff.address,
+                    customerName, riderName: "-" 
+                })
+            }).catch(e => console.log("Sheet Error:", e));
+
+            // Notify Telegram
+            const trackUrl = `https://boexaw-ship-it.github.io/gobike/html/track.html?id=${orderId}`;
             const msg = `📦 <b>New Order Received!</b>\n` +
-                        `━━━━━━━━━━━━━━━━━━\n` +
-                        `👤 Customer: <b>${customerName}</b>\n` +
-                        `📞 ဖုန်း: <b>${phone}</b>\n` + 
-                        `📝 ပစ္စည်း: <b>${item}</b>\n` +
-                        `⚖️ အလေးချိန်: <b>${weight} KG</b>\n` +
-                        `💰 တန်ဖိုး: <b>${parseFloat(itemValue).toLocaleString()} KS</b>\n` +
-                        `💵 <b>ပို့ခ: ${feeInfo.total.toLocaleString()} KS</b>\n` +
-                        `📍 ယူရန်: ${pAddr}\n` +
-                        `🏁 ပို့ရန်: ${dAddr}\n\n` +
-                        `✨ <a href="${trackUrl}"><b>📍 ခြေရာခံရန်နှိပ်ပါ</b></a>`;
+            `━━━━━━━━━━━━━━━━━━\n` +
+            `👤 Customer: <b>${customerName}</b>\n` +
+            `📞 ဖုန်း: <b>${phone}</b>\n` + 
+            `📝 ပစ္စည်း: <b>${item}</b>\n` +
+            `⚖️ အလေးချိန်: <b>${weight} KG</b>\n` +
+            `💰 တန်ဖိုး: <b>${parseFloat(itemValue).toLocaleString()} KS</b>\n` +
+            `💵 <b>ပို့ခ: ${feeInfo.total.toLocaleString()} KS</b>\n` +
+            `📍 ယူရန်: ${orderData.pickup.address}\n` +
+            `🏁 ပို့ရန်: ${orderData.dropoff.address}\n\n` +
+            `✨ <a href="${trackUrl}"><b>📍 ခြေရာခံရန်နှိပ်ပါ</b></a>`;
 
             await notifyTelegram(msg);
 
-            // Google Sheets Log
-            fetch(SCRIPT_URL, {
-                method: "POST", mode: "no-cors",
-                body: JSON.stringify({ action: "create", orderId: docRef.id, item, weight, deliveryFee: feeInfo.total, customerName })
-            }).catch(e => console.log("Sheet error"));
-
-            await Swal.fire("အောင်မြင်ပါသည်", "အော်ဒါတင်ပြီးပါပြီ!", "success");
-            window.location.href = `track.html?id=${docRef.id}`;
+            await Swal.fire({
+                title: 'အော်ဒါတင်ပြီးပါပြီ!',
+                text: 'Rider ကို အကြောင်းကြားထားပါသည်။',
+                icon: 'success',
+                confirmButtonColor: '#ffcc00',
+                background: '#1a1a1a', color: '#fff'
+            });
+            
+            window.location.href = `track.html?id=${orderId}`;
 
         } catch (e) {
-            console.error(e);
+            console.error("Submission Error:", e);
             placeOrderBtn.disabled = false;
             placeOrderBtn.innerText = "ORDER NOW";
-            Swal.fire("Error", "အော်ဒါတင်လို့မရပါ- " + e.message, "error");
+            Swal.fire({ icon: 'error', title: 'Error', text: e.message, background: '#1a1a1a', color: '#fff' });
         }
     };
-}
-
-// Utility
-window.goToMyLocation = function() {
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition((pos) => {
-            const loc = [pos.coords.latitude, pos.coords.longitude];
-            window.map.flyTo(loc, 16);
-            updatePickupMarker(loc);
-            reverseGeocode(loc[0], loc[1]);
-        });
-    }
-};
-
-function findMyInitialLocation() {
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition((pos) => {
-            const loc = [pos.coords.latitude, pos.coords.longitude];
-            window.map.setView(loc, 15);
-            updatePickupMarker(loc);
-            reverseGeocode(loc[0], loc[1]);
-        });
-    }
 }
