@@ -29,15 +29,21 @@ function initMap() {
     }
 }
 
-// --- ၂။ Auth & Profile & Auto Redirect ---
+// --- ၂။ Auth & Profile & Auto Redirect (Updated Logic) ---
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         initMap();
         await getRiderData(); 
         startTracking(); 
         
-        // 🔥 အော်ဒါလက်ခံထားပြီးသားရှိလျှင် Track Page သို့ အလိုအလျောက်သွားရန်
-        checkActiveOrderAndRedirect(user.uid);
+        // Tracking Page ကနေ Back နှိပ်ပြီး ပြန်လာတာလား စစ်ဆေးခြင်း
+        const urlParams = new URLSearchParams(window.location.search);
+        const isBackFromTrack = urlParams.get('from') === 'track';
+
+        // 'track' ကနေ ပြန်လာတာမဟုတ်မှသာ Active အော်ဒါရှိလျှင် Redirect လုပ်မည်
+        if (!isBackFromTrack) {
+            checkActiveOrderAndRedirect(user.uid);
+        }
     } else {
         window.location.href = "../index.html";
     }
@@ -52,17 +58,17 @@ async function checkActiveOrderAndRedirect(uid) {
         where("pickupSchedule", "==", "now")
     );
     
-    // ပထမဆုံး အကြိမ် စစ်ဆေးခြင်း (Existing Orders)
+    // ပထမဆုံး အကြိမ် စစ်ဆေးခြင်း
     const snap = await getDocs(q);
     if (!snap.empty) {
         window.location.href = `rider-track.html?id=${snap.docs[0].id}`;
         return;
     }
 
-    // နောက်ထပ် အသစ်ဝင်လာမည့် အပြောင်းအလဲများကို စောင့်ကြည့်ခြင်း
+    // အော်ဒါအသစ် "လက်ခံ" လိုက်သည့်အချိန်တွင်သာ Redirect လုပ်မည်
     onSnapshot(q, (snapshot) => {
         snapshot.docChanges().forEach((change) => {
-            if (change.type === "added" || (change.type === "modified" && change.doc.data().status === "accepted")) {
+            if (change.type === "added") {
                 window.location.href = `rider-track.html?id=${change.doc.id}`;
             }
         });
@@ -93,6 +99,7 @@ function startTracking() {
         }, null, { enableHighAccuracy: true });
     }
 
+    // (A) Available Orders (အော်ဒါသစ်များ ကြည့်ရှုခြင်း)
     onSnapshot(query(collection(db, "orders"), where("status", "==", "pending")), async (snap) => {
         const container = document.getElementById('available-orders');
         if(!container) return;
@@ -127,7 +134,7 @@ function startTracking() {
         if (!snap.empty && isSoundAllowed) alarmSound.play().catch(e => {});
     });
 
-    // Active Tasks List (In case redirect fails or user navigates back)
+    // (B) Active Tasks List (လက်ခံထားသော အော်ဒါများကို ပြန်သွားရန်)
     onSnapshot(query(collection(db, "orders"), where("riderId", "==", myUid)), (snap) => {
         const list = document.getElementById('active-orders-list');
         const activeCountDisplay = document.getElementById('active-count');
@@ -238,7 +245,6 @@ window.handleAccept = async (id, time) => {
             await notifyTelegram(createOrderMessage("⏳ Tomorrow Scheduled", order, riderName, "မနက်ဖြန်အတွက် ကြိုယူထားသည်"));
             Swal.fire({ title: 'အောင်မြင်ပါသည်', text: 'မနက်ဖြန်အတွက် Customer အတည်ပြုချက် စောင့်ပါမည်', icon: 'success' });
         } else {
-            // လက်ခံလိုက်တာနဲ့ Status ပြောင်းမယ်၊ Redirect က အပေါ်က Listener ကနေ အလိုအလျောက်သွားမယ်
             await updateDoc(docRef, { 
                 status: "accepted", 
                 riderId: auth.currentUser.uid, 
