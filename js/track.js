@@ -20,7 +20,7 @@ const riderIcon = L.icon({
 let riderMarker = null;
 let riderUnsubscribe = null;
 let routingControl = null;
-let isAlertShown = false; // Alert ထပ်ခါထပ်ခါ မတက်အောင် ထိန်းထားခြင်း
+let isAlertShown = false; 
 
 // --- ၂။ Main Listener (Order အခြေအနေစောင့်ကြည့်ခြင်း) ---
 if (orderId) {
@@ -32,9 +32,9 @@ if (orderId) {
         
         const data = docSnap.data();
 
-        // --- (က) Completion Logic (ပြင်ဆင်ပြီး) ---
+        // --- (က) Completion Logic ---
         if (data.status === "completed" && !isAlertShown) {
-            isAlertShown = true; // တစ်ခါပဲ အလုပ်လုပ်အောင် ပိတ်လိုက်သည်
+            isAlertShown = true; 
             cleanupTracking();
             updateProgressBar("arrived"); 
             
@@ -68,16 +68,38 @@ if (orderId) {
         // --- (ဂ) Progress Bar Update ---
         updateProgressBar(data.status);
 
-        // --- (ဃ) Details & Addresses Display ---
+        // --- (ဃ) Details Display (Fixed: Township & Address separation) ---
         if (document.getElementById('status-badge')) {
             document.getElementById('status-badge').innerText = (data.status || "LOADING").replace("_", " ").toUpperCase();
         }
-        if (document.getElementById('det-item')) document.getElementById('det-item').innerText = data.item || "-";
+        
+        if (document.getElementById('det-item')) {
+            document.getElementById('det-item').innerText = data.item || "-";
+        }
+        
         if (document.getElementById('det-fee')) {
             document.getElementById('det-fee').innerText = data.deliveryFee ? data.deliveryFee.toLocaleString() + " KS" : "0 KS";
         }
-        if (document.getElementById('det-pickup')) document.getElementById('det-pickup').innerText = data.pickup?.address || "-";
-        if (document.getElementById('det-dropoff')) document.getElementById('det-dropoff').innerText = data.dropoff?.address || "-";
+
+        // Pickup Display
+        if (data.pickup) {
+            if (document.getElementById('det-p-township')) {
+                document.getElementById('det-p-township').innerText = data.pickup.township || "မသိရ";
+            }
+            if (document.getElementById('det-p-address')) {
+                document.getElementById('det-p-address').innerText = data.pickup.address || "-";
+            }
+        }
+
+        // Dropoff Display
+        if (data.dropoff) {
+            if (document.getElementById('det-d-township')) {
+                document.getElementById('det-d-township').innerText = data.dropoff.township || "မသိရ";
+            }
+            if (document.getElementById('det-d-address')) {
+                document.getElementById('det-d-address').innerText = data.dropoff.address || "-";
+            }
+        }
 
         // --- (င) Route Visualization ---
         if (data.pickup && data.dropoff && !routingControl) {
@@ -95,7 +117,7 @@ if (orderId) {
             }
         }
 
-        // --- (ဆ) Live Rider Tracking (Active Location) ---
+        // --- (ဆ) Live Rider Tracking ---
         if (data.riderId && ["accepted", "on_the_way", "arrived"].includes(data.status)) {
             if (riderUnsubscribe) riderUnsubscribe();
             
@@ -125,7 +147,11 @@ function updateProgressBar(status) {
     steps.forEach((step, idx) => {
         const el = document.getElementById(`step-${idx + 1}`);
         if (el) {
-            currentStatusIdx >= idx ? el.classList.add('active') : el.classList.remove('active');
+            if (currentStatusIdx >= idx) {
+                el.classList.add('active');
+            } else {
+                el.classList.remove('active');
+            }
         }
     });
 }
@@ -137,7 +163,9 @@ function drawStaticRoute(p, d) {
         show: false,
         addWaypoints: false,
         draggableWaypoints: false,
-        lineOptions: { styles: [{ color: '#ffcc00', weight: 4, opacity: 0.7 }] },
+        lineOptions: { 
+            styles: [{ color: '#ffcc00', weight: 4, opacity: 0.7 }] 
+        },
         createMarker: function(i, wp) {
             const iconUrl = i === 0 ? 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png' : 
                                      'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png';
@@ -151,7 +179,7 @@ function cleanupTracking() {
     if (riderUnsubscribe) { riderUnsubscribe(); riderUnsubscribe = null; }
 }
 
-// --- Window Functions ---
+// --- Window Functions (Global accessibility) ---
 
 window.respondRider = async (isAccepted) => {
     try {
