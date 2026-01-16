@@ -42,7 +42,7 @@ setupLogout();
 
 // --- ၂။ Map & Live Rider Logic ---
 const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 12); 
-window.map = map; // Global scope သို့ပို့ခြင်း (HTML မှ ခေါ်သုံးနိုင်ရန်)
+window.map = map; // Global scope သို့ပို့ခြင်း
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap'
@@ -58,7 +58,7 @@ const riderIcon = L.icon({
     iconAnchor: [16, 16]
 });
 
-// --- (က) Customer Location (Blue Dot) ---
+// --- (က) Customer Location (Initial Blue Dot) ---
 navigator.geolocation.getCurrentPosition((pos) => {
     const { latitude, longitude } = pos.coords;
     map.setView([latitude, longitude], 13);
@@ -116,7 +116,7 @@ window.updateLocation = function(type) {
         pickupCoords = { lat, lng };
         if (pickupMarker) map.removeLayer(pickupMarker);
         pickupMarker = L.marker([lat, lng], { draggable: true }).addTo(map);
-        window.currentMarker = pickupMarker; // My Location button အတွက်
+        window.currentMarker = pickupMarker;
         
         pickupMarker.on('dragend', function() {
             const pos = pickupMarker.getLatLng();
@@ -154,6 +154,35 @@ map.on('click', (e) => {
     }
 });
 
+// --- (ဃ) Go To My Location Function ---
+window.goToMyLocation = function() {
+    if (navigator.geolocation) {
+        const locateBtn = document.querySelector('.locate-btn');
+        if(locateBtn) locateBtn.innerText = "⏳"; 
+
+        navigator.geolocation.getCurrentPosition((position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            
+            if(window.map) {
+                window.map.flyTo([lat, lng], 16);
+                if (!pickupMarker) {
+                    pickupMarker = L.marker([lat, lng], { draggable: true }).addTo(window.map);
+                    window.currentMarker = pickupMarker;
+                } else {
+                    pickupMarker.setLatLng([lat, lng]);
+                }
+                pickupCoords = { lat, lng };
+                calculatePrice();
+                if(locateBtn) locateBtn.innerText = "🎯";
+            }
+        }, (error) => {
+            if(locateBtn) locateBtn.innerText = "🎯";
+            Swal.fire("Error", "တည်နေရာရှာမတွေ့ပါ", "error");
+        }, { enableHighAccuracy: true });
+    }
+};
+
 // --- ၃။ Auto Pricing Logic ---
 function calculatePrice() {
     if (pickupCoords && dropoffCoords) {
@@ -168,7 +197,6 @@ function calculatePrice() {
         const itemValue = valueInput ? parseFloat(valueInput.value) || 0 : 0;
 
         const weightExtra = weight > 5 ? (weight - 5) * 200 : 0;
-        // Base 1500 + 500 per km + weight extra + value insurance (1%)
         const total = Math.round(1500 + (dist * 500) + weightExtra + (itemValue > 50000 ? itemValue * 0.01 : 0));
         
         const btn = document.getElementById('placeOrderBtn');
@@ -180,7 +208,6 @@ function calculatePrice() {
     return null;
 }
 
-// Input change listeners for price
 ['item-weight', 'item-value'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.oninput = calculatePrice;
