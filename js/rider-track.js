@@ -31,9 +31,45 @@ if (orderId) {
         if (data.pickup && data.dropoff) {
             drawRoute(data.pickup, data.dropoff);
         }
+import { db, auth } from './firebase-config.js';
+import { 
+    doc, onSnapshot, updateDoc, serverTimestamp 
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // Action Buttons
-        updateButtons(data.status, data.phone);
+const params = new URLSearchParams(window.location.search);
+const orderId = params.get('id');
+
+// --- ၁။ Map Setup ---
+const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+let routingControl = null;
+
+// --- ၂။ Main Listener (Data ရယူခြင်း) ---
+if (orderId) {
+    onSnapshot(doc(db, "orders", orderId), (docSnap) => {
+        if (!docSnap.exists()) {
+            console.error("Order not found");
+            return;
+        }
+        const data = docSnap.data();
+        document.getElementById('loading').style.display = 'none';
+
+        // UI Updates
+        document.getElementById('status-badge').innerText = (data.status || "PENDING").toUpperCase().replace("_", " ");
+        document.getElementById('det-item').innerText = "📦 " + (data.item || "ပစ္စည်း");
+        document.getElementById('det-pickup').innerText = data.pickup?.address || "-";
+        document.getElementById('det-dropoff').innerText = data.dropoff?.address || "-";
+        document.getElementById('det-fee').innerText = (data.deliveryFee || 0).toLocaleString() + " KS";
+        document.getElementById('det-weight').innerText = (data.weight || 0) + " KG";
+
+        // Navigation Route
+        if (data.pickup && data.dropoff) {
+            drawRoute(data.pickup, data.dropoff);
+        }
+
+        // Status Buttons (Accept, Pick Up, etc.)
+        updateStatusButtons(data.status, data.phone);
     });
 }
 
@@ -58,16 +94,8 @@ function drawRoute(p, d) {
     }).addTo(map);
 }
 
-// --- ၄။ Buttons Logic ---
-function updateButtons(status, phone) {
-    // Back to List logic - window.location.replace ကို သုံးခြင်းက history ကနေ ဖယ်ရှားပေးသည်
-    const backToListBtn = document.getElementById('back-to-list-btn');
-    if (backToListBtn) {
-        backToListBtn.onclick = () => {
-            window.location.replace("delivery.html");
-        };
-    }
-
+// --- ၄။ Status Buttons Logic (Accept/Pick Up/Complete) ---
+function updateStatusButtons(status, phone) {
     const container = document.getElementById('action-buttons');
     container.innerHTML = "";
 
@@ -113,11 +141,8 @@ async function changeStatus(newStatus) {
         await updateDoc(orderRef, updateData);
         
         Swal.fire({
-            icon: 'success',
-            title: 'Success',
-            text: `Status changed to ${newStatus.replace("_", " ")}`,
-            timer: 1500,
-            showConfirmButton: false,
+            icon: 'success', title: 'Success',
+            timer: 1500, showConfirmButton: false,
             background: '#1a1a1a', color: '#fff'
         });
 
@@ -128,4 +153,16 @@ async function changeStatus(newStatus) {
         }
     } catch (err) { console.error(err); }
 }
+
+// --- ၆။ Back to List Logic (သီးသန့်ခွဲထုတ်ထားသည် - Data မတက်ခင်ကတည်းက အလုပ်လုပ်ရန်) ---
+document.addEventListener('DOMContentLoaded', () => {
+    const backBtn = document.getElementById('back-to-list-btn');
+    if (backBtn) {
+        backBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            console.log("Navigating to dashboard...");
+            window.location.replace("delivery.html");
+        });
+    }
+});
 
