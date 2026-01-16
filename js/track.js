@@ -10,6 +10,7 @@ const orderId = params.get('id');
 const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
+// Rider အတွက် အသုံးပြုမည့် Icon
 const riderIcon = L.icon({
     iconUrl: 'https://cdn-icons-png.flaticon.com/512/3198/3198336.png',
     iconSize: [40, 40],
@@ -33,44 +34,28 @@ if (orderId) {
         // --- (က) Completion Logic ---
         if (data.status === "completed") {
             cleanupTracking();
-            await Swal.fire({
-                title: 'အောင်မြင်ပါသည်!',
-                text: 'လူကြီးမင်း၏ ပါဆယ်ပို့ဆောင်မှု အောင်မြင်ပြီးဆုံးပါပြီ။ ကျေးဇူးတင်ပါသည်။',
-                icon: 'success',
-                confirmButtonColor: '#ffcc00',
-                background: '#1a1a1a',
-                color: '#fff',
-                allowOutsideClick: false,
-                confirmButtonText: 'ပင်မစာမျက်နှာသို့'
-            });
-            window.location.href = "customer.html?tab=list"; 
-            return;
+            // Progress Bar ကို အကုန်အပြည့်ပြပေးထားမယ်
+            updateProgressBar("arrived"); 
+            
+            // Alert ကို တစ်ခါပဲ ပြစေချင်ရင် (ဥပမာ- App ထဲမှာရှိနေတုန်း ပြီးသွားတာမျိုး)
+            // ဒီနေရာမှာ redirect မလုပ်ဘဲ အောက်က details တွေကို ဆက်ပြခိုင်းထားပါတယ်
+            console.log("Order is completed. Viewing History.");
         }
 
-        // --- (ခ) Status Check & UI Cleanup ---
-        if (["pending", "cancelled", "rider_rejected"].includes(data.status)) {
-            const detRider = document.getElementById('det-rider');
-            if (detRider) {
-                if (data.status === "cancelled") {
-                    detRider.innerHTML = "<span style='color:red;'>အော်ဒါဖျက်သိမ်းပြီးပါပြီ</span>";
-                } else if (data.status === "rider_rejected") {
-                    detRider.innerHTML = "<span style='color:#ff4444; font-weight:bold;'>Rider က ငြင်းပယ်လိုက်ပါသည်။ အော်ဒါအသစ် ပြန်တင်ပေးပါ။</span>";
-                } else {
-                    detRider.innerHTML = "<span style='color:#ffcc00; font-weight:bold;'>Rider ရှာဖွေနေပါသည်...</span>";
-                }
+        // --- (ခ) Status Check & UI Update ---
+        const detRider = document.getElementById('det-rider');
+        if (detRider) {
+            if (data.status === "cancelled") {
+                detRider.innerHTML = "<span style='color:red;'>အော်ဒါဖျက်သိမ်းပြီးပါပြီ</span>";
+            } else if (data.status === "rider_rejected") {
+                detRider.innerHTML = "<span style='color:#ff4444; font-weight:bold;'>Rider က ငြင်းပယ်လိုက်ပါသည်။</span>";
+            } else {
+                detRider.innerText = data.riderName || "Rider ရှာဖွေနေပါသည်...";
             }
-            cleanupTracking();
         }
 
         // --- (ဂ) Progress Bar Update ---
-        const steps = ["pending", "accepted", "on_the_way", "arrived"];
-        const currentStatusIdx = steps.indexOf(data.status);
-        steps.forEach((step, idx) => {
-            const el = document.getElementById(`step-${idx + 1}`);
-            if (el) {
-                currentStatusIdx >= idx ? el.classList.add('active') : el.classList.remove('active');
-            }
-        });
+        updateProgressBar(data.status);
 
         // --- (ဃ) Details & Addresses Display ---
         if (document.getElementById('status-badge')) {
@@ -99,19 +84,23 @@ if (orderId) {
             }
         }
 
-        // --- (ဆ) Live Rider Tracking ---
+        // --- (ဆ) Live Rider Tracking (Active Location) ---
+        // Rider ရှိမှသာ စစ်ဆေးမည်
         if (data.riderId && ["accepted", "on_the_way", "arrived"].includes(data.status)) {
             if (riderUnsubscribe) riderUnsubscribe();
+            
+            // Rider ရဲ့ Live တည်နေရာကို active_riders ထဲကနေ လှမ်းဖတ်ခြင်း
             riderUnsubscribe = onSnapshot(doc(db, "active_riders", data.riderId), (riderLocSnap) => {
                 if (riderLocSnap.exists()) {
                     const loc = riderLocSnap.data();
                     const pos = [loc.lat, loc.lng];
+                    
                     if (!riderMarker) {
                         riderMarker = L.marker(pos, { icon: riderIcon }).addTo(map);
                     } else {
                         riderMarker.setLatLng(pos);
                     }
-                    // Rider marker ရှိရာသို့ မြေပုံကို ချောမွေ့စွာ ရွှေ့မည်
+                    // မြေပုံကို Rider ရှိရာသို့ အလိုအလျောက် ရွှေ့ပေးမည်
                     map.setView(pos, map.getZoom(), { animate: true });
                 }
             });
@@ -122,13 +111,23 @@ if (orderId) {
 
 // --- အထောက်အကူပြု Function များ ---
 
-// မြေပုံပေါ်က စာသား panel များ ဖျောက်ရန် ပြင်ဆင်ပြီး
+function updateProgressBar(status) {
+    const steps = ["pending", "accepted", "on_the_way", "arrived"];
+    const currentStatusIdx = steps.indexOf(status);
+    steps.forEach((step, idx) => {
+        const el = document.getElementById(`step-${idx + 1}`);
+        if (el) {
+            currentStatusIdx >= idx ? el.classList.add('active') : el.classList.remove('active');
+        }
+    });
+}
+
 function drawStaticRoute(p, d) {
     routingControl = L.Routing.control({
         waypoints: [L.latLng(p.lat, p.lng), L.latLng(d.lat, d.lng)],
-        show: false,                 // <--- ဤနေရာတွင် စာသား panel ကို ဖျောက်ထားသည်
-        addWaypoints: false,         // <--- အစက်အသစ်များ ထပ်တိုးမရအောင် ပိတ်ထားသည်
-        draggableWaypoints: false,   // <--- ဆွဲရွှေ့၍မရအောင် ပိတ်ထားသည်
+        show: false,
+        addWaypoints: false,
+        draggableWaypoints: false,
         lineOptions: { styles: [{ color: '#ffcc00', weight: 4, opacity: 0.7 }] },
         createMarker: function(i, wp) {
             const iconUrl = i === 0 ? 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png' : 
@@ -143,7 +142,7 @@ function cleanupTracking() {
     if (riderUnsubscribe) { riderUnsubscribe(); riderUnsubscribe = null; }
 }
 
-// --- Window Functions (UI Buttons) ---
+// --- Window Functions ---
 
 window.respondRider = async (isAccepted) => {
     try {
@@ -185,7 +184,8 @@ window.cancelOrder = async () => {
     if (result.isConfirmed) {
         try {
             await updateDoc(doc(db, "orders", orderId), { status: "cancelled" });
-            window.location.href = "../index.html";
+            window.location.href = "customer.html";
         } catch (err) { console.error(err); }
     }
 };
+
