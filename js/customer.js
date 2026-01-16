@@ -51,11 +51,12 @@ let pickupMarker = null, dropoffMarker = null;
 let pickupCoords = null, dropoffCoords = null;
 let riderMarkers = {}; 
 
+// Rider အတွက် စက်ဘီး Icon သတ်မှတ်ခြင်း
 const riderIcon = L.icon({
-    iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png',
-    iconSize: [35, 35],
-    iconAnchor: [17, 34],
-    popupAnchor: [0, -34]
+    iconUrl: 'https://cdn-icons-png.flaticon.com/512/2263/2263051.png', // စက်ဘီးပုံ Icon
+    iconSize: [40, 40], // ပုံအရွယ်အစား
+    iconAnchor: [20, 40], // Icon ရဲ့ အလယ်ဗဟို
+    popupAnchor: [0, -40] // နာမည်ပေါ်မယ့်နေရာ
 });
 
 // (က) "My Location" ခလုတ်နှိပ်လျှင် သွားမည့် Function
