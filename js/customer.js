@@ -70,6 +70,7 @@ async function fetchAddress(lat, lng) {
 window.goToMyLocation = function() {
     if (navigator.geolocation) {
         const locateBtn = document.querySelector('.locate-btn');
+        const originalIcon = locateBtn ? locateBtn.innerText : "🎯";
         if(locateBtn) locateBtn.innerText = "⏳"; 
 
         navigator.geolocation.getCurrentPosition((position) => {
@@ -93,9 +94,9 @@ window.goToMyLocation = function() {
             pickupCoords = { lat, lng };
             fetchAddress(lat, lng);
             calculatePrice();
-            if(locateBtn) locateBtn.innerText = "🎯";
+            if(locateBtn) locateBtn.innerText = originalIcon;
         }, (err) => {
-            if(locateBtn) locateBtn.innerText = "🎯";
+            if(locateBtn) locateBtn.innerText = originalIcon;
             Swal.fire("Error", "GPS ဖွင့်ထားရန် လိုအပ်ပါသည်", "error");
         }, { enableHighAccuracy: true });
     }
@@ -223,7 +224,7 @@ window.deleteOrderPermanently = async (id) => {
     if (res.isConfirmed) await updateDoc(doc(db, "orders", id), { customerHide: true });
 };
 
-// --- ၅။ Submit Order (Telegram format အပြည့်စုံဖြင့်) ---
+// --- ၅။ Submit Order (မြို့နယ် အချက်အလက်အပြည့်ဖြင့်) ---
 const placeOrderBtn = document.getElementById('placeOrderBtn');
 if (placeOrderBtn) {
     placeOrderBtn.onclick = async () => {
@@ -236,8 +237,14 @@ if (placeOrderBtn) {
             const pAddr = document.getElementById('pickup-address')?.value;
             const dAddr = document.getElementById('dropoff-address')?.value;
 
-            if (!feeInfo || !item || !phone || !pAddr || !dAddr) {
-                Swal.fire({ icon: 'error', title: 'အချက်အလက်မစုံလင်ပါ', text: 'ကျေးဇူးပြု၍ နေရာနှင့် အချက်အလက်များ အကုန်ဖြည့်ပါ။' });
+            // မြို့နယ်နာမည်များကို Dropdown မှ ဆွဲထုတ်ခြင်း
+            const pTownshipSel = document.getElementById('pickup-township');
+            const dTownshipSel = document.getElementById('dropoff-township');
+            const pTownship = pTownshipSel.options[pTownshipSel.selectedIndex]?.text || "";
+            const dTownship = dTownshipSel.options[dTownshipSel.selectedIndex]?.text || "";
+
+            if (!feeInfo || !item || !phone || !pAddr || !dAddr || !pTownship || !dTownship) {
+                Swal.fire({ icon: 'error', title: 'အချက်အလက်မစုံလင်ပါ', text: 'ကျေးဇူးပြု၍ မြို့နယ်နှင့် လိပ်စာများ အကုန်ဖြည့်ပါ။' });
                 return;
             }
 
@@ -248,8 +255,8 @@ if (placeOrderBtn) {
             const orderData = {
                 userId: auth.currentUser.uid,
                 customerName: customerName,
-                pickup: { ...pickupCoords, address: pAddr },
-                dropoff: { ...dropoffCoords, address: dAddr },
+                pickup: { ...pickupCoords, address: pAddr, township: pTownship },
+                dropoff: { ...dropoffCoords, address: dAddr, township: dTownship },
                 item, weight, itemValue, phone,
                 paymentMethod: document.getElementById('payment-method').value,
                 deliveryFee: feeInfo.total, status: "pending", createdAt: serverTimestamp()
@@ -258,7 +265,7 @@ if (placeOrderBtn) {
             const docRef = await addDoc(collection(db, "orders"), orderData);
             const trackUrl = `https://boexaw-ship-it.github.io/gobike/html/track.html?id=${docRef.id}`;
 
-            // --- Telegram Message Format အတိအကျ ---
+            // --- Telegram Message Format (မြို့နယ်ပါဝင်သည်) ---
             const msg = `📦 <b>New Order Received!</b>\n` +
             `━━━━━━━━━━━━━━━━━━\n` +
             `👤 Customer: <b>${customerName}</b>\n` +
@@ -267,8 +274,8 @@ if (placeOrderBtn) {
             `⚖️ အလေးချိန်: <b>${weight} KG</b>\n` +
             `💰 တန်ဖိုး: <b>${parseFloat(itemValue).toLocaleString()} KS</b>\n` +
             `💵 <b>ပို့ခ: ${feeInfo.total.toLocaleString()} KS</b>\n` +
-            `📍 ယူရန်: ${orderData.pickup.address}\n` +
-            `🏁 ပို့ရန်: ${orderData.dropoff.address}\n\n` +
+            `📍 ယူရန်: ${pTownship}၊ ${pAddr}\n` +
+            `🏁 ပို့ရန်: ${dTownship}၊ ${dAddr}\n\n` +
             `✨ <a href="${trackUrl}"><b>📍 ခြေရာခံရန်နှိပ်ပါ</b></a>`;
 
             await notifyTelegram(msg);
