@@ -83,7 +83,7 @@ if (orderId) {
         if (document.getElementById('det-pickup')) document.getElementById('det-pickup').innerText = data.pickup?.address || "-";
         if (document.getElementById('det-dropoff')) document.getElementById('det-dropoff').innerText = data.dropoff?.address || "-";
 
-        // --- (င) Route Visualization (လမ်းကြောင်းဆွဲခြင်း) ---
+        // --- (င) Route Visualization ---
         if (data.pickup && data.dropoff && !routingControl) {
             drawStaticRoute(data.pickup, data.dropoff);
         }
@@ -111,7 +111,8 @@ if (orderId) {
                     } else {
                         riderMarker.setLatLng(pos);
                     }
-                    map.panTo(pos); // Rider ရှိရာသို့ မြေပုံရွှေ့မည်
+                    // Rider marker ရှိရာသို့ မြေပုံကို ချောမွေ့စွာ ရွှေ့မည်
+                    map.setView(pos, map.getZoom(), { animate: true });
                 }
             });
         }
@@ -121,17 +122,19 @@ if (orderId) {
 
 // --- အထောက်အကူပြု Function များ ---
 
+// မြေပုံပေါ်က စာသား panel များ ဖျောက်ရန် ပြင်ဆင်ပြီး
 function drawStaticRoute(p, d) {
     routingControl = L.Routing.control({
         waypoints: [L.latLng(p.lat, p.lng), L.latLng(d.lat, d.lng)],
+        show: false,                 // <--- ဤနေရာတွင် စာသား panel ကို ဖျောက်ထားသည်
+        addWaypoints: false,         // <--- အစက်အသစ်များ ထပ်တိုးမရအောင် ပိတ်ထားသည်
+        draggableWaypoints: false,   // <--- ဆွဲရွှေ့၍မရအောင် ပိတ်ထားသည်
         lineOptions: { styles: [{ color: '#ffcc00', weight: 4, opacity: 0.7 }] },
         createMarker: function(i, wp) {
             const iconUrl = i === 0 ? 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png' : 
                                      'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png';
             return L.marker(wp.latLng, { icon: L.icon({ iconUrl, iconSize: [25, 41], iconAnchor: [12, 41] }) });
-        },
-        addWaypoints: false,
-        draggableWaypoints: false
+        }
     }).addTo(map);
 }
 
