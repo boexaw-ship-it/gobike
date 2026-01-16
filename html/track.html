@@ -6,6 +6,7 @@
     <title>GoBike - Track Order</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <style>
@@ -34,13 +35,12 @@
             padding: 5px 10px;
         }
 
-        /* ၁။ မြေပုံကို ပိုကြီးအောင် ချဲ့ထားသည် */
         #map { height: 420px; width: 100%; z-index: 1; }
 
         .track-container {
             padding: 15px; 
             max-width: 500px; 
-            margin: -20px auto 0; /* မြေပုံပေါ် နည်းနည်းတင်ထားသည် */
+            margin: -20px auto 0; 
             background: white; 
             border-top-left-radius: 25px; 
             border-top-right-radius: 25px;
@@ -49,7 +49,6 @@
             box-shadow: 0 -5px 15px rgba(0,0,0,0.1);
         }
 
-        /* ၂။ Status Progress Bar ကို သပ်ရပ်အောင် ညှိထားသည် */
         .progress-stepper { 
             display: flex; 
             justify-content: space-between; 
@@ -59,7 +58,7 @@
         }
         .step { 
             text-align: center; 
-            font-size: 0.55rem; /* စာသားကို သေးထားသည် */
+            font-size: 0.55rem; 
             color: #ccc; 
             flex: 1; 
             position: relative; 
@@ -72,7 +71,6 @@
         .step.active .circle { background: var(--primary); color: var(--dark); }
         .step.active { color: var(--dark); font-weight: bold; }
 
-        /* ၃။ Order Info Box စာသားများကို ကျစ်ကျစ်လျစ်လျစ် ဖြစ်စေရန် */
         .order-info { background: #fdfdfd; border: 1px solid #eee; border-radius: 15px; padding: 12px; margin-top: 10px; }
         .info-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.8rem; align-items: flex-start; }
         .info-row:last-child { margin-bottom: 0; }
@@ -136,7 +134,6 @@
                 <span class="label">📦 Item:</span>
                 <span id="det-item" class="value">-</span>
             </div>
-            
             <div class="info-row">
                 <span class="label">📍 Pick-up:</span>
                 <span id="det-pickup" class="value addr-highlight">Loading...</span>
@@ -145,7 +142,6 @@
                 <span class="label">🏁 Drop-off:</span>
                 <span id="det-dropoff" class="value addr-highlight">Loading...</span>
             </div>
-
             <div class="info-row">
                 <span class="label">💰 Fee:</span>
                 <span id="det-fee" class="value">0 KS</span>
@@ -171,6 +167,7 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
     <script type="module" src="../js/track.js"></script>
 
 </body>
