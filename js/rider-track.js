@@ -37,12 +37,12 @@ if (orderId) {
     });
 }
 
-// --- ၃။ Draw Route Function (မြေပုံပေါ်က စာသားဖျောက်ရန်) ---
+// --- ၃။ Draw Route Function ---
 function drawRoute(p, d) {
     if (routingControl) map.removeControl(routingControl);
     routingControl = L.Routing.control({
         waypoints: [L.latLng(p.lat, p.lng), L.latLng(d.lat, d.lng)],
-        show: false,              // <--- ဤနေရာတွင် စာသား panel ကို ဖျောက်ထားသည်
+        show: false,
         addWaypoints: false,      
         draggableWaypoints: false,
         lineOptions: { styles: [{ color: '#ffcc00', weight: 6 }] },
@@ -63,10 +63,13 @@ function updateButtons(status, phone) {
     const container = document.getElementById('action-buttons');
     container.innerHTML = "";
 
-    // HTML ထဲရှိ Back to List ခလုတ်ကို ရှာဖွေပြီး Path ပြင်ဆင်ခြင်း
-    const backToListBtn = document.getElementById('back-to-list-btn'); // HTML ထဲက ID နှင့် ကိုက်ညီရပါမည်
+    // Back to List logic (Fixed Redirect)
+    const backToListBtn = document.getElementById('back-to-list-btn');
     if (backToListBtn) {
-        backToListBtn.onclick = () => window.location.href = "delivery.html";
+        backToListBtn.onclick = () => {
+            // .replace ကိုသုံးခြင်းက history ထဲမှာ track page ကို overwrite လုပ်ပေးပါတယ်
+            window.location.replace("delivery.html");
+        };
     }
 
     if (phone) {
@@ -121,8 +124,7 @@ async function changeStatus(newStatus) {
 
         if (newStatus === "completed") {
             setTimeout(() => {
-                // rider.html အစား delivery.html သို့ တိုက်ရိုက်သွားရန်
-                window.location.href = "delivery.html";
+                window.location.replace("delivery.html");
             }, 1600);
         }
     } catch (err) { console.error(err); }
