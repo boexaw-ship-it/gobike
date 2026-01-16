@@ -11,14 +11,15 @@
     <meta name="apple-mobile-web-app-title" content="GoBike">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3198/3198336.png">
     
-    <meta name="theme-color" content="#ffcc00">
-    <link rel="stylesheet" href="css/style.css">
+    <meta name="theme-color" content="#4e342e"> <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
+<body class="dark-theme">
 
     <div class="auth-box">
         <div class="logo-container">
-            <img src="assets/logo.png" alt="GoBike Logo" class="logo">
+            <div class="logo-bg">
+                <img src="https://cdn-icons-png.flaticon.com/512/3198/3198336.png" alt="GoBike Logo" class="logo">
+            </div>
             <h1>GoBike</h1>
             <p>Reliable Delivery Service</p>
         </div>
@@ -68,10 +69,6 @@
     <script type="module" src="js/auth.js"></script>
     
     <script>
-        /**
-         * Tab UI Logic - Global Window Object တွင် ချိတ်ဆက်ထားခြင်းဖြင့်
-         * onclick events များ အလုပ်မလုပ်သည့် ပြဿနာကို ကာကွယ်ပေးပါသည်။
-         */
         window.showLogin = function() {
             document.getElementById('loginForm').style.display = 'block';
             document.getElementById('signupForm').style.display = 'none';
@@ -86,7 +83,6 @@
             document.getElementById('loginTab').classList.remove('active');
         }
 
-        // --- Service Worker Register (For PWA) ---
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('sw.js')
