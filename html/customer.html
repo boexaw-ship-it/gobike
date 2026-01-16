@@ -44,12 +44,8 @@
         }
 
         .header { 
-            background: var(--primary); 
-            padding: 14px; 
-            text-align: center; 
-            font-weight: 700; 
-            font-size: 0.9rem; 
-            color: white;
+            background: var(--primary); padding: 14px; text-align: center; 
+            font-weight: 700; font-size: 0.9rem; color: white;
             display: flex; align-items: center; justify-content: center;
             position: relative;
         }
@@ -63,22 +59,23 @@
         #map-container { position: relative; height: calc(100vh - 120px); width: 100%; }
         #map { height: 100%; width: 100%; z-index: 1; }
         
+        /* တည်နေရာပြ စာသားခွက် - အပေါ်ဆုံးသို့ ရွှေ့ထားသည် */
         #pin-address-display {
             position: absolute; top: 10px; left: 10px; right: 10px;
-            background: rgba(255, 255, 255, 0.95); padding: 12px; font-size: 0.8rem; 
-            border-radius: 12px; color: var(--primary); 
+            background: rgba(255, 255, 255, 0.95); padding: 10px; font-size: 0.75rem; 
+            border-radius: 10px; color: var(--primary); 
             text-align: center; font-weight: 600; z-index: 1000;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
             border-left: 4px solid var(--primary);
         }
 
-        /* My Location Button */
+        /* My Location Button - အပေါ်သို့ မြှင့်တင်ထားသည် */
         .locate-btn {
-            position: absolute; bottom: 120px; right: 15px; z-index: 1000;
-            background: white; width: 45px; height: 45px; border-radius: 50%;
+            position: absolute; bottom: 110px; right: 15px; z-index: 1000;
+            background: white; width: 48px; height: 48px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2); border: 2px solid var(--primary);
-            cursor: pointer; font-size: 1.2rem; transition: all 0.2s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); border: 2px solid var(--primary);
+            cursor: pointer; font-size: 1.3rem; transition: all 0.2s;
         }
         .locate-btn:active { transform: scale(0.9); }
 
@@ -121,7 +118,6 @@
             box-shadow: 0 4px 12px rgba(78, 52, 46, 0.3); margin-top: 10px;
         }
 
-        /* History Card Style */
         .orders-list-container { padding: 15px; overflow-y: auto; height: calc(100vh - 180px); }
         .order-card {
             background: white; padding: 16px; border-radius: 16px; 
@@ -130,7 +126,6 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.02);
         }
 
-        /* Bottom Nav */
         .bottom-nav {
             position: fixed; bottom: 0; left: 0; width: 100%;
             background: white; display: flex; height: 65px;
@@ -227,7 +222,7 @@
                         <b>DROP-OFF (ပို့ဆောင်ရန်)</b>
                         <select id="dropoff-township" required>
                             <option value="">မြို့နယ်ရွေးပါ</option>
-                            </select>
+                        </select>
                         <input type="text" id="dropoff-address" placeholder="လမ်းအမည်/အိမ်အမှတ်" style="margin-top:10px;" required>
                     </div>
 
@@ -275,20 +270,16 @@
     <script type="module" src="../js/customer.js"></script>
 
     <script>
-        // --- ၁။ Bottom Sheet Logic ---
         function toggleSheet() {
             document.getElementById('bottomSheet').classList.toggle('expanded');
         }
 
-        // input နှိပ်ရင် sheet ကို အပေါ်တင်ပေးရန်
         document.querySelectorAll('input, select').forEach(el => {
             el.addEventListener('focus', () => {
                 document.getElementById('bottomSheet').classList.add('expanded');
             });
         });
 
-        // --- ၂။ Township Cloning Logic ---
-        // Pickup မှာရှိတဲ့ မြို့နယ်တွေကို Dropoff ထဲကို အလိုအလျောက်ကူးပေးတာပါ
         const pSelect = document.getElementById('pickup-township');
         const dSelect = document.getElementById('dropoff-township');
 
@@ -298,7 +289,6 @@
             });
         });
 
-        // --- ၃။ Navigation Section Switching ---
         function showSection(sectionId, el) {
             document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
             document.getElementById(sectionId + '-section').classList.add('active');
@@ -310,25 +300,6 @@
                 document.getElementById('bottomSheet').classList.remove('expanded');
             }
         }
-
-        // --- ၄။ Go To My Location ---
-        window.goToMyLocation = function() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition((position) => {
-                    const lat = position.coords.latitude;
-                    const lng = position.coords.longitude;
-                    
-                    if(window.map) {
-                        window.map.setView([lat, lng], 16);
-                        if (window.currentMarker) {
-                            window.currentMarker.setLatLng([lat, lng]);
-                        }
-                    }
-                }, (error) => {
-                    Swal.fire("Error", "GPS ဖွင့်ရန် လိုအပ်ပါသည်", "error");
-                }, { enableHighAccuracy: true });
-            }
-        };
 
         // Deep Link Check
         window.addEventListener('DOMContentLoaded', () => {
