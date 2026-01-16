@@ -14,7 +14,7 @@ onAuthStateChanged(auth, (user) => {
     if (user) {
         if (nameDisplay) nameDisplay.innerText = user.displayName || "User";
         displayMyOrders(); 
-        findMyInitialLocation(); // အစမှာ တည်နေရာရှာပြီး Pin ချပေးမယ်
+        findMyInitialLocation(); 
     } else {
         if (!window.location.pathname.includes('index.html')) {
             window.location.href = "../index.html";
@@ -51,23 +51,21 @@ let pickupCoords = null, dropoffCoords = null;
 let riderMarkers = {}; 
 
 const riderIcon = L.icon({
-    iconUrl: 'https://cdn-icons-png.flaticon.com/512/3198/3198336.png',
-    iconSize: [32, 32],
-    iconAnchor: [16, 16]
+    iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png',
+    iconSize: [35, 35],
+    iconAnchor: [17, 34],
+    popupAnchor: [0, -34]
 });
 
-// (က) Customer လက်ရှိနေရာကို စဖွင့်ချင်း ရှာဖွေခြင်း
+// (က) Customer လက်ရှိနေရာကို ရှာဖွေခြင်း
 function findMyInitialLocation() {
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition((pos) => {
             const { latitude, longitude } = pos.coords;
             const userLoc = [latitude, longitude];
             map.setView(userLoc, 15);
-            
             updatePickupMarker(userLoc);
             reverseGeocode(latitude, longitude);
-
-            // Customer Position Circle
             L.circle(userLoc, { color: '#2196f3', fillColor: '#2196f3', fillOpacity: 0.2, radius: 100 }).addTo(map);
         }, (err) => console.log("Location access denied"));
     }
@@ -90,21 +88,18 @@ function updatePickupMarker(latlng) {
     pickupCoords = { lat: pos.lat, lng: pos.lng };
 }
 
-// မြေပုံကို ကလစ်နှိပ်ရင်လည်း Pin ရွှေ့မယ်
 map.on('click', (e) => {
     updatePickupMarker(e.latlng);
     reverseGeocode(e.latlng.lat, e.latlng.lng);
     calculatePrice();
 });
 
-// (ဂ) လိပ်စာကို Lat/Lng မှ စာအဖြစ်ပြောင်းခြင်း (Reverse Geocode)
+// (ဂ) လိပ်စာကို Lat/Lng မှ စာအဖြစ်ပြောင်းခြင်း
 async function reverseGeocode(lat, lng) {
     try {
         const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`);
         const data = await res.json();
         const address = data.display_name;
-        
-        // Display on Map UI and Fill in Input
         document.getElementById('pin-address-display').innerText = `📍 ${address}`;
         document.getElementById('pickup-address').value = address;
     } catch (e) {
@@ -118,12 +113,16 @@ onSnapshot(ridersQuery, (snap) => {
     snap.docChanges().forEach((change) => {
         const data = change.doc.data();
         const id = change.doc.id;
+        const lat = parseFloat(data.lat);
+        const lng = parseFloat(data.lng);
         
         if (change.type === "added" || change.type === "modified") {
             if (riderMarkers[id]) map.removeLayer(riderMarkers[id]);
-            riderMarkers[id] = L.marker([data.lat, data.lng], { icon: riderIcon })
-                .addTo(map)
-                .bindPopup(`🚴 Rider: ${data.name || 'Active'}`);
+            if (!isNaN(lat) && !isNaN(lng)) {
+                riderMarkers[id] = L.marker([lat, lng], { icon: riderIcon })
+                    .addTo(map)
+                    .bindPopup(`🚴 Rider: ${data.name || 'Active'}`);
+            }
         } else if (change.type === "removed") {
             if (riderMarkers[id]) {
                 map.removeLayer(riderMarkers[id]);
@@ -168,7 +167,6 @@ function calculatePrice() {
         
         const weightInput = document.getElementById('item-weight');
         const valueInput = document.getElementById('item-value');
-        
         const weight = weightInput ? parseFloat(weightInput.value) || 0 : 0;
         const itemValue = valueInput ? parseFloat(valueInput.value) || 0 : 0;
 
@@ -202,7 +200,6 @@ function displayMyOrders() {
 
             const card = document.createElement('div');
             card.className = "order-card";
-            // Brown Theme Styling for Order Cards
             card.style = `cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 16px; margin-bottom: 12px; background: #ffffff; border-radius: 16px; border-left: 5px solid ${order.status === 'completed' ? '#388e3c' : '#4e342e'}; border: 1px solid #eee; box-shadow: 0 2px 8px rgba(0,0,0,0.02);`;
             
             card.innerHTML = `
@@ -218,10 +215,7 @@ function displayMyOrders() {
 
             const delBtn = document.getElementById(`del-btn-${id}`);
             if (delBtn) {
-                delBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    window.deleteOrderPermanently(id);
-                };
+                delBtn.onclick = (e) => { e.stopPropagation(); window.deleteOrderPermanently(id); };
             }
         });
     });
@@ -237,9 +231,8 @@ window.deleteOrderPermanently = async (id) => {
         background: '#ffffff', color: '#1a1a1a'
     });
     if (result.isConfirmed) {
-        try {
-            await updateDoc(doc(db, "orders", id), { customerHide: true });
-        } catch (err) { console.error("Delete Error:", err); }
+        try { await updateDoc(doc(db, "orders", id), { customerHide: true }); } 
+        catch (err) { console.error("Delete Error:", err); }
     }
 };
 
@@ -266,27 +259,19 @@ if (placeOrderBtn) {
             placeOrderBtn.innerText = "Processing...";
 
             const customerName = auth.currentUser?.displayName || "Customer";
-
             const orderData = {
                 userId: auth.currentUser.uid,
                 customerName: customerName,
                 pickup: { ...pickupCoords, address: pAddr },
                 dropoff: { ...dropoffCoords, address: dAddr },
-                item: item, 
-                weight: weight, 
-                itemValue: itemValue, 
-                phone: phone,
+                item: item, weight: weight, itemValue: itemValue, phone: phone,
                 paymentMethod: payment === "COD" ? "Cash on Delivery" : "Cash at Pickup",
-                deliveryFee: feeInfo.total, 
-                status: "pending", 
-                customerHide: false, 
-                createdAt: serverTimestamp()
+                deliveryFee: feeInfo.total, status: "pending", customerHide: false, createdAt: serverTimestamp()
             };
 
             const docRef = await addDoc(collection(db, "orders"), orderData);
             const orderId = docRef.id;
 
-            // Google Sheets Sync
             fetch(SCRIPT_URL, {
                 method: "POST", mode: "no-cors",
                 body: JSON.stringify({
@@ -298,6 +283,8 @@ if (placeOrderBtn) {
             }).catch(e => console.log("Sheet Error:", e));
 
             const trackUrl = `https://boexaw-ship-it.github.io/gobike/html/track.html?id=${orderId}`;
+            
+            // --- Telegram Message Format အတိအကျ ---
             const msg = `📦 <b>New Order Received!</b>\n` +
             `━━━━━━━━━━━━━━━━━━\n` +
             `👤 Customer: <b>${customerName}</b>\n` +
@@ -311,19 +298,10 @@ if (placeOrderBtn) {
             `✨ <a href="${trackUrl}"><b>📍 ခြေရာခံရန်နှိပ်ပါ</b></a>`;
 
             await notifyTelegram(msg);
-
-            await Swal.fire({
-                title: 'အော်ဒါတင်ပြီးပါပြီ!',
-                text: 'Rider ကို အကြောင်းကြားထားပါသည်။',
-                icon: 'success',
-                confirmButtonColor: '#4e342e',
-                background: '#ffffff', color: '#1a1a1a'
-            });
-            
+            await Swal.fire({ title: 'အော်ဒါတင်ပြီးပါပြီ!', text: 'Rider ကို အကြောင်းကြားထားပါသည်။', icon: 'success', confirmButtonColor: '#4e342e', background: '#ffffff', color: '#1a1a1a' });
             window.location.href = `track.html?id=${orderId}`;
 
         } catch (e) {
-            console.error("Submission Error:", e);
             placeOrderBtn.disabled = false;
             placeOrderBtn.innerText = "ORDER NOW";
             Swal.fire({ icon: 'error', title: 'Error', text: e.message, background: '#ffffff', color: '#1a1a1a' });
