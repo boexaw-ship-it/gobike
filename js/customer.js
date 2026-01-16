@@ -227,19 +227,21 @@ if (placeOrderBtn) {
 
             // Telegram Message (Weight နှင့် Value ဖြည့်စွက်ထားသည်)
             const trackUrl = `https://boexaw-ship-it.github.io/gobike/html/track.html?id=${orderId}`;
+            // Telegram Message (ဖုန်းနံပါတ် ဖြည့်စွက်ထားသည်)
+            const trackUrl = `https://boexaw-ship-it.github.io/gobike/html/track.html?id=${orderId}`;
             const msg = `📦 <b>New Order Received!</b>\n` +
-                        `━━━━━━━━━━━━━━━━━━\n` +
-                        `👤 Customer: <b>${customerName}</b>\n` +
-                        `📝 ပစ္စည်း: <b>${item}</b>\n` +
-                        `⚖️ အလေးချိန်: <b>${weight} KG</b>\n` +
-                        `💰 တန်ဖိုး: <b>${parseFloat(itemValue).toLocaleString()} KS</b>\n` +
-                        `💵 <b>ပို့ခ: ${feeInfo.total.toLocaleString()} KS</b>\n` +
-                        `📍 ယူရန်: ${orderData.pickup.address}\n` +
-                        `🏁 ပို့ရန်: ${orderData.dropoff.address}\n\n` +
-                        `✨ <a href="${trackUrl}"><b>📍 ခြေရာခံရန်နှိပ်ပါ</b></a>`;
+            `━━━━━━━━━━━━━━━━━━\n` +
+            `👤 Customer: <b>${customerName}</b>\n` +
+            `📞 ဖုန်းနံပါတ်: <b>${phone}</b>\n` + // ဖုန်းနံပါတ် ထည့်သွင်းထားသည်
+            `📝 ပစ္စည်း: <b>${item}</b>\n` +
+            `⚖️ အလေးချိန်: <b>${weight} KG</b>\n` +
+            `💰 တန်ဖိုး: <b>${parseFloat(itemValue).toLocaleString()} KS</b>\n` +
+            `💵 <b>ပို့ခ: ${feeInfo.total.toLocaleString()} KS</b>\n` +
+            `📍 ယူရန်: ${orderData.pickup.address}\n` +
+            `🏁 ပို့ရန်: ${orderData.dropoff.address}\n\n` +
+            `✨ <a href="${trackUrl}"><b>📍 ခြေရာခံရန်နှိပ်ပါ</b></a>`;
 
             await notifyTelegram(msg);
-
             Swal.fire({
                 title: 'အော်ဒါတင်ပြီးပါပြီ!',
                 icon: 'success',
