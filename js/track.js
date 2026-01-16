@@ -20,6 +20,7 @@ const riderIcon = L.icon({
 let riderMarker = null;
 let riderUnsubscribe = null;
 let routingControl = null;
+let isAlertShown = false; // Alert ထပ်ခါထပ်ခါ မတက်အောင် ထိန်းထားခြင်း
 
 // --- ၂။ Main Listener (Order အခြေအနေစောင့်ကြည့်ခြင်း) ---
 if (orderId) {
@@ -31,15 +32,25 @@ if (orderId) {
         
         const data = docSnap.data();
 
-        // --- (က) Completion Logic ---
-        if (data.status === "completed") {
+        // --- (က) Completion Logic (ပြင်ဆင်ပြီး) ---
+        if (data.status === "completed" && !isAlertShown) {
+            isAlertShown = true; // တစ်ခါပဲ အလုပ်လုပ်အောင် ပိတ်လိုက်သည်
             cleanupTracking();
-            // Progress Bar ကို အကုန်အပြည့်ပြပေးထားမယ်
             updateProgressBar("arrived"); 
             
-            // Alert ကို တစ်ခါပဲ ပြစေချင်ရင် (ဥပမာ- App ထဲမှာရှိနေတုန်း ပြီးသွားတာမျိုး)
-            // ဒီနေရာမှာ redirect မလုပ်ဘဲ အောက်က details တွေကို ဆက်ပြခိုင်းထားပါတယ်
-            console.log("Order is completed. Viewing History.");
+            Swal.fire({
+                title: 'ပို့ဆောင်မှု ပြီးဆုံးပါပြီ',
+                text: 'အော်ဒါကို အောင်မြင်စွာ ပို့ဆောင်ပြီးစီးခဲ့ပါသည်။ ကျေးဇူးတင်ပါသည်!',
+                icon: 'success',
+                confirmButtonText: 'အိုကေ',
+                confirmButtonColor: '#4e342e',
+                allowOutsideClick: false
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = "customer.html?tab=list";
+                }
+            });
+            return;
         }
 
         // --- (ခ) Status Check & UI Update ---
@@ -85,11 +96,9 @@ if (orderId) {
         }
 
         // --- (ဆ) Live Rider Tracking (Active Location) ---
-        // Rider ရှိမှသာ စစ်ဆေးမည်
         if (data.riderId && ["accepted", "on_the_way", "arrived"].includes(data.status)) {
             if (riderUnsubscribe) riderUnsubscribe();
             
-            // Rider ရဲ့ Live တည်နေရာကို active_riders ထဲကနေ လှမ်းဖတ်ခြင်း
             riderUnsubscribe = onSnapshot(doc(db, "active_riders", data.riderId), (riderLocSnap) => {
                 if (riderLocSnap.exists()) {
                     const loc = riderLocSnap.data();
@@ -100,7 +109,6 @@ if (orderId) {
                     } else {
                         riderMarker.setLatLng(pos);
                     }
-                    // မြေပုံကို Rider ရှိရာသို့ အလိုအလျောက် ရွှေ့ပေးမည်
                     map.setView(pos, map.getZoom(), { animate: true });
                 }
             });
@@ -123,6 +131,7 @@ function updateProgressBar(status) {
 }
 
 function drawStaticRoute(p, d) {
+    if (routingControl) map.removeControl(routingControl);
     routingControl = L.Routing.control({
         waypoints: [L.latLng(p.lat, p.lng), L.latLng(d.lat, d.lng)],
         show: false,
@@ -188,4 +197,3 @@ window.cancelOrder = async () => {
         } catch (err) { console.error(err); }
     }
 };
-
