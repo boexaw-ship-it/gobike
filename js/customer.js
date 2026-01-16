@@ -14,6 +14,7 @@ onAuthStateChanged(auth, (user) => {
     if (user) {
         if (nameDisplay) nameDisplay.innerText = user.displayName || "User";
         displayMyOrders(); 
+        findMyInitialLocation(); // အစမှာ တည်နေရာရှာပြီး Pin ချပေးမယ်
     } else {
         if (!window.location.pathname.includes('index.html')) {
             window.location.href = "../index.html";
@@ -29,10 +30,10 @@ const setupLogout = () => {
                 title: 'အကောင့်မှ ထွက်မလား?',
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonColor: '#ffcc00',
+                confirmButtonColor: '#4e342e',
                 confirmButtonText: 'ထွက်မည်',
                 cancelButtonText: 'မထွက်တော့ပါ',
-                background: '#1a1a1a', color: '#ffffff'
+                background: '#ffffff', color: '#1a1a1a'
             }).then(async (result) => {
                 if (result.isConfirmed) await signOut(auth);
             });
@@ -45,7 +46,7 @@ setupLogout();
 const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 12); 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-let pickupMarker, dropoffMarker;
+let pickupMarker = null, dropoffMarker = null;
 let pickupCoords = null, dropoffCoords = null;
 let riderMarkers = {}; 
 
@@ -55,21 +56,63 @@ const riderIcon = L.icon({
     iconAnchor: [16, 16]
 });
 
-// --- (က) Customer Location (Blue Dot Display) ---
-navigator.geolocation.getCurrentPosition((pos) => {
-    const { latitude, longitude } = pos.coords;
-    map.setView([latitude, longitude], 13);
-    
-    // Customer လက်ရှိနေရာကို အပြာရောင်အဝိုင်းဖြင့် ပြခြင်း
-    L.circle([latitude, longitude], {
-        color: '#2196f3', fillColor: '#2196f3', fillOpacity: 0.5, radius: 20
-    }).addTo(map);
-    L.circle([latitude, longitude], {
-        color: '#2196f3', weight: 1, radius: 200, fill: false, opacity: 0.3
-    }).addTo(map);
-}, (err) => console.log("Location access denied"));
+// (က) Customer လက်ရှိနေရာကို စဖွင့်ချင်း ရှာဖွေခြင်း
+function findMyInitialLocation() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition((pos) => {
+            const { latitude, longitude } = pos.coords;
+            const userLoc = [latitude, longitude];
+            map.setView(userLoc, 15);
+            
+            updatePickupMarker(userLoc);
+            reverseGeocode(latitude, longitude);
 
-// --- (ခ) Real-time ONLINE Riders display (Online ဖြစ်သူများသာပြရန် ပြင်ဆင်ပြီး) ---
+            // Customer Position Circle
+            L.circle(userLoc, { color: '#2196f3', fillColor: '#2196f3', fillOpacity: 0.2, radius: 100 }).addTo(map);
+        }, (err) => console.log("Location access denied"));
+    }
+}
+
+// (ခ) Pickup Pin Update လုပ်ခြင်း
+function updatePickupMarker(latlng) {
+    const pos = Array.isArray(latlng) ? { lat: latlng[0], lng: latlng[1] } : latlng;
+    if (!pickupMarker) {
+        pickupMarker = L.marker(pos, { draggable: true, zIndexOffset: 1000 }).addTo(map);
+        pickupMarker.on('dragend', (e) => {
+            const newPos = e.target.getLatLng();
+            pickupCoords = { lat: newPos.lat, lng: newPos.lng };
+            reverseGeocode(newPos.lat, newPos.lng);
+            calculatePrice();
+        });
+    } else {
+        pickupMarker.setLatLng(pos);
+    }
+    pickupCoords = { lat: pos.lat, lng: pos.lng };
+}
+
+// မြေပုံကို ကလစ်နှိပ်ရင်လည်း Pin ရွှေ့မယ်
+map.on('click', (e) => {
+    updatePickupMarker(e.latlng);
+    reverseGeocode(e.latlng.lat, e.latlng.lng);
+    calculatePrice();
+});
+
+// (ဂ) လိပ်စာကို Lat/Lng မှ စာအဖြစ်ပြောင်းခြင်း (Reverse Geocode)
+async function reverseGeocode(lat, lng) {
+    try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`);
+        const data = await res.json();
+        const address = data.display_name;
+        
+        // Display on Map UI and Fill in Input
+        document.getElementById('pin-address-display').innerText = `📍 ${address}`;
+        document.getElementById('pickup-address').value = address;
+    } catch (e) {
+        console.log("Geocode error");
+    }
+}
+
+// (ဃ) Real-time ONLINE Riders display
 const ridersQuery = query(collection(db, "active_riders"), where("isOnline", "==", true));
 onSnapshot(ridersQuery, (snap) => {
     snap.docChanges().forEach((change) => {
@@ -100,9 +143,8 @@ window.updateLocation = function(type) {
     const lng = parseFloat(option.getAttribute('data-lng'));
 
     if (type === 'pickup') {
-        pickupCoords = { lat, lng };
-        if (pickupMarker) map.removeLayer(pickupMarker);
-        pickupMarker = L.marker([lat, lng], { draggable: true }).addTo(map);
+        updatePickupMarker({ lat, lng });
+        reverseGeocode(lat, lng);
     } else {
         dropoffCoords = { lat, lng };
         if (dropoffMarker) map.removeLayer(dropoffMarker);
@@ -160,15 +202,17 @@ function displayMyOrders() {
 
             const card = document.createElement('div');
             card.className = "order-card";
-            card.style = `cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 12px; margin-bottom: 10px; background: #2a2a2a; border-radius: 12px; border-left: 5px solid ${order.status === 'completed' ? '#00ff00' : '#ffcc00'}; border: 1px solid #444;`;
+            // Brown Theme Styling for Order Cards
+            card.style = `cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 16px; margin-bottom: 12px; background: #ffffff; border-radius: 16px; border-left: 5px solid ${order.status === 'completed' ? '#388e3c' : '#4e342e'}; border: 1px solid #eee; box-shadow: 0 2px 8px rgba(0,0,0,0.02);`;
+            
             card.innerHTML = `
                 <div onclick="window.location.href='track.html?id=${id}'" style="flex-grow:1;">
-                    <b style="color: #fff;">📦 ${order.item || 'Parcel'}</b><br>
-                    <span style="font-size: 0.75rem; color: #aaa;">Status: ${(order.status || 'pending').toUpperCase()}</span><br>
-                    <span style="font-size: 0.7rem; color: #ffcc00;">${(order.deliveryFee || 0).toLocaleString()} KS</span>
+                    <b style="color: #4e342e;">📦 ${order.item || 'Parcel'}</b><br>
+                    <span style="font-size: 0.75rem; color: #757575;">Status: ${(order.status || 'pending').toUpperCase()}</span><br>
+                    <span style="font-size: 0.85rem; font-weight: bold; color: #4e342e;">${(order.deliveryFee || 0).toLocaleString()} KS</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <span id="del-btn-${id}" style="color: #ff4444; font-size: 1.1rem; cursor: pointer;">🗑️</span>
+                    <span id="del-btn-${id}" style="color: #d32f2f; font-size: 1.1rem; cursor: pointer;">🗑️</span>
                 </div>`;
             listDiv.appendChild(card);
 
@@ -186,11 +230,11 @@ function displayMyOrders() {
 window.deleteOrderPermanently = async (id) => {
     const result = await Swal.fire({
         title: 'ဖယ်ထုတ်မလား?',
-        text: 'ဤအော်ဒါမှတ်တမ်းကို Dashboard မှ ဖယ်ထုတ်ပါလိမ့်မည်။',
+        text: 'ဤအော်ဒါမှတ်တမ်းကို ဖယ်ထုတ်ပါလိမ့်မည်။',
         icon: 'question',
         showCancelButton: true,
-        confirmButtonColor: '#ffcc00',
-        background: '#1a1a1a', color: '#fff'
+        confirmButtonColor: '#d32f2f',
+        background: '#ffffff', color: '#1a1a1a'
     });
     if (result.isConfirmed) {
         try {
@@ -214,22 +258,20 @@ if (placeOrderBtn) {
             const dAddr = document.getElementById('dropoff-address')?.value;
 
             if (!feeInfo || !item || !phone || !pAddr || !dAddr || !pickupCoords || !dropoffCoords) {
-                Swal.fire({ icon: 'error', title: 'အချက်အလက်မစုံလင်ပါ', text: 'ကျေးဇူးပြု၍ နေရာနှင့် အချက်အလက်များ အကုန်ဖြည့်ပါ။', background: '#1a1a1a', color: '#fff' });
+                Swal.fire({ icon: 'error', title: 'အချက်အလက်မစုံလင်ပါ', text: 'ကျေးဇူးပြု၍ နေရာနှင့် အချက်အလက်များ အကုန်ဖြည့်ပါ။', background: '#ffffff', color: '#1a1a1a' });
                 return;
             }
 
             placeOrderBtn.disabled = true;
             placeOrderBtn.innerText = "Processing...";
 
-            const pTown = pickupSelect.options[pickupSelect.selectedIndex].text;
-            const dTown = dropoffSelect.options[dropoffSelect.selectedIndex].text;
             const customerName = auth.currentUser?.displayName || "Customer";
 
             const orderData = {
                 userId: auth.currentUser.uid,
                 customerName: customerName,
-                pickup: { ...pickupCoords, address: `${pTown}, ${pAddr}` },
-                dropoff: { ...dropoffCoords, address: `${dTown}, ${dAddr}` },
+                pickup: { ...pickupCoords, address: pAddr },
+                dropoff: { ...dropoffCoords, address: dAddr },
                 item: item, 
                 weight: weight, 
                 itemValue: itemValue, 
@@ -244,6 +286,7 @@ if (placeOrderBtn) {
             const docRef = await addDoc(collection(db, "orders"), orderData);
             const orderId = docRef.id;
 
+            // Google Sheets Sync
             fetch(SCRIPT_URL, {
                 method: "POST", mode: "no-cors",
                 body: JSON.stringify({
@@ -273,8 +316,8 @@ if (placeOrderBtn) {
                 title: 'အော်ဒါတင်ပြီးပါပြီ!',
                 text: 'Rider ကို အကြောင်းကြားထားပါသည်။',
                 icon: 'success',
-                confirmButtonColor: '#ffcc00',
-                background: '#1a1a1a', color: '#fff'
+                confirmButtonColor: '#4e342e',
+                background: '#ffffff', color: '#1a1a1a'
             });
             
             window.location.href = `track.html?id=${orderId}`;
@@ -283,8 +326,7 @@ if (placeOrderBtn) {
             console.error("Submission Error:", e);
             placeOrderBtn.disabled = false;
             placeOrderBtn.innerText = "ORDER NOW";
-            Swal.fire({ icon: 'error', title: 'Error', text: e.message, background: '#1a1a1a', color: '#fff' });
+            Swal.fire({ icon: 'error', title: 'Error', text: e.message, background: '#ffffff', color: '#1a1a1a' });
         }
     };
 }
-
