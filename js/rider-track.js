@@ -37,14 +37,15 @@ if (orderId) {
     });
 }
 
-// --- ၃။ Draw Route Function ---
+// --- ၃။ Draw Route Function (မြေပုံပေါ်က စာသားဖျောက်ရန် ပြင်ဆင်ပြီး) ---
 function drawRoute(p, d) {
     if (routingControl) map.removeControl(routingControl);
     routingControl = L.Routing.control({
         waypoints: [L.latLng(p.lat, p.lng), L.latLng(d.lat, d.lng)],
-        lineOptions: { styles: [{ color: '#ffcc00', weight: 6 }] },
-        addWaypoints: false,
+        show: false,              // <--- ဤနေရာတွင် စာသား panel ကို ဖျောက်ထားသည်
+        addWaypoints: false,      // <--- User မှ လမ်းကြောင်းအမှတ်များ ထပ်တိုး၍မရအောင် ပိတ်ထားသည်
         draggableWaypoints: false,
+        lineOptions: { styles: [{ color: '#ffcc00', weight: 6 }] },
         createMarker: function(i, wp) {
             const color = i === 0 ? 'green' : 'red';
             return L.marker(wp.latLng, {
@@ -62,11 +63,18 @@ function updateButtons(status, phone) {
     const container = document.getElementById('action-buttons');
     container.innerHTML = "";
 
+    // Back Button (GitHub 404 မဖြစ်စေရန် delivery.html သို့ တိုက်ရိုက်ညွှန်းထားသည်)
+    const backBtn = document.createElement('button');
+    backBtn.className = "btn btn-secondary";
+    backBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Back`;
+    backBtn.onclick = () => window.location.href = "delivery.html";
+    container.appendChild(backBtn);
+
     if (phone) {
         const callBtn = document.createElement('a');
         callBtn.href = `tel:${phone}`;
         callBtn.className = "btn btn-phone";
-        callBtn.innerHTML = `<i class="fas fa-phone-alt"></i> Customer ထံ ဖုန်းဆက်မည်`;
+        callBtn.innerHTML = `<i class="fas fa-phone-alt"></i> Call`;
         container.appendChild(callBtn);
     }
 
@@ -74,23 +82,23 @@ function updateButtons(status, phone) {
     nextBtn.className = "btn btn-primary";
 
     if (status === "pending") {
-        nextBtn.innerHTML = `<i class="fas fa-check"></i> အော်ဒါလက်ခံမည် (Accept)`;
+        nextBtn.innerHTML = `<i class="fas fa-check"></i> Accept`;
         nextBtn.onclick = () => changeStatus("accepted");
     } else if (status === "accepted") {
-        nextBtn.innerHTML = `<i class="fas fa-motorcycle"></i> ပစ္စည်းယူရန် ထွက်ခွာပြီ`;
+        nextBtn.innerHTML = `<i class="fas fa-motorcycle"></i> Pick Up`;
         nextBtn.onclick = () => changeStatus("on_the_way");
     } else if (status === "on_the_way") {
-        nextBtn.innerHTML = `<i class="fas fa-box"></i> ပစ္စည်းယူဆောင်ပြီးပြီ`;
+        nextBtn.innerHTML = `<i class="fas fa-box"></i> Picked Up`;
         nextBtn.onclick = () => changeStatus("arrived");
     } else if (status === "arrived") {
-        nextBtn.innerHTML = `<i class="fas fa-hand-holding-heart"></i> ပို့ဆောင်မှု ပြီးဆုံးပြီ`;
+        nextBtn.innerHTML = `<i class="fas fa-hand-holding-heart"></i> Completed`;
         nextBtn.onclick = () => changeStatus("completed");
     }
 
     if (status !== "completed") container.appendChild(nextBtn);
 }
 
-// --- ၅။ Change Status Function ---
+// --- ၅။ Change Status Function (Order Complete ဖြစ်ပါက delivery.html သို့ ပြန်သွားရန် ပြင်ဆင်ပြီး) ---
 async function changeStatus(newStatus) {
     try {
         const orderRef = doc(db, "orders", orderId);
@@ -105,15 +113,18 @@ async function changeStatus(newStatus) {
         
         Swal.fire({
             icon: 'success',
-            title: 'အောင်မြင်ပါသည်',
-            text: `အခြေအနေကို ${newStatus.replace("_", " ")} သို့ ပြောင်းလိုက်ပါပြီ။`,
+            title: 'Success',
+            text: `Status changed to ${newStatus.replace("_", " ")}`,
             timer: 1500,
             showConfirmButton: false,
             background: '#1a1a1a', color: '#fff'
         });
 
         if (newStatus === "completed") {
-            setTimeout(() => window.location.href = "rider.html", 1600);
+            setTimeout(() => {
+                // rider.html အစား delivery.html သို့ ပြောင်းလဲထားပါသည်
+                window.location.href = "delivery.html";
+            }, 1600);
         }
     } catch (err) { console.error(err); }
 }
