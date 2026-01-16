@@ -55,17 +55,6 @@ const riderIcon = L.icon({
     iconAnchor: [16, 16]
 });
 
-// လိပ်စာရှာဖွေပေးသည့် Function
-async function fetchAddress(lat, lng) {
-    try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`);
-        const data = await res.json();
-        const addr = data.display_name;
-        document.getElementById('pin-address-display').innerText = `📍 ${addr}`;
-        document.getElementById('pickup-address').value = addr;
-    } catch (e) { console.log("Geocode error"); }
-}
-
 // --- (က) Go To My Location ---
 window.goToMyLocation = function() {
     if (navigator.geolocation) {
@@ -84,7 +73,6 @@ window.goToMyLocation = function() {
                 pickupMarker.on('dragend', () => {
                     const pos = pickupMarker.getLatLng();
                     pickupCoords = { lat: pos.lat, lng: pos.lng };
-                    fetchAddress(pos.lat, pos.lng);
                     calculatePrice();
                 });
             } else {
@@ -92,7 +80,6 @@ window.goToMyLocation = function() {
             }
 
             pickupCoords = { lat, lng };
-            fetchAddress(lat, lng);
             calculatePrice();
             if(locateBtn) locateBtn.innerText = originalIcon;
         }, (err) => {
@@ -118,7 +105,7 @@ onSnapshot(ridersQuery, (snap) => {
     });
 });
 
-// --- (ဂ) Update From Dropdown ---
+// --- (ဂ) Update From Dropdown (Marker သာရွှေ့မည်၊ စာသားမပြောင်းပါ) ---
 window.updateLocation = function(type) {
     const select = document.getElementById(`${type}-township`);
     const option = select?.options[select.selectedIndex];
@@ -132,11 +119,9 @@ window.updateLocation = function(type) {
         if (pickupMarker) map.removeLayer(pickupMarker);
         pickupMarker = L.marker([lat, lng], { draggable: true }).addTo(map);
         window.currentMarker = pickupMarker;
-        fetchAddress(lat, lng);
         pickupMarker.on('dragend', () => {
             const pos = pickupMarker.getLatLng();
             pickupCoords = { lat: pos.lat, lng: pos.lng };
-            fetchAddress(pos.lat, pos.lng);
             calculatePrice();
         });
     } else {
@@ -163,7 +148,6 @@ map.on('click', (e) => {
         pickupCoords = { lat: e.latlng.lat, lng: e.latlng.lng };
         pickupMarker = L.marker(e.latlng, { draggable: true }).addTo(map);
         window.currentMarker = pickupMarker;
-        fetchAddress(e.latlng.lat, e.latlng.lng);
         calculatePrice();
     }
 });
@@ -224,7 +208,7 @@ window.deleteOrderPermanently = async (id) => {
     if (res.isConfirmed) await updateDoc(doc(db, "orders", id), { customerHide: true });
 };
 
-// --- ၅။ Submit Order (မြို့နယ် အချက်အလက်အပြည့်ဖြင့်) ---
+// --- ၅။ Submit Order (Manual Address Version) ---
 const placeOrderBtn = document.getElementById('placeOrderBtn');
 if (placeOrderBtn) {
     placeOrderBtn.onclick = async () => {
@@ -234,10 +218,11 @@ if (placeOrderBtn) {
             const phone = document.getElementById('receiver-phone')?.value;
             const weight = document.getElementById('item-weight')?.value || 0;
             const itemValue = document.getElementById('item-value')?.value || 0;
+            
+            // Manual ရိုက်ထားသော စာသားကို ယူသည်
             const pAddr = document.getElementById('pickup-address')?.value;
             const dAddr = document.getElementById('dropoff-address')?.value;
 
-            // မြို့နယ်နာမည်များကို Dropdown မှ ဆွဲထုတ်ခြင်း
             const pTownshipSel = document.getElementById('pickup-township');
             const dTownshipSel = document.getElementById('dropoff-township');
             const pTownship = pTownshipSel.options[pTownshipSel.selectedIndex]?.text || "";
@@ -265,7 +250,6 @@ if (placeOrderBtn) {
             const docRef = await addDoc(collection(db, "orders"), orderData);
             const trackUrl = `https://boexaw-ship-it.github.io/gobike/html/track.html?id=${docRef.id}`;
 
-            // --- Telegram Message Format (မြို့နယ်ပါဝင်သည်) ---
             const msg = `📦 <b>New Order Received!</b>\n` +
             `━━━━━━━━━━━━━━━━━━\n` +
             `👤 Customer: <b>${customerName}</b>\n` +
@@ -280,7 +264,6 @@ if (placeOrderBtn) {
 
             await notifyTelegram(msg);
 
-            // Sheet Sync
             fetch(SCRIPT_URL, {
                 method: "POST", mode: "no-cors",
                 body: JSON.stringify({ action: "create", orderId: docRef.id, ...orderData, deliveryFee: feeInfo.total })
@@ -296,3 +279,4 @@ if (placeOrderBtn) {
         }
     };
 }
+
