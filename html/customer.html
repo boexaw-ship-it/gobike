@@ -6,6 +6,7 @@
     <title>GoBike - Customer Panel</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <style>
@@ -59,7 +60,6 @@
         #map-container { position: relative; height: calc(100vh - 120px); width: 100%; }
         #map { height: 100%; width: 100%; z-index: 1; }
         
-        /* Pin Address Display (Static Label) */
         #pin-address-display {
             position: absolute; top: 10px; left: 10px; right: 10px;
             background: rgba(255, 255, 255, 0.95); padding: 10px; font-size: 0.75rem; 
@@ -116,12 +116,28 @@
             box-shadow: 0 4px 12px rgba(78, 52, 46, 0.3); margin-top: 10px;
         }
 
-        .orders-list-container { padding: 15px; overflow-y: auto; height: calc(100vh - 180px); }
+        /* History Tabs Design */
+        .history-tabs {
+            display: flex; background: white; border-bottom: 1px solid #eee;
+        }
+        .tab-item {
+            flex: 1; text-align: center; padding: 15px; font-size: 0.85rem;
+            color: #888; font-weight: 600; cursor: pointer;
+        }
+        .tab-item.active {
+            color: var(--primary); border-bottom: 3px solid var(--primary);
+        }
+
+        .orders-list-container { padding: 15px; overflow-y: auto; height: calc(100vh - 230px); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
         .order-card {
             background: white; padding: 16px; border-radius: 16px; 
             margin-bottom: 12px; border: 1px solid #efefef;
             display: flex; justify-content: space-between; align-items: center;
             box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+            position: relative;
         }
 
         .bottom-nav {
@@ -192,10 +208,6 @@
                                 <option value="Thingangyun" data-lat="16.8322" data-lng="96.1950">သင်္ဃန်းကျွန်း</option>
                                 <option value="Yankin" data-lat="16.8353" data-lng="96.1583">ရန်ကင်း</option>
                             </optgroup>
-                            <optgroup label="Southern Region">
-                                <option value="Dala" data-lat="16.7589" data-lng="96.1542">ဒလ</option>
-                                <option value="Thanlyin" data-lat="16.7667" data-lng="96.2500">သန်လျင်</option>
-                            </optgroup>
                         </select>
                         <input type="text" id="pickup-address" placeholder="လမ်းအမည်/အိမ်အမှတ် (Manual)" style="margin-top:10px;" required>
                     </div>
@@ -204,7 +216,7 @@
                         <b>DROP-OFF (ပို့ဆောင်ရန်)</b>
                         <select id="dropoff-township" required>
                             <option value="">မြို့နယ်ရွေးပါ</option>
-                            </select>
+                        </select>
                         <input type="text" id="dropoff-address" placeholder="လမ်းအမည်/အိမ်အမှတ် (Manual)" style="margin-top:10px;" required>
                     </div>
 
@@ -231,11 +243,22 @@
 
     <div id="list-section" class="page-section">
         <div class="header">
-            <span class="back-btn" onclick="showSection('order', document.querySelector('.nav-item'))">❮</span>
-            MY ORDER HISTORY
+            MY ORDERS
         </div>
-        <div class="orders-list-container" id="orders-list">
-            <p style="text-align:center; color:#888; margin-top:50px;">မှတ်တမ်းများ ရယူနေပါသည်...</p>
+        
+        <div class="history-tabs">
+            <div class="tab-item active" onclick="switchTab('active')">ACTIVE</div>
+            <div class="tab-item" onclick="switchTab('history')">HISTORY</div>
+        </div>
+
+        <div class="orders-list-container">
+            <div id="active-orders" class="tab-content active">
+                <p style="text-align:center; color:#888; margin-top:50px;">လက်ရှိတင်ထားသော အော်ဒါမရှိပါ</p>
+            </div>
+
+            <div id="history-orders" class="tab-content">
+                <p style="text-align:center; color:#888; margin-top:50px;">ပို့ဆောင်ပြီး မှတ်တမ်းမရှိပါ</p>
+            </div>
         </div>
     </div>
 
@@ -244,7 +267,7 @@
             <span class="nav-icon">📍</span>New Order
         </div>
         <div class="nav-item" onclick="showSection('list', this)">
-            <span class="nav-icon">📦</span>History
+            <span class="nav-icon">📦</span>My Orders
         </div>
     </nav>
 
@@ -254,6 +277,16 @@
     <script>
         function toggleSheet() {
             document.getElementById('bottomSheet').classList.toggle('expanded');
+        }
+
+        function switchTab(type) {
+            // Tab Buttons
+            document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // Tab Content
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(type + '-orders').classList.add('active');
         }
 
         // Auto expand sheet on focus
@@ -268,7 +301,6 @@
             const pSelect = document.getElementById('pickup-township');
             const dSelect = document.getElementById('dropoff-township');
             if(pSelect && dSelect) {
-                // clone internal HTML to preserve optgroups
                 dSelect.innerHTML = pSelect.innerHTML;
             }
         });
