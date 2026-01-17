@@ -14,25 +14,26 @@
         
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--dark); color: var(--text); overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
         
-        /* မြေပုံကို တစ်ဝက် (50%) ထားခြင်း */
+        /* မြေပုံ 50% */
         #map { height: 50vh; width: 100%; flex-shrink: 0; border-bottom: 2px solid var(--primary); z-index: 10; }
 
-        .top-nav {
-            position: fixed; top: 15px; left: 15px; z-index: 1000;
-        }
+        /* Back Button - အဟောင်းအတိုင်း ပြန်ပြင်ထားသည် */
         .back-btn {
-            background: rgba(0,0,0,0.8); color: white; padding: 10px 18px;
+            position: fixed; top: 15px; left: 15px; z-index: 1000;
+            background: rgba(0,0,0,0.7); color: white; padding: 10px 15px;
             border-radius: 50px; text-decoration: none; display: flex;
-            align-items: center; gap: 8px; border: 1px solid var(--primary);
-            backdrop-filter: blur(5px); font-size: 0.9rem;
+            align-items: center; gap: 8px; border: 1px solid rgba(255,255,255,0.2);
+            backdrop-filter: blur(5px); transition: 0.3s; cursor: pointer;
+            font-size: 0.9rem;
         }
+        .back-btn:hover { background: var(--primary); color: #000; }
 
-        /* Detail Panel ကို ကျန်တဲ့ 50% မှာ Scroll ဆွဲလို့ရအောင် လုပ်ခြင်း */
+        /* Detail Panel 50% */
         .detail-panel {
             flex-grow: 1; background: var(--card); border-top-left-radius: 25px; border-top-right-radius: 25px;
             padding: 20px; position: relative; z-index: 20;
             box-shadow: 0 -10px 30px rgba(0,0,0,0.5); margin-top: -20px; 
-            overflow-y: auto; padding-bottom: 100px; /* Action button အတွက် နေရာချန် */
+            overflow-y: auto; padding-bottom: 100px;
         }
 
         .status-badge {
@@ -42,23 +43,24 @@
 
         .order-title { font-size: 1.3rem; margin: 0 0 15px 0; color: var(--primary); }
 
-        /* Info Grid */
-        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
-        .info-box { background: #2a2a2a; padding: 10px; border-radius: 12px; border: 1px solid #333; }
-        .info-box small { display: block; color: #888; font-size: 0.7rem; margin-bottom: 2px; }
-        .info-box span { font-weight: bold; font-size: 0.95rem; }
+        /* Info Grid - စုစုပေါင်းကို ဖြုတ်ပြီး ၃ ခုပဲ ထားသည် */
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 20px; }
+        .info-box { background: #2a2a2a; padding: 8px; border-radius: 12px; border: 1px solid #333; text-align: center; }
+        .info-box small { display: block; color: #888; font-size: 0.65rem; margin-bottom: 2px; text-transform: uppercase; }
+        .info-box span { font-weight: bold; font-size: 0.85rem; display: block; }
 
-        .address-card { background: #2a2a2a; padding: 15px; border-radius: 15px; margin-bottom: 15px; border-left: 4px solid var(--primary); }
+        /* Address & Contact */
+        .address-card { background: #2a2a2a; padding: 15px; border-radius: 15px; margin-bottom: 12px; border-left: 4px solid var(--primary); }
         .address-card.pickup { border-left-color: var(--success); }
         .address-card.dropoff { border-left-color: var(--danger); }
         .address-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
         .address-header b { font-size: 0.8rem; color: #aaa; }
         .map-link { color: var(--primary); font-size: 1.2rem; }
 
-        .contact-card { background: #2a2a2a; padding: 15px; border-radius: 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .call-btn { background: var(--success); color: white; width: 45px; height: 45px; border-radius: 50%; display: flex; justify-content: center; align-items: center; text-decoration: none; }
+        .contact-card { background: #2a2a2a; padding: 12px 15px; border-radius: 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border: 1px solid #333; }
+        .call-btn { background: var(--success); color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; justify-content: center; align-items: center; text-decoration: none; box-shadow: 0 4px 10px rgba(46,213,115,0.3); }
 
-        /* Action Area */
+        /* Action Button */
         .action-area {
             position: fixed; bottom: 0; left: 0; right: 0; background: rgba(30,30,30,0.9);
             padding: 15px; backdrop-filter: blur(10px); z-index: 1000;
@@ -66,7 +68,7 @@
         .main-btn {
             background: var(--primary); color: #000; border: none; padding: 16px;
             border-radius: 15px; font-weight: bold; font-size: 1.1rem; width: 100%;
-            display: flex; justify-content: center; align-items: center; gap: 10px;
+            display: flex; justify-content: center; align-items: center; gap: 10px; box-shadow: 0 4px 15px rgba(255,204,0,0.2);
         }
 
         .loading-overlay {
@@ -77,13 +79,13 @@
 </head>
 <body>
 
-    <div class="top-nav">
-        <a href="rider-dashboard.html" class="back-btn"><i class="fas fa-chevron-left"></i> ထွက်မည်</a>
+    <div class="back-btn" id="back-to-list-btn">
+        <i class="fas fa-arrow-left"></i> <span>Back to List</span>
     </div>
 
     <div id="loading" class="loading-overlay">
         <i class="fas fa-motorcycle fa-3x fa-bounce" style="color: var(--primary);"></i>
-        <p style="margin-top: 15px; color: #888;">မြေပုံနှင့် အချက်အလက်များ ပြင်ဆင်နေသည်...</p>
+        <p style="margin-top: 15px; color: #888;">အချက်အလက်များ ပြင်ဆင်နေသည်...</p>
     </div>
 
     <div id="map"></div>
@@ -93,29 +95,48 @@
         <h2 class="order-title">📦 <span id="det-item">ပစ္စည်းအမည်</span></h2>
 
         <div class="info-grid">
-            <div class="info-box"><small>KG</small><span id="det-weight">0 KG</span></div>
-            <div class="info-box"><small>တန်ဖိုး</small><span id="det-value">0 KS</span></div>
-            <div class="info-box"><small>ပို့ခ</small><span id="det-fee" style="color: var(--success);">0 KS</span></div>
-            <div class="info-box"><small>စုစုပေါင်း</small><span id="det-total" style="color: #00e5ff;">0 KS</span></div>
+            <div class="info-box">
+                <small>အလေးချိန်</small>
+                <span id="det-weight">0 KG</span>
+            </div>
+            <div class="info-box">
+                <small>တန်ဖိုး</small>
+                <span id="det-value">0 KS</span>
+            </div>
+            <div class="info-box">
+                <small>ပို့ခ</small>
+                <span id="det-fee" style="color: var(--success);">0 KS</span>
+            </div>
         </div>
 
         <div class="contact-card">
-            <div><small style="color:#888;">CUSTOMER PHONE</small><br><span id="det-phone" style="font-weight:bold;">-</span></div>
-            <a href="#" id="call-link" class="call-btn"><i class="fas fa-phone-alt"></i></a>
+            <div>
+                <small style="color:#888;">CUSTOMER PHONE</small><br>
+                <span id="det-phone" style="font-weight:bold; font-size: 1.1rem;">-</span>
+            </div>
+            <a href="#" id="call-link" class="call-btn">
+                <i class="fas fa-phone-alt"></i>
+            </a>
         </div>
 
         <div class="address-card pickup">
-            <div class="address-header"><b>📍 PICKUP (ယူရန်)</b><a href="#" id="map-pickup" class="map-link"><i class="fas fa-directions"></i></a></div>
-            <span id="det-pickup" style="font-size:0.9rem;">-</span>
+            <div class="address-header">
+                <b>📍 PICKUP (ပစ္စည်းယူရန်)</b>
+                <a href="#" id="map-pickup" class="map-link"><i class="fas fa-directions"></i></a>
+            </div>
+            <span id="det-pickup" style="font-size:0.9rem; line-height: 1.4;">နေရပ်လိပ်စာ ဖော်ပြနေသည်...</span>
         </div>
 
         <div class="address-card dropoff">
-            <div class="address-header"><b>🏁 DROPOFF (ပို့ရန်)</b><a href="#" id="map-dropoff" class="map-link"><i class="fas fa-directions"></i></a></div>
-            <span id="det-dropoff" style="font-size:0.9rem;">-</span>
+            <div class="address-header">
+                <b>🏁 DROPOFF (ပို့ဆောင်ရန်)</b>
+                <a href="#" id="map-dropoff" class="map-link"><i class="fas fa-directions"></i></a>
+            </div>
+            <span id="det-dropoff" style="font-size:0.9rem; line-height: 1.4;">နေရပ်လိပ်စာ ဖော်ပြနေသည်...</span>
         </div>
     </div>
 
-    <div class="action-area">
+    <div class="action-area" id="action-buttons-container">
         <button id="main-action-btn" class="main-btn">
             <span>စတင်မည်</span>
         </button>
