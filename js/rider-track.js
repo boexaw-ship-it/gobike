@@ -48,7 +48,7 @@ if (orderId) {
         document.getElementById('det-weight').innerText = (data.weight || 0) + " KG";
         document.getElementById('det-fee').innerText = (data.deliveryFee || 0).toLocaleString() + " KS";
 
-        // Phone & Call Logic (အသစ်ထည့်ထားသော ဖုန်းနံပါတ်ပြသရန်နေရာ)
+        // Phone & Call Logic
         const phone = data.phone || data.customerPhone || "ဖုန်းနံပါတ်မရှိ";
         const phoneDisplay = document.getElementById('det-phone');
         const callLink = document.getElementById('call-link');
@@ -62,11 +62,11 @@ if (orderId) {
         if (data.pickup && data.dropoff) {
             drawRoute(data.pickup, data.dropoff);
             
-            // Address ကတ်ထဲက directions link များ
+            // Google Maps Link ပေးရန် (Template Literals အမှားပြင်ဆင်ထားသည်)
             const pickupLink = document.getElementById('map-pickup-link');
             const dropoffLink = document.getElementById('map-dropoff-link');
-            if(pickupLink) pickupLink.href = `https://www.google.com/maps/dir/?api=1&destination=${data.pickup.lat},${data.pickup.lng}`;
-            if(dropoffLink) dropoffLink.href = `https://www.google.com/maps/dir/?api=1&destination=${data.dropoff.lat},${data.dropoff.lng}`;
+            if(pickupLink) pickupLink.href = `https://www.google.com/maps?q=${data.pickup.lat},${data.pickup.lng}`;
+            if(dropoffLink) dropoffLink.href = `https://www.google.com/maps?q=${data.dropoff.lat},${data.dropoff.lng}`;
         }
 
         updateActionButtons(data.status);
@@ -75,7 +75,7 @@ if (orderId) {
     window.location.replace("delivery.html");
 }
 
-// --- ၃။ Draw Route Function ---
+// --- ၃။ Draw Route Function (Tracking Line ကို အနီရောင်ပြောင်းထားသည်) ---
 function drawRoute(p, d) {
     if (routingControl) map.removeControl(routingControl);
     routingControl = L.Routing.control({
@@ -83,7 +83,10 @@ function drawRoute(p, d) {
         show: false,
         addWaypoints: false,      
         draggableWaypoints: false,
-        lineOptions: { styles: [{ color: '#ffcc00', weight: 6 }] },
+        // Line color ကို #ff4757 (အနီရောင်) သို့ ပြောင်းလဲထားပါသည်
+        lineOptions: { 
+            styles: [{ color: '#ff4757', weight: 6, opacity: 0.8 }] 
+        },
         createMarker: function(i, wp) {
             const color = i === 0 ? 'green' : 'red';
             return L.marker(wp.latLng, {
