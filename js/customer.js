@@ -1,6 +1,6 @@
 import { db, auth } from './firebase-config.js';
 import { 
-    collection, addDoc, serverTimestamp, query, where, onSnapshot, doc, updateDoc 
+    collection, addDoc, serverTimestamp, query, where, onSnapshot, doc, updateDoc, getDoc 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { notifyTelegram } from './telegram.js';
@@ -135,7 +135,37 @@ function calculatePrice() {
 }
 ['item-weight', 'item-value'].forEach(id => document.getElementById(id)?.addEventListener('input', calculatePrice));
 
-// --- ၄။ Order History (Tab ခွဲရန် ပြင်ဆင်ထားသော အပိုင်း) ---
+// --- ၄။ Order Details Modal Logic ---
+window.showOrderDetails = async (orderId) => {
+    const modal = document.getElementById('detailModal');
+    const content = document.getElementById('modal-content');
+    content.innerHTML = "<p style='text-align:center;'>ရယူနေပါသည်...</p>";
+    modal.style.display = 'flex';
+
+    try {
+        const orderSnap = await getDoc(doc(db, "orders", orderId));
+        if (orderSnap.exists()) {
+            const data = orderSnap.data();
+            content.innerHTML = `
+                <div style="display:grid; gap:8px;">
+                    <p>📦 <b>ပစ္စည်း:</b> ${data.item} (${data.weight || 0} kg)</p>
+                    <p>💵 <b>ပို့ခ:</b> <span style="color:#2ed573;">${(data.deliveryFee || 0).toLocaleString()} KS</span></p>
+                    <p>💰 <b>တန်ဖိုး:</b> ${(data.itemValue || 0).toLocaleString()} KS</p>
+                    <hr style="border:0.5px solid #333; margin:10px 0;">
+                    <p style="color:#ff4757; font-size:0.9rem;">📍 <b>Pickup:</b><br>${data.pickup.township}၊ ${data.pickup.address}</p>
+                    <p style="color:#2ed573; font-size:0.9rem;">🏁 <b>Drop:</b><br>${data.dropoff.township}၊ ${data.dropoff.address}</p>
+                    <p>📞 <b>ဖုန်း:</b> ${data.phone}</p>
+                    <p>🏍️ <b>Rider:</b> ${data.riderName || 'N/A'}</p>
+                    <p>📅 <b>ရက်စွဲ:</b> ${data.createdAt?.toDate().toLocaleString() || 'N/A'}</p>
+                </div>
+            `;
+        }
+    } catch (e) { content.innerHTML = "Error loading data."; }
+};
+
+window.closeModal = () => { document.getElementById('detailModal').style.display = 'none'; };
+
+// --- ၅။ Display My Orders (Tabs Logic) ---
 function displayMyOrders() {
     const activeList = document.getElementById('active-orders');
     const historyList = document.getElementById('history-orders');
@@ -145,7 +175,6 @@ function displayMyOrders() {
     const q = query(collection(db, "orders"), where("userId", "==", auth.currentUser.uid));
     
     onSnapshot(q, (snap) => {
-        // Clear old list
         activeList.innerHTML = "";
         historyList.innerHTML = "";
 
@@ -163,18 +192,23 @@ function displayMyOrders() {
             const card = document.createElement('div');
             card.className = "order-card";
             
-            // Status အလိုက် badge အရောင်သတ်မှတ်ရန်
-            const statusColor = order.status === "completed" ? "var(--success)" : "var(--primary)";
+            // Status အလိုက် logic ခွဲခြားခြင်း
+            if (order.status === "completed") {
+                card.onclick = () => window.showOrderDetails(orderDoc.id);
+            } else {
+                card.onclick = () => window.location.href = `track.html?id=${orderDoc.id}`;
+            }
+
+            const statusColor = order.status === "completed" ? "var(--success)" : "#e67e22";
 
             card.innerHTML = `
-                <div onclick="window.location.href='track.html?id=${orderDoc.id}'" style="flex-grow:1;">
+                <div style="flex-grow:1;">
                     <b style="color:var(--primary);">📦 ${order.item}</b><br>
                     <span style="font-size:0.7rem; font-weight:bold; color:${statusColor}">${order.status.toUpperCase()}</span> | <b>${(order.deliveryFee || 0).toLocaleString()} KS</b>
                     <div style="font-size:0.65rem; color:#888; margin-top:4px;">${order.pickup.township} ➔ ${order.dropoff.township}</div>
                 </div>
                 <span onclick="event.stopPropagation(); window.deleteOrder('${orderDoc.id}')" style="color:red; cursor:pointer; font-size: 1.2rem; padding: 10px;">🗑️</span>`;
 
-            // Status ပေါ်မူတည်ပြီး Tab ခွဲထည့်ခြင်း
             if (order.status === "completed") {
                 historyList.appendChild(card);
             } else {
@@ -182,7 +216,6 @@ function displayMyOrders() {
             }
         });
 
-        // Tab တစ်ခုခုထဲမှာ list မရှိရင် စာသားပြရန်
         if (activeList.innerHTML === "") activeList.innerHTML = "<p style='text-align:center; color:#888; margin-top:30px;'>လက်ရှိတင်ထားသော အော်ဒါမရှိပါ</p>";
         if (historyList.innerHTML === "") historyList.innerHTML = "<p style='text-align:center; color:#888; margin-top:30px;'>ပို့ဆောင်ပြီး မှတ်တမ်းမရှိပါ</p>";
     });
@@ -200,7 +233,7 @@ window.deleteOrder = async (id) => {
     if (res.isConfirmed) await updateDoc(doc(db, "orders", id), { customerHide: true });
 };
 
-// --- ၅။ Submit Order ---
+// --- ၆။ Submit Order ---
 const placeOrderBtn = document.getElementById('placeOrderBtn');
 if (placeOrderBtn) {
     placeOrderBtn.onclick = async () => {
@@ -269,4 +302,3 @@ if (placeOrderBtn) {
         }
     };
 }
-
