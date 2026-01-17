@@ -2,23 +2,53 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>GoBike - Fast Delivery</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="GoBike">
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3198/3198336.png">
     
-    <meta name="theme-color" content="#4e342e"> <link rel="stylesheet" href="css/style.css">
+    <link rel="apple-touch-icon" href="assets/img/logo.png">
+    
+    <meta name="theme-color" content="#4e342e"> 
+    <link rel="stylesheet" href="css/style.css">
+
+    <style>
+        /* Logo နေရာအတွက် ကိုယ်ပိုင် Style အနည်းငယ် */
+        .logo-bg {
+            width: 100px;
+            height: 100px;
+            background: #fff; /* လိုအပ်ပါက background color ပြောင်းနိုင်သည် */
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 15px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .logo-bg img {
+            width: 90%; /* ပုံကို logo-bg ထဲ ကွက်တိဖြစ်အောင် */
+            height: auto;
+            object-fit: contain;
+        }
+
+        /* Keyboard suggestion ကာကွယ်ရန် CSS */
+        input {
+            -webkit-user-select: text !important;
+            user-select: text !important;
+        }
+    </style>
 </head>
 <body class="dark-theme">
 
     <div class="auth-box">
         <div class="logo-container">
             <div class="logo-bg">
-                <img src="https://cdn-icons-png.flaticon.com/512/3198/3198336.png" alt="GoBike Logo" class="logo">
+                <img src="assets/img/logo.png" alt="GoBike Logo" id="app-logo" onerror="this.src='https://via.placeholder.com/100?text=LOGO'">
             </div>
             <h1>GoBike</h1>
             <p>Reliable Delivery Service</p>
@@ -31,26 +61,26 @@
 
         <div id="loginForm" class="form-container">
             <div class="input-group">
-                <input type="email" id="login-email" placeholder="Gmail Address">
+                <input type="email" id="login-email" placeholder="Gmail Address" autocomplete="off">
             </div>
             <div class="input-group">
-                <input type="password" id="login-password" placeholder="Password">
+                <input type="password" id="login-password" placeholder="Password" autocomplete="off">
             </div>
             <button type="button" id="loginBtn" class="main-btn">Sign In</button> 
         </div>
 
         <div id="signupForm" class="form-container" style="display:none;">
             <div class="input-group">
-                <input type="text" id="reg-name" placeholder="Full Name">
+                <input type="text" id="reg-name" placeholder="Full Name" autocomplete="off">
             </div>
             <div class="input-group">
-                <input type="email" id="reg-email" placeholder="Gmail Address">
+                <input type="email" id="reg-email" placeholder="Gmail Address" autocomplete="off">
             </div>
             <div class="input-group">
-                <input type="password" id="reg-password" placeholder="Password">
+                <input type="password" id="reg-password" placeholder="Password" autocomplete="off">
             </div>
             <div class="input-group">
-                <input type="tel" id="reg-phone" placeholder="Phone Number">
+                <input type="tel" id="reg-phone" placeholder="Phone Number" autocomplete="off">
             </div>
             <div class="input-group">
                 <select id="reg-role">
