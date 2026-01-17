@@ -2,123 +2,126 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Rider Tracking - GoBike</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <style>
-        :root { --primary: #ffcc00; --dark: #121212; --card: #1e1e1e; --text: #ffffff; }
-        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--dark); color: var(--text); overflow: hidden; }
+        :root { --primary: #ffcc00; --dark: #121212; --card: #1e1e1e; --text: #ffffff; --success: #2ed573; --danger: #ff4757; }
         
-        #map { height: 45vh; width: 100%; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--dark); color: var(--text); overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+        
+        /* မြေပုံကို တစ်ဝက် (50%) ထားခြင်း */
+        #map { height: 50vh; width: 100%; flex-shrink: 0; border-bottom: 2px solid var(--primary); z-index: 10; }
 
-        /* Back Button Style - div ကို ခလုတ်ကဲ့သို့ သုံးနိုင်ရန် cursor pointer ထည့်ထားသည် */
-        .back-btn {
+        .top-nav {
             position: fixed; top: 15px; left: 15px; z-index: 1000;
-            background: rgba(0,0,0,0.7); color: white; padding: 10px 15px;
-            border-radius: 50px; text-decoration: none; display: flex;
-            align-items: center; gap: 8px; border: 1px solid rgba(255,255,255,0.2);
-            backdrop-filter: blur(5px); transition: 0.3s; cursor: pointer;
         }
-        .back-btn:hover { background: var(--primary); color: #000; }
+        .back-btn {
+            background: rgba(0,0,0,0.8); color: white; padding: 10px 18px;
+            border-radius: 50px; text-decoration: none; display: flex;
+            align-items: center; gap: 8px; border: 1px solid var(--primary);
+            backdrop-filter: blur(5px); font-size: 0.9rem;
+        }
 
+        /* Detail Panel ကို ကျန်တဲ့ 50% မှာ Scroll ဆွဲလို့ရအောင် လုပ်ခြင်း */
         .detail-panel {
-            height: 55vh; background: var(--card); border-top-left-radius: 20px; border-top-right-radius: 20px;
-            padding: 20px; box-sizing: border-box; position: relative; box-shadow: 0 -5px 15px rgba(0,0,0,0.5);
-            overflow-y: auto; margin-top: -20px; z-index: 100;
+            flex-grow: 1; background: var(--card); border-top-left-radius: 25px; border-top-right-radius: 25px;
+            padding: 20px; position: relative; z-index: 20;
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.5); margin-top: -20px; 
+            overflow-y: auto; padding-bottom: 100px; /* Action button အတွက် နေရာချန် */
         }
 
         .status-badge {
-            background: var(--primary); color: #000; padding: 5px 12px; border-radius: 20px;
-            font-size: 0.8rem; font-weight: bold; text-transform: uppercase; float: right;
+            background: var(--primary); color: #000; padding: 6px 15px; border-radius: 50px;
+            font-size: 0.75rem; font-weight: bold; float: right;
         }
 
-        .info-row { display: flex; align-items: center; margin-bottom: 15px; gap: 15px; }
-        .info-row i { color: var(--primary); font-size: 1.2rem; width: 25px; text-align: center; }
-        .info-content b { display: block; font-size: 0.9rem; color: #aaa; }
-        .info-content span { font-size: 1rem; }
+        .order-title { font-size: 1.3rem; margin: 0 0 15px 0; color: var(--primary); }
 
+        /* Info Grid */
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .info-box { background: #2a2a2a; padding: 10px; border-radius: 12px; border: 1px solid #333; }
+        .info-box small { display: block; color: #888; font-size: 0.7rem; margin-bottom: 2px; }
+        .info-box span { font-weight: bold; font-size: 0.95rem; }
+
+        .address-card { background: #2a2a2a; padding: 15px; border-radius: 15px; margin-bottom: 15px; border-left: 4px solid var(--primary); }
+        .address-card.pickup { border-left-color: var(--success); }
+        .address-card.dropoff { border-left-color: var(--danger); }
+        .address-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        .address-header b { font-size: 0.8rem; color: #aaa; }
+        .map-link { color: var(--primary); font-size: 1.2rem; }
+
+        .contact-card { background: #2a2a2a; padding: 15px; border-radius: 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .call-btn { background: var(--success); color: white; width: 45px; height: 45px; border-radius: 50%; display: flex; justify-content: center; align-items: center; text-decoration: none; }
+
+        /* Action Area */
         .action-area {
-            position: sticky; bottom: 0; background: var(--card); padding-top: 10px;
-            display: grid; grid-template-columns: 1fr; gap: 10px; padding-bottom: 20px;
+            position: fixed; bottom: 0; left: 0; right: 0; background: rgba(30,30,30,0.9);
+            padding: 15px; backdrop-filter: blur(10px); z-index: 1000;
+        }
+        .main-btn {
+            background: var(--primary); color: #000; border: none; padding: 16px;
+            border-radius: 15px; font-weight: bold; font-size: 1.1rem; width: 100%;
+            display: flex; justify-content: center; align-items: center; gap: 10px;
         }
 
-        .btn {
-            border: none; padding: 15px; border-radius: 12px; font-weight: bold; font-size: 1rem;
-            cursor: pointer; transition: 0.3s; width: 100%; display: flex; justify-content: center; align-items: center; gap: 10px;
-        }
-        .btn-primary { background: var(--primary); color: #000; }
-        .btn-phone { background: #28a745; color: #fff; text-decoration: none; }
-        
         .loading-overlay {
             position: fixed; inset: 0; background: var(--dark); z-index: 9999;
-            display: flex; justify-content: center; align-items: center;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
         }
     </style>
 </head>
 <body>
 
-    <div class="back-btn" id="back-to-list-btn">
-        <i class="fas fa-arrow-left"></i> <span>Back to List</span>
+    <div class="top-nav">
+        <a href="rider-dashboard.html" class="back-btn"><i class="fas fa-chevron-left"></i> ထွက်မည်</a>
     </div>
 
     <div id="loading" class="loading-overlay">
-        <div style="text-align: center;">
-            <i class="fas fa-motorcycle fa-3x fa-bounce" style="color: var(--primary);"></i>
-            <p>အချက်အလက်များရယူနေသည်...</p>
-        </div>
+        <i class="fas fa-motorcycle fa-3x fa-bounce" style="color: var(--primary);"></i>
+        <p style="margin-top: 15px; color: #888;">မြေပုံနှင့် အချက်အလက်များ ပြင်ဆင်နေသည်...</p>
     </div>
 
     <div id="map"></div>
 
     <div class="detail-panel">
-        <span id="status-badge" class="status-badge">---</span>
-        <h2 id="det-item" style="margin: 0 0 20px 0;">📦 ပစ္စည်းအမည်</h2>
+        <span id="status-badge" class="status-badge">...</span>
+        <h2 class="order-title">📦 <span id="det-item">ပစ္စည်းအမည်</span></h2>
 
-        <div class="info-row">
-            <i class="fas fa-map-marker-alt" style="color: #00ff00;"></i>
-            <div class="info-content">
-                <b>PICKUP (ပစ္စည်းယူရန်)</b>
-                <span id="det-pickup">Loading...</span>
-            </div>
+        <div class="info-grid">
+            <div class="info-box"><small>KG</small><span id="det-weight">0 KG</span></div>
+            <div class="info-box"><small>တန်ဖိုး</small><span id="det-value">0 KS</span></div>
+            <div class="info-box"><small>ပို့ခ</small><span id="det-fee" style="color: var(--success);">0 KS</span></div>
+            <div class="info-box"><small>စုစုပေါင်း</small><span id="det-total" style="color: #00e5ff;">0 KS</span></div>
         </div>
 
-        <div class="info-row">
-            <i class="fas fa-flag-checkered" style="color: #ff4444;"></i>
-            <div class="info-content">
-                <b>DROPOFF (ပို့ဆောင်ရန်)</b>
-                <span id="det-dropoff">Loading...</span>
-            </div>
+        <div class="contact-card">
+            <div><small style="color:#888;">CUSTOMER PHONE</small><br><span id="det-phone" style="font-weight:bold;">-</span></div>
+            <a href="#" id="call-link" class="call-btn"><i class="fas fa-phone-alt"></i></a>
         </div>
 
-        <hr style="border: 0.5px solid #333; margin: 15px 0;">
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
-            <div class="info-row">
-                <i class="fas fa-money-bill-wave"></i>
-                <div class="info-content">
-                    <b>ပို့ခ</b>
-                    <span id="det-fee">0 KS</span>
-                </div>
-            </div>
-            <div class="info-row">
-                <i class="fas fa-weight-hanging"></i>
-                <div class="info-content">
-                    <b>အလေးချိန်</b>
-                    <span id="det-weight">0 KG</span>
-                </div>
-            </div>
+        <div class="address-card pickup">
+            <div class="address-header"><b>📍 PICKUP (ယူရန်)</b><a href="#" id="map-pickup" class="map-link"><i class="fas fa-directions"></i></a></div>
+            <span id="det-pickup" style="font-size:0.9rem;">-</span>
         </div>
 
-        <div class="action-area" id="action-buttons"></div>
+        <div class="address-card dropoff">
+            <div class="address-header"><b>🏁 DROPOFF (ပို့ရန်)</b><a href="#" id="map-dropoff" class="map-link"><i class="fas fa-directions"></i></a></div>
+            <span id="det-dropoff" style="font-size:0.9rem;">-</span>
+        </div>
+    </div>
+
+    <div class="action-area">
+        <button id="main-action-btn" class="main-btn">
+            <span>စတင်မည်</span>
+        </button>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
     <script type="module" src="../js/rider-track.js"></script>
 </body>
 </html>
