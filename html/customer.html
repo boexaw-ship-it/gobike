@@ -22,13 +22,25 @@
             --text-muted: #757575;
         }
 
+        /* Keyboard Suggestion လုံးဝမတက်အောင် ဤအပိုင်းက အဓိကပါ */
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none; /* iOS */
+            user-select: none;         /* Android/Standard */
+        }
+
+        /* input တွေထဲမှာတော့ စာရိုက်လို့ရအောင် ပြန်ဖွင့်ပေးရပါမည် */
+        input, textarea, select {
+            -webkit-user-select: text !important;
+            user-select: text !important;
+        }
+
         body { 
             background: var(--bg); 
             margin: 0; 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
             color: var(--text-main);
             overflow: hidden;
-            -webkit-tap-highlight-color: transparent; /* Mobile tap highlight ဖျောက်ရန် */
         }
 
         /* Profile Bar */
@@ -66,7 +78,7 @@
             text-align: center; font-weight: 600; z-index: 1000;
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
             border-left: 4px solid var(--primary);
-            pointer-events: none; /* စာသားကို နှိပ်လို့မရအောင် ပိတ်ထားခြင်း */
+            pointer-events: none;
         }
 
         .locate-btn {
@@ -92,7 +104,7 @@
             display: flex; flex-direction: column; align-items: center;
         }
         .handle-bar { width: 40px; height: 4px; background: #e0e0e0; border-radius: 2px; }
-        .handle-text { font-size: 0.75rem; color: var(--text-muted); margin-top: 5px; font-weight: 600; user-select: none; }
+        .handle-text { font-size: 0.75rem; color: var(--text-muted); margin-top: 5px; font-weight: 600; }
 
         .order-scroll-area { max-height: 70vh; overflow-y: auto; padding: 0 20px 30px; }
 
@@ -188,16 +200,29 @@
                                 <option value="Mayangone" data-lat="16.8697" data-lng="96.1436">မရမ်းကုန်း</option>
                                 <option value="Mingaladon" data-lat="16.9038" data-lng="96.1557">မင်္ဂလာဒုံ</option>
                                 <option value="North_Okkalapa" data-lat="16.9142" data-lng="96.1717">မြောက်ဥက္ကလာပ</option>
+                                <option value="Shwepyithar" data-lat="16.9747" data-lng="96.0964">ရွှေပြည်သာ</option>
+                                <option value="Hlaingthaya" data-lat="16.8775" data-lng="96.0617">လှိုင်သာယာ</option>
                             </optgroup>
                             <optgroup label="Eastern Region">
                                 <option value="Botahtaung" data-lat="16.7818" data-lng="96.1706">ဗိုလ်တထောင်</option>
                                 <option value="Dagon_North" data-lat="16.9042" data-lng="96.1917">ဒဂုံ(မြောက်ပိုင်း)</option>
                                 <option value="Dagon_South" data-lat="16.8572" data-lng="96.2161">ဒဂုံ(တောင်ပိုင်း)</option>
+                                <option value="Dagon_East" data-lat="16.8942" data-lng="96.2361">ဒဂုံ(အရှေ့ပိုင်း)</option>
+                                <option value="Dagon_Seikkan" data-lat="16.8442" data-lng="96.2661">ဒဂုံဆိပ်ကမ်း</option>
                                 <option value="South_Okkalapa" data-lat="16.8525" data-lng="96.1831">တောင်ဥက္ကလာပ</option>
                                 <option value="Tamwe" data-lat="16.8111" data-lng="96.1750">တာမွေ</option>
                                 <option value="Thaketa" data-lat="16.7931" data-lng="96.2100">သာကေတ</option>
                                 <option value="Thingangyun" data-lat="16.8322" data-lng="96.1950">သင်္ဃန်းကျွန်း</option>
                                 <option value="Yankin" data-lat="16.8353" data-lng="96.1583">ရန်ကင်း</option>
+                                <option value="Dawbon" data-lat="16.7844" data-lng="96.1897">ဒေါပုံ</option>
+                                <option value="Mingala_Taungnyunt" data-lat="16.7928" data-lng="96.1714">မင်္ဂလာတောင်ညွန့်</option>
+                                <option value="Pazundaung" data-lat="16.7892" data-lng="96.1772">ပုဇွန်တောင်</option>
+                            </optgroup>
+                            <optgroup label="Southern Region">
+                                <option value="Dala" data-lat="16.7589" data-lng="96.1586">ဒလ</option>
+                                <option value="Seikkyi_Kanaungto" data-lat="16.7506" data-lng="96.1261">ဆိပ်ကြီးခနောင်တို</option>
+                                <option value="Thanlyin" data-lat="16.7628" data-lng="96.2514">သန်လျင်</option>
+                                <option value="Twante" data-lat="16.7117" data-lng="95.9317">တွံတေး</option>
                             </optgroup>
                         </select>
                         <input type="text" id="pickup-address" placeholder="လမ်းအမည်/အိမ်အမှတ် (Manual)" style="margin-top:10px;" autocomplete="off" spellcheck="false" required>
