@@ -17,9 +17,9 @@
         /* မြေပုံ 50% */
         #map { height: 50vh; width: 100%; flex-shrink: 0; border-bottom: 2px solid var(--primary); z-index: 5; }
 
-        /* Back Button - Dashboard ကို သွားမယ့်လမ်းကြောင်း သေချာစစ်ပါ */
+        /* Back Button - Dashboard Path Fix */
         .back-btn {
-            position: fixed; top: 15px; left: 15px; z-index: 2000;
+            position: fixed; top: 15px; left: 15px; z-index: 10000;
             background: rgba(0,0,0,0.8); color: white; padding: 10px 18px;
             border-radius: 50px; text-decoration: none; display: flex;
             align-items: center; gap: 8px; border: 1.5px solid var(--primary);
@@ -30,7 +30,7 @@
             flex-grow: 1; background: var(--card); border-top-left-radius: 25px; border-top-right-radius: 25px;
             padding: 20px; position: relative; z-index: 10;
             box-shadow: 0 -10px 30px rgba(0,0,0,0.5); margin-top: -20px; 
-            overflow-y: auto; padding-bottom: 120px; /* ခလုတ်အတွက် နေရာပိုချန် */
+            overflow-y: auto; padding-bottom: 110px; 
         }
 
         .status-badge {
@@ -52,34 +52,37 @@
         .address-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
         .map-link { color: var(--primary); font-size: 1.3rem; }
 
-        /* Action Area Fix - ခလုတ်အောက်မှာ ဖုံးမနေအောင် */
+        /* Action Area Fix - နှိပ်လို့ရအောင် pointer-events ညှိထားသည် */
         .action-area {
             position: fixed; bottom: 0; left: 0; right: 0; 
-            background: linear-gradient(transparent, var(--dark));
-            padding: 25px 20px; z-index: 1500;
+            background: linear-gradient(transparent, var(--dark) 50%);
+            padding: 25px 20px 35px 20px; z-index: 9999;
+            pointer-events: none; 
         }
         .main-btn {
             background: var(--primary); color: #000; border: none; padding: 18px;
             border-radius: 18px; font-weight: bold; font-size: 1.1rem; width: 100%;
             display: flex; justify-content: center; align-items: center; gap: 10px;
-            box-shadow: 0 5px 20px rgba(255, 204, 0, 0.4); cursor: pointer;
+            box-shadow: 0 5px 25px rgba(255, 204, 0, 0.4); 
+            cursor: pointer;
+            pointer-events: auto; /* ခလုတ်ကိုပဲ နှိပ်လို့ရစေရန် */
         }
 
         .loading-overlay {
-            position: fixed; inset: 0; background: var(--dark); z-index: 9999;
+            position: fixed; inset: 0; background: var(--dark); z-index: 20000;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
         }
     </style>
 </head>
 <body>
 
-    <a href="rider-dashboard.html" class="back-btn" id="back-to-list-btn">
+    <a href="./rider-dashboard.html" class="back-btn" id="back-to-list-btn">
         <i class="fas fa-arrow-left"></i> Back to List
     </a>
 
     <div id="loading" class="loading-overlay">
         <i class="fas fa-motorcycle fa-3x fa-bounce" style="color: var(--primary);"></i>
-        <p style="margin-top: 15px; color: #888;">မြေပုံနှင့် အချက်အလက်များ ပြင်ဆင်နေသည်...</p>
+        <p style="margin-top: 15px; color: #888;">ဒေတာများ ရယူနေသည်...</p>
     </div>
 
     <div id="map"></div>
