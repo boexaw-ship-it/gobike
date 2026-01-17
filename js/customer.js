@@ -50,6 +50,15 @@ const riderIcon = L.icon({
     iconAnchor: [16, 16]
 });
 
+// Marker create လုပ်ရာတွင် title မပါဝင်စေရန်နှင့် Keyboard suggestion ကို ရှောင်ရန် helper
+const createCustomMarker = (latlng, options = {}) => {
+    return L.marker(latlng, {
+        ...options,
+        title: "", // စာသားအလွတ်ပေးထားခြင်းဖြင့် suggestion တက်ခြင်းကို ကာကွယ်သည်
+        alt: ""
+    });
+};
+
 // --- (က) Go To My Location ---
 window.goToMyLocation = function() {
     if (navigator.geolocation) {
@@ -57,8 +66,10 @@ window.goToMyLocation = function() {
             const lat = position.coords.latitude, lng = position.coords.longitude;
             map.flyTo([lat, lng], 16);
             if (pickupMarker) map.removeLayer(pickupMarker);
-            pickupMarker = L.marker([lat, lng], { draggable: true }).addTo(map);
+            
+            pickupMarker = createCustomMarker([lat, lng], { draggable: true }).addTo(map);
             pickupCoords = { lat, lng };
+            
             pickupMarker.on('dragend', () => {
                 const pos = pickupMarker.getLatLng();
                 pickupCoords = { lat: pos.lat, lng: pos.lng };
@@ -76,7 +87,7 @@ onSnapshot(ridersQuery, (snap) => {
         const data = change.doc.data(), id = change.doc.id;
         if (change.type === "added" || change.type === "modified") {
             if (riderMarkers[id]) map.removeLayer(riderMarkers[id]);
-            riderMarkers[id] = L.marker([data.lat, data.lng], { icon: riderIcon }).addTo(map);
+            riderMarkers[id] = createCustomMarker([data.lat, data.lng], { icon: riderIcon }).addTo(map);
         } else if (change.type === "removed" && riderMarkers[id]) {
             map.removeLayer(riderMarkers[id]); delete riderMarkers[id];
         }
@@ -93,7 +104,7 @@ window.updateLocation = function(type) {
     if (type === 'pickup') {
         pickupCoords = { lat, lng };
         if (pickupMarker) map.removeLayer(pickupMarker);
-        pickupMarker = L.marker([lat, lng], { draggable: true }).addTo(map);
+        pickupMarker = createCustomMarker([lat, lng], { draggable: true }).addTo(map);
         pickupMarker.on('dragend', () => {
             const pos = pickupMarker.getLatLng();
             pickupCoords = { lat: pos.lat, lng: pos.lng };
@@ -102,7 +113,7 @@ window.updateLocation = function(type) {
     } else {
         dropoffCoords = { lat, lng };
         if (dropoffMarker) map.removeLayer(dropoffMarker);
-        dropoffMarker = L.marker([lat, lng], { draggable: true }).addTo(map);
+        dropoffMarker = createCustomMarker([lat, lng], { draggable: true }).addTo(map);
         dropoffMarker.on('dragend', () => {
             const pos = dropoffMarker.getLatLng();
             dropoffCoords = { lat: pos.lat, lng: pos.lng };
@@ -192,7 +203,6 @@ function displayMyOrders() {
             const card = document.createElement('div');
             card.className = "order-card";
             
-            // Status အလိုက် logic ခွဲခြားခြင်း
             if (order.status === "completed") {
                 card.onclick = () => window.showOrderDetails(orderDoc.id);
             } else {
@@ -271,7 +281,6 @@ if (placeOrderBtn) {
 
             const docRef = await addDoc(collection(db, "orders"), orderData);
             
-            // Telegram Message
             const trackUrl = `https://boexaw-ship-it.github.io/gobike/html/track.html?id=${docRef.id}`;
             const msg = `📦 <b>New Order Received!</b>\n` +
                         `━━━━━━━━━━━━━━━━━━\n` +
@@ -287,7 +296,6 @@ if (placeOrderBtn) {
 
             await notifyTelegram(msg);
 
-            // Sheet Sync
             fetch(SCRIPT_URL, { 
                 method: "POST", mode: "no-cors", 
                 body: JSON.stringify({ action: "create", orderId: docRef.id, ...orderData, deliveryFee: feeInfo.total }) 
@@ -301,4 +309,5 @@ if (placeOrderBtn) {
             Swal.fire("Error", e.message, "error");
         }
     };
-}
+                                             }
+
