@@ -7,33 +7,18 @@ import { notifyTelegram } from './telegram.js';
 const params = new URLSearchParams(window.location.search);
 const orderId = params.get('id');
 
-// --- ၁။ Dashboard ကို ပြန်သွားတဲ့အခါ မှတ်ထားမယ့် Logic ---
-window.onbeforeunload = function() {
-    sessionStorage.setItem('justBackFromTrack', 'true');
-};
-
-// --- ၂။ Map Setup ---
-// ဖုန်း View အတွက် Zoom Control ပိတ်ထားပြီး အနီရောင် လမ်းကြောင်းဆွဲမည်
+// --- Map Setup ---
 const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
 let routingControl = null;
 
-// Back to List Button Click
-const backBtn = document.getElementById('back-to-list-btn');
-if (backBtn) {
-    backBtn.onclick = () => window.location.href = 'rider-dashboard.html';
-}
-
-// --- ၃။ Main Order Listener ---
+// --- Main Logic ---
 if (orderId) {
     onSnapshot(doc(db, "orders", orderId), async (docSnap) => {
-        // Loading ကို ဖျောက်ခြင်း
-        const loadingDiv = document.getElementById('loading');
-        if (loadingDiv) loadingDiv.style.display = 'none';
+        document.getElementById('loading').style.display = 'none';
 
         if (!docSnap.exists()) {
-            Swal.fire('Error', 'အော်ဒါရှာမတွေ့ပါ', 'error').then(() => {
+            Swal.fire('Error', 'Order မရှိတော့ပါ', 'error').then(() => {
                 window.location.href = 'rider-dashboard.html';
             });
             return;
@@ -41,32 +26,25 @@ if (orderId) {
 
         const data = docSnap.data();
 
-        // UI Updates (HTML IDs များနှင့် ချိတ်ဆက်ခြင်း)
+        // UI Detail Updates
         document.getElementById('status-badge').innerText = (data.status || "PENDING").toUpperCase();
         document.getElementById('det-item').innerText = data.item || "ပစ္စည်း";
         document.getElementById('det-weight').innerText = (data.weight || 0) + " KG";
         document.getElementById('det-value').innerText = (data.itemValue || 0).toLocaleString() + " KS";
         document.getElementById('det-fee').innerText = (data.deliveryFee || 0).toLocaleString() + " KS";
         document.getElementById('det-phone').innerText = data.phone || "-";
-        
-        // ဖုန်းခေါ်ရန် link
         document.getElementById('call-link').href = `tel:${data.phone}`;
 
-        // လိပ်စာများ
         const pAddr = data.pickup ? `${data.pickup.township}၊ ${data.pickup.address}` : (data.pickupAddress || "-");
         const dAddr = data.dropoff ? `${data.dropoff.township}၊ ${data.dropoff.address}` : (data.dropoffAddress || "-");
         document.getElementById('det-pickup').innerText = pAddr;
         document.getElementById('det-dropoff').innerText = dAddr;
 
-        // မြေပုံပေါ်တွင် လမ်းကြောင်းဆွဲခြင်း (အနီရောင်)
+        // Route & Maps
         if (data.pickup?.lat && data.dropoff?.lat) {
             drawRoute(data.pickup, data.dropoff);
-            
-            // Google Maps ဖြင့် လမ်းညွှန်ကြည့်ရန် ခလုတ်များ
-            document.getElementById('map-pickup').onclick = () => 
-                window.open(`https://www.google.com/maps/dir/?api=1&destination=${data.pickup.lat},${data.pickup.lng}`);
-            document.getElementById('map-dropoff').onclick = () => 
-                window.open(`https://www.google.com/maps/dir/?api=1&destination=${data.dropoff.lat},${data.dropoff.lng}`);
+            document.getElementById('map-pickup').onclick = () => window.open(`https://www.google.com/maps/dir/?api=1&destination=${data.pickup.lat},${data.pickup.lng}`);
+            document.getElementById('map-dropoff').onclick = () => window.open(`https://www.google.com/maps/dir/?api=1&destination=${data.dropoff.lat},${data.dropoff.lng}`);
         }
 
         updateActionButtons(data.status, data);
@@ -75,102 +53,66 @@ if (orderId) {
     window.location.href = 'rider-dashboard.html';
 }
 
-// --- ၄။ Draw Route Function (အနီရောင် လိုင်း) ---
 function drawRoute(p, d) {
     if (routingControl) map.removeControl(routingControl);
-
     routingControl = L.Routing.control({
         waypoints: [L.latLng(p.lat, p.lng), L.latLng(d.lat, d.lng)],
-        show: false,
-        addWaypoints: false,
-        draggableWaypoints: false,
-        // လမ်းကြောင်းအရောင်ကို အနီရောင် (#ff4444) ပြောင်းခြင်း
-        lineOptions: { 
-            styles: [{ color: '#ff4444', weight: 6, opacity: 0.8 }] 
-        },
-        createMarker: function(i, wp) {
-            const iconUrl = i === 0 
-                ? 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png' // Start
-                : 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png';  // End
-            
-            return L.marker(wp.latLng, {
-                icon: L.icon({
-                    iconUrl: iconUrl,
-                    iconSize: [25, 41],
-                    iconAnchor: [12, 41]
-                })
-            });
-        }
+        show: false, addWaypoints: false, draggableWaypoints: false,
+        lineOptions: { styles: [{ color: '#ff4444', weight: 6, opacity: 0.8 }] }, // Red Line
+        createMarker: (i, wp) => L.marker(wp.latLng, {
+            icon: L.icon({
+                iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-${i===0?'green':'red'}.png`,
+                iconSize: [25, 41], iconAnchor: [12, 41]
+            })
+        })
     }).addTo(map);
-
-    // Marker နှစ်ခုလုံးမြင်ရအောင် Map ကို ညှိခြင်း
-    const bounds = L.latLngBounds([p.lat, p.lng], [d.lat, d.lng]);
-    map.fitBounds(bounds, { padding: [50, 50] });
+    map.fitBounds(L.latLngBounds([p.lat, p.lng], [d.lat, d.lng]), { padding: [50, 50] });
 }
 
-// --- ၅။ Action Button Logic ---
 function updateActionButtons(status, orderData) {
     const btn = document.getElementById('main-action-btn');
     if (!btn) return;
+
+    btn.style.background = "var(--primary)"; // Reset color
 
     if (status === "accepted") {
         btn.innerHTML = `<i class="fas fa-motorcycle"></i> <span>ပစ္စည်းသွားယူမည် (On the Way)</span>`;
         btn.onclick = () => changeStatus("on_the_way", "ပစ္စည်းသွားယူနေပါပြီ");
     } else if (status === "on_the_way") {
         btn.innerHTML = `<i class="fas fa-map-marker-alt"></i> <span>ဆိုင်သို့ရောက်ပြီ (Arrived)</span>`;
-        btn.onclick = () => changeStatus("arrived", "ဆိုင်သို့ရောက်ရှိသွားယူနေပါပြီ");
+        btn.onclick = () => changeStatus("arrived", "ဆိုင်သို့ရောက်ရှိပါပြီ");
     } else if (status === "arrived") {
         btn.innerHTML = `<i class="fas fa-check-circle"></i> <span>ပို့ဆောင်မှုပြီးမြောက်ပြီ (Complete)</span>`;
-        btn.style.background = "#2ed573";
+        btn.style.background = "var(--success)";
         btn.onclick = () => completeOrder(orderData);
     } else if (status === "completed") {
-        btn.style.display = "none";
+        btn.parentElement.style.display = "none";
     }
 }
 
-// --- ၆။ Status Change Function ---
 async function changeStatus(newStatus, statusText) {
     try {
         await updateDoc(doc(db, "orders", orderId), { status: newStatus });
-        
-        // Telegram Notification (Optional)
-        const riderName = await getRiderName();
-        await notifyTelegram(`🚴 **Status Update**\n📦 Order: ${orderId}\n📊 Status: ${statusText}\n👤 Rider: ${riderName}`);
-
-        Swal.fire({ icon: 'success', title: 'Updated!', timer: 1000, showConfirmButton: false });
-    } catch (err) {
-        console.error(err);
-        Swal.fire('Error', 'ပြင်ဆင်မှု မအောင်မြင်ပါ', 'error');
-    }
+        const name = await getRiderName();
+        await notifyTelegram(`🚴 Status: ${statusText}\n📦 Order: ${orderId}\n👤 Rider: ${name}`);
+        Swal.fire({ icon: 'success', title: 'Updated', timer: 800, showConfirmButton: false });
+    } catch (err) { console.error(err); }
 }
 
-// --- ၇။ Complete Order Function ---
 async function completeOrder(data) {
     const res = await Swal.fire({
         title: 'ပို့ဆောင်ပြီးပြီလား?',
-        text: "ယခုအော်ဒါ ပို့ဆောင်မှုပြီးမြောက်ကြောင်း အတည်ပြုပါသလား?",
         icon: 'question',
         showCancelButton: true,
-        confirmButtonColor: '#2ed573',
         confirmButtonText: 'အတည်ပြုသည်',
         background: '#1a1a1a', color: '#fff'
     });
 
     if (res.isConfirmed) {
-        try {
-            await updateDoc(doc(db, "orders", orderId), { 
-                status: "completed", 
-                completedAt: serverTimestamp() 
-            });
-
-            const riderName = await getRiderName();
-            await notifyTelegram(`✅ **Order Completed**\n📦 ပစ္စည်း: ${data.item}\n💵 ပို့ခ: ${data.deliveryFee} KS\n👤 Rider: ${riderName}`);
-
-            Swal.fire('အောင်မြင်ပါသည်', 'ယနေ့အတွက် နောက်ထပ်အော်ဒါများ ထပ်ယူနိုင်ပါပြီ', 'success')
-                .then(() => window.location.replace("rider-dashboard.html"));
-        } catch (err) {
-            console.error(err);
-        }
+        await updateDoc(doc(db, "orders", orderId), { status: "completed", completedAt: serverTimestamp() });
+        const name = await getRiderName();
+        await notifyTelegram(`✅ Completed\n📦 Item: ${data.item}\n👤 Rider: ${name}`);
+        window.location.replace("rider-dashboard.html");
     }
 }
 
