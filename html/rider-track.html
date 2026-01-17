@@ -31,7 +31,7 @@
             flex-grow: 1; background: var(--card); border-top-left-radius: 25px; border-top-right-radius: 25px;
             padding: 20px; position: relative; z-index: 100;
             box-shadow: 0 -10px 30px rgba(0,0,0,0.5); margin-top: -25px; 
-            overflow-y: auto; padding-bottom: 120px;
+            overflow-y: auto; padding-bottom: 130px;
         }
 
         .status-badge {
@@ -52,6 +52,14 @@
         .address-card b { font-size: 0.8rem; color: #888; display: block; margin-bottom: 5px; }
         .address-card p { margin: 0; font-size: 0.95rem; line-height: 1.4; color: #eee; }
         .dir-btn { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: var(--primary); font-size: 1.3rem; }
+
+        /* Phone Display Text Section */
+        .phone-display {
+            background: rgba(40, 167, 69, 0.1); border: 1px dashed #28a745;
+            padding: 10px; border-radius: 12px; text-align: center; margin-top: 10px;
+        }
+        .phone-display small { color: #888; font-size: 0.7rem; display: block; margin-bottom: 2px; }
+        .phone-display span { font-weight: bold; font-size: 1.1rem; color: #28a745; letter-spacing: 1px; }
 
         /* Action Area for Buttons */
         .action-area {
@@ -82,7 +90,6 @@
             display: flex; flex-direction: column; justify-content: center; align-items: center;
         }
 
-        /* Routing box ဖျောက်ရန် */
         .leaflet-routing-container { display: none !important; }
     </style>
 </head>
@@ -128,6 +135,11 @@
             <b>🏁 DROPOFF (ပို့ဆောင်ရန်)</b>
             <p id="det-dropoff">Loading...</p>
             <a href="#" id="map-dropoff-link" class="dir-btn"><i class="fas fa-directions"></i></a>
+        </div>
+
+        <div class="phone-display">
+            <small>CUSTOMER PHONE</small>
+            <span id="det-phone">---------</span>
         </div>
 
         <div class="action-area">
