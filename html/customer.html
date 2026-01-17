@@ -28,6 +28,7 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
             color: var(--text-main);
             overflow: hidden;
+            -webkit-tap-highlight-color: transparent; /* Mobile tap highlight ဖျောက်ရန် */
         }
 
         /* Profile Bar */
@@ -51,8 +52,6 @@
             position: relative;
         }
 
-        .back-btn { position: absolute; left: 15px; font-size: 1.2rem; cursor: pointer; }
-
         .page-section { display: none; height: 100vh; }
         .page-section.active { display: block; }
 
@@ -67,6 +66,7 @@
             text-align: center; font-weight: 600; z-index: 1000;
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
             border-left: 4px solid var(--primary);
+            pointer-events: none; /* စာသားကို နှိပ်လို့မရအောင် ပိတ်ထားခြင်း */
         }
 
         .locate-btn {
@@ -74,7 +74,7 @@
             background: white; width: 48px; height: 48px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2); border: 2px solid var(--primary);
-            cursor: pointer; font-size: 1.3rem; transition: all 0.2s;
+            cursor: pointer; font-size: 1.3rem;
         }
 
         /* Bottom Sheet */
@@ -92,7 +92,7 @@
             display: flex; flex-direction: column; align-items: center;
         }
         .handle-bar { width: 40px; height: 4px; background: #e0e0e0; border-radius: 2px; }
-        .handle-text { font-size: 0.75rem; color: var(--text-muted); margin-top: 5px; font-weight: 600; }
+        .handle-text { font-size: 0.75rem; color: var(--text-muted); margin-top: 5px; font-weight: 600; user-select: none; }
 
         .order-scroll-area { max-height: 70vh; overflow-y: auto; padding: 0 20px 30px; }
 
@@ -106,9 +106,6 @@
         }
         input:focus { border-color: var(--primary); background: #fff; }
 
-        .input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 15px; }
-        .standard-input { margin-bottom: 15px; }
-
         .btn-confirm {
             background: var(--primary); color: white; width: 100%;
             padding: 18px; border: none; border-radius: 15px;
@@ -116,37 +113,24 @@
             box-shadow: 0 4px 12px rgba(78, 52, 46, 0.3); margin-top: 10px;
         }
 
-        /* History Tabs Design */
+        /* History Tabs */
         .history-tabs { display: flex; background: white; border-bottom: 1px solid #eee; }
         .tab-item { flex: 1; text-align: center; padding: 15px; font-size: 0.85rem; color: #888; font-weight: 600; cursor: pointer; }
         .tab-item.active { color: var(--primary); border-bottom: 3px solid var(--primary); }
-
-        .orders-list-container { padding: 15px; overflow-y: auto; height: calc(100vh - 230px); }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
 
         .order-card {
             background: white; padding: 16px; border-radius: 16px; 
             margin-bottom: 12px; border: 1px solid #efefef;
             display: flex; justify-content: space-between; align-items: center;
             box-shadow: 0 2px 8px rgba(0,0,0,0.02);
-            position: relative; cursor: pointer;
         }
 
-        /* Order Details Modal (Rider Style) */
+        /* Modal */
         .detail-modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.85); z-index: 3000; align-items: center; justify-content: center;
         }
-        .modal-card {
-            background: #1e1e1e; width: 88%; border-radius: 25px; padding: 25px; 
-            color: white; box-shadow: 0 15px 40px rgba(0,0,0,0.6); border: 1px solid #333;
-        }
-        .modal-content-area { line-height: 2; font-size: 0.95rem; color: #eee; }
-        .btn-modal-close {
-            width: 100%; background: #4e342e; color: white; border: none; padding: 16px; 
-            border-radius: 15px; margin-top: 25px; font-weight: bold; font-size: 1rem; cursor: pointer;
-        }
+        .modal-card { background: #1e1e1e; width: 88%; border-radius: 25px; padding: 25px; color: white; }
 
         .bottom-nav {
             position: fixed; bottom: 0; left: 0; width: 100%;
@@ -155,14 +139,13 @@
         }
         .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #bdbdbd; font-size: 0.7rem; cursor: pointer; }
         .nav-item.active { color: var(--primary); font-weight: bold; }
-        .nav-item .nav-icon { font-size: 1.3rem; margin-bottom: 2px; }
     </style>
 </head>
 <body>
 
     <div class="profile-bar">
         <div class="user-meta">
-            <span id="display-role">Customer</span>
+            <span>Customer Panel</span>
             <b id="display-name">Loading...</b>
         </div>
         <button class="logout-btn" id="logoutBtn">Logout</button>
@@ -217,7 +200,7 @@
                                 <option value="Yankin" data-lat="16.8353" data-lng="96.1583">ရန်ကင်း</option>
                             </optgroup>
                         </select>
-                        <input type="text" id="pickup-address" placeholder="လမ်းအမည်/အိမ်အမှတ် (Manual)" style="margin-top:10px;" required>
+                        <input type="text" id="pickup-address" placeholder="လမ်းအမည်/အိမ်အမှတ် (Manual)" style="margin-top:10px;" autocomplete="off" spellcheck="false" required>
                     </div>
 
                     <div class="loc-box" style="border-left: 4px solid var(--danger);">
@@ -225,25 +208,24 @@
                         <select id="dropoff-township" required>
                             <option value="">မြို့နယ်ရွေးပါ</option>
                         </select>
-                        <input type="text" id="dropoff-address" placeholder="လမ်းအမည်/အိမ်အမှတ် (Manual)" style="margin-top:10px;" required>
+                        <input type="text" id="dropoff-address" placeholder="လမ်းအမည်/အိမ်အမှတ် (Manual)" style="margin-top:10px;" autocomplete="off" spellcheck="false" required>
                     </div>
 
-                    <input type="text" id="item-detail" class="standard-input" placeholder="ဘာပစ္စည်းပို့မှာလဲ? (ဥပမာ- ထမင်းဘူး)" required>
+                    <input type="text" id="item-detail" placeholder="ဘာပစ္စည်းပို့မှာလဲ? (ဥပမာ- ထမင်းဘူး)" autocomplete="off" spellcheck="false" style="margin-bottom:15px;" required>
 
-                    <div class="input-row">
-                        <input type="number" id="item-weight" placeholder="အလေးချိန် (kg)">
-                        <input type="number" id="item-value" placeholder="တန်ဖိုး (KS)">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 15px;">
+                        <input type="number" id="item-weight" placeholder="အလေးချိန် (kg)" autocomplete="off">
+                        <input type="number" id="item-value" placeholder="တန်ဖိုး (KS)" autocomplete="off">
                     </div>
 
-                    <input type="tel" id="receiver-phone" class="standard-input" placeholder="လက်ခံသူဖုန်းနံပါတ်" required>
+                    <input type="tel" id="receiver-phone" placeholder="လက်ခံသူဖုန်းနံပါတ်" autocomplete="off" style="margin-bottom:15px;" required>
 
-                    <select id="payment-method" class="standard-input">
+                    <select id="payment-method" style="margin-bottom:15px;">
                         <option value="COD">Cash on Delivery (ပစ္စည်းရောက်မှရှင်းမည်)</option>
                         <option value="PickupCash">Cash at Pickup (ပစ္စည်းယူစဉ်ရှင်းမည်)</option>
                     </select>
 
                     <button id="placeOrderBtn" type="button" class="btn-confirm">ORDER NOW</button>
-                    <div style="height: 20px;"></div>
                 </form>
             </div>
         </div>
@@ -251,38 +233,25 @@
 
     <div id="list-section" class="page-section">
         <div class="header">MY ORDERS</div>
-        
         <div class="history-tabs">
             <div class="tab-item active" onclick="switchTab('active')">ACTIVE</div>
             <div class="tab-item" onclick="switchTab('history')">HISTORY</div>
         </div>
-
-        <div class="orders-list-container">
-            <div id="active-orders" class="tab-content active">
-                <p style="text-align:center; color:#888; margin-top:50px;">လက်ရှိတင်ထားသော အော်ဒါမရှိပါ</p>
-            </div>
-            <div id="history-orders" class="tab-content">
-                <p style="text-align:center; color:#888; margin-top:50px;">ပို့ဆောင်ပြီး မှတ်တမ်းမရှိပါ</p>
-            </div>
-        </div>
+        <div id="active-orders" style="padding:15px;" class="tab-content active"></div>
+        <div id="history-orders" style="padding:15px;" class="tab-content"></div>
     </div>
 
     <div id="detailModal" class="detail-modal">
         <div class="modal-card">
-            <h2 style="text-align:center; margin-bottom:20px; font-size:1.4rem; letter-spacing:1px; color:var(--accent);">Order Details</h2>
-            <div id="modal-content" class="modal-content-area">
-                </div>
-            <button onclick="closeModal()" class="btn-modal-close">ပိတ်မည်</button>
+            <h2 style="text-align:center; color:var(--accent);">Order Details</h2>
+            <div id="modal-content"></div>
+            <button onclick="closeModal()" class="btn-modal-close" style="width:100%; padding:15px; margin-top:20px; border-radius:10px; background:var(--primary); color:white; border:none;">ပိတ်မည်</button>
         </div>
     </div>
 
     <nav class="bottom-nav">
-        <div class="nav-item active" onclick="showSection('order', this)">
-            <span class="nav-icon">📍</span>New Order
-        </div>
-        <div class="nav-item" onclick="showSection('list', this)">
-            <span class="nav-icon">📦</span>My Orders
-        </div>
+        <div class="nav-item active" onclick="showSection('order', this)">📍<br>New Order</div>
+        <div class="nav-item" onclick="showSection('list', this)">📦<br>My Orders</div>
     </nav>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -295,8 +264,7 @@
 
         function switchTab(type) {
             document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
-            if(event.target.classList.contains('tab-item')) event.target.classList.add('active');
-
+            event.target.classList.add('active');
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             document.getElementById(type + '-orders').classList.add('active');
         }
@@ -305,33 +273,26 @@
             document.getElementById('detailModal').style.display = 'none';
         }
 
-        // Auto expand sheet on focus
-        document.querySelectorAll('input, select').forEach(el => {
-            el.addEventListener('focus', () => {
-                document.getElementById('bottomSheet').classList.add('expanded');
-            });
-        });
-
-        // Sync townships from Pickup to Dropoff dropdown
         window.addEventListener('load', () => {
             const pSelect = document.getElementById('pickup-township');
             const dSelect = document.getElementById('dropoff-township');
-            if(pSelect && dSelect) {
-                dSelect.innerHTML = pSelect.innerHTML;
-            }
+            if(pSelect && dSelect) dSelect.innerHTML = pSelect.innerHTML;
         });
 
         function showSection(sectionId, el) {
             document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
             document.getElementById(sectionId + '-section').classList.add('active');
-            
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-            if(el) el.classList.add('active');
-            
-            if(sectionId === 'list') {
-                document.getElementById('bottomSheet').classList.remove('expanded');
-            }
+            el.classList.add('active');
+            if(sectionId === 'list') document.getElementById('bottomSheet').classList.remove('expanded');
         }
+
+        // Keyboard တက်လာလျှင် UI မပျက်စေရန် Handle လုပ်ခြင်း
+        window.addEventListener('resize', () => {
+            if (document.activeElement.tagName === 'INPUT') {
+                document.activeElement.scrollIntoView({ behavior: 'smooth' });
+            }
+        });
     </script>
 </body>
 </html>
