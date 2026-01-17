@@ -135,34 +135,72 @@ function calculatePrice() {
 }
 ['item-weight', 'item-value'].forEach(id => document.getElementById(id)?.addEventListener('input', calculatePrice));
 
-// --- ၄။ Order History ---
+// --- ၄။ Order History (Tab ခွဲရန် ပြင်ဆင်ထားသော အပိုင်း) ---
 function displayMyOrders() {
-    const listDiv = document.getElementById('orders-list');
-    if (!listDiv || !auth.currentUser) return;
+    const activeList = document.getElementById('active-orders');
+    const historyList = document.getElementById('history-orders');
+    
+    if (!activeList || !historyList || !auth.currentUser) return;
+
     const q = query(collection(db, "orders"), where("userId", "==", auth.currentUser.uid));
+    
     onSnapshot(q, (snap) => {
-        listDiv.innerHTML = snap.empty ? "<p style='text-align:center; color:#888; margin-top:30px;'>မှတ်တမ်းမရှိပါ</p>" : "";
+        // Clear old list
+        activeList.innerHTML = "";
+        historyList.innerHTML = "";
+
+        if (snap.empty) {
+            const emptyMsg = "<p style='text-align:center; color:#888; margin-top:30px;'>မှတ်တမ်းမရှိပါ</p>";
+            activeList.innerHTML = emptyMsg;
+            historyList.innerHTML = emptyMsg;
+            return;
+        }
+
         snap.forEach((orderDoc) => {
             const order = orderDoc.data();
             if (order.customerHide) return;
+
             const card = document.createElement('div');
             card.className = "order-card";
+            
+            // Status အလိုက် badge အရောင်သတ်မှတ်ရန်
+            const statusColor = order.status === "completed" ? "var(--success)" : "var(--primary)";
+
             card.innerHTML = `
                 <div onclick="window.location.href='track.html?id=${orderDoc.id}'" style="flex-grow:1;">
                     <b style="color:var(--primary);">📦 ${order.item}</b><br>
-                    <span style="font-size:0.7rem;">${order.status.toUpperCase()}</span> | <b>${(order.deliveryFee || 0).toLocaleString()} KS</b>
+                    <span style="font-size:0.7rem; font-weight:bold; color:${statusColor}">${order.status.toUpperCase()}</span> | <b>${(order.deliveryFee || 0).toLocaleString()} KS</b>
+                    <div style="font-size:0.65rem; color:#888; margin-top:4px;">${order.pickup.township} ➔ ${order.dropoff.township}</div>
                 </div>
-                <span onclick="event.stopPropagation(); window.deleteOrder('${orderDoc.id}')" style="color:red; cursor:pointer;">🗑️</span>`;
-            listDiv.appendChild(card);
+                <span onclick="event.stopPropagation(); window.deleteOrder('${orderDoc.id}')" style="color:red; cursor:pointer; font-size: 1.2rem; padding: 10px;">🗑️</span>`;
+
+            // Status ပေါ်မူတည်ပြီး Tab ခွဲထည့်ခြင်း
+            if (order.status === "completed") {
+                historyList.appendChild(card);
+            } else {
+                activeList.appendChild(card);
+            }
         });
+
+        // Tab တစ်ခုခုထဲမှာ list မရှိရင် စာသားပြရန်
+        if (activeList.innerHTML === "") activeList.innerHTML = "<p style='text-align:center; color:#888; margin-top:30px;'>လက်ရှိတင်ထားသော အော်ဒါမရှိပါ</p>";
+        if (historyList.innerHTML === "") historyList.innerHTML = "<p style='text-align:center; color:#888; margin-top:30px;'>ပို့ဆောင်ပြီး မှတ်တမ်းမရှိပါ</p>";
     });
 }
+
 window.deleteOrder = async (id) => {
-    const res = await Swal.fire({ title: 'ဖယ်ထုတ်မလား?', icon: 'warning', showCancelButton: true });
+    const res = await Swal.fire({ 
+        title: 'မှတ်တမ်းမှ ဖယ်ထုတ်မလား?', 
+        text: "အော်ဒါစာရင်းမှ ဖျောက်လိုက်ပါမည်။",
+        icon: 'warning', 
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'ဖယ်ထုတ်မည်'
+    });
     if (res.isConfirmed) await updateDoc(doc(db, "orders", id), { customerHide: true });
 };
 
-// --- ၅။ Submit Order (သင်လိုချင်သော Format အပြည့်စုံ) ---
+// --- ၅။ Submit Order ---
 const placeOrderBtn = document.getElementById('placeOrderBtn');
 if (placeOrderBtn) {
     placeOrderBtn.onclick = async () => {
@@ -200,7 +238,7 @@ if (placeOrderBtn) {
 
             const docRef = await addDoc(collection(db, "orders"), orderData);
             
-            // Telegram Message (Formatted as requested)
+            // Telegram Message
             const trackUrl = `https://boexaw-ship-it.github.io/gobike/html/track.html?id=${docRef.id}`;
             const msg = `📦 <b>New Order Received!</b>\n` +
                         `━━━━━━━━━━━━━━━━━━\n` +
