@@ -36,19 +36,25 @@ if (orderId) {
         document.getElementById('status-badge').innerText = (data.status || "PENDING").toUpperCase();
         document.getElementById('det-item').innerText = data.item || "ပစ္စည်းအမည်မရှိ";
         
-        // Address ပြသခြင်း
-        document.getElementById('det-pickup').innerText = data.pickup?.address || "လိပ်စာမရှိ";
-        document.getElementById('det-dropoff').innerText = data.dropoff?.address || "လိပ်စာမရှိ";
+        // Address ပြသခြင်း (မြို့အမည်ပါ ထည့်သွင်းပြသခြင်း)
+        const pickupAddr = data.pickup?.township ? `(${data.pickup.township}) ${data.pickup.address}` : (data.pickup?.address || "လိပ်စာမရှိ");
+        const dropoffAddr = data.dropoff?.township ? `(${data.dropoff.township}) ${data.dropoff.address}` : (data.dropoff?.address || "လိပ်စာမရှိ");
+
+        document.getElementById('det-pickup').innerText = pickupAddr;
+        document.getElementById('det-dropoff').innerText = dropoffAddr;
 
         // Stats (တန်ဖိုး၊ အလေးချိန်၊ ပို့ခ)
         document.getElementById('det-value').innerText = (data.itemValue || 0).toLocaleString() + " KS";
         document.getElementById('det-weight').innerText = (data.weight || 0) + " KG";
         document.getElementById('det-fee').innerText = (data.deliveryFee || 0).toLocaleString() + " KS";
 
-        // Phone & Call Link
-        const phone = data.phone || data.customerPhone;
+        // Phone & Call Logic (အသစ်ထည့်ထားသော ဖုန်းနံပါတ်ပြသရန်နေရာ)
+        const phone = data.phone || data.customerPhone || "ဖုန်းနံပါတ်မရှိ";
+        const phoneDisplay = document.getElementById('det-phone');
         const callLink = document.getElementById('call-link');
-        if (callLink && phone) {
+        
+        if (phoneDisplay) phoneDisplay.innerText = phone;
+        if (callLink && phone !== "ဖုန်းနံပါတ်မရှိ") {
             callLink.href = `tel:${phone}`;
         }
 
@@ -116,7 +122,7 @@ function updateActionButtons(status) {
             nextStatus = "completed";
             break;
         default:
-            mainBtn.parentElement.style.display = "none"; // Hide action area if completed
+            mainBtn.parentElement.style.display = "none";
             return;
     }
 
@@ -132,7 +138,6 @@ async function changeStatus(newStatus) {
         const orderRef = doc(db, "orders", orderId);
         let updateData = { status: newStatus };
 
-        // အော်ဒါစလက်ခံချိန်တွင် Rider အချက်အလက်ထည့်သွင်းခြင်း
         if (newStatus === "accepted") {
             const riderId = auth.currentUser?.uid;
             if (riderId) {
