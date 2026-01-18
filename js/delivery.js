@@ -62,7 +62,7 @@ function startTracking() {
         }, null, { enableHighAccuracy: true });
     }
 
-    // (A) Available Orders
+    // (A) Available Orders (Status: pending)
     onSnapshot(query(collection(db, "orders"), where("status", "==", "pending")), async (snap) => {
         const container = document.getElementById('available-orders');
         if(!container) return;
@@ -101,7 +101,7 @@ function startTracking() {
         if (!snap.empty && isSoundAllowed) alarmSound.play().catch(e => {});
     });
 
-    // (B) Active Tasks List (Updated: Auto remove မဖြစ်အောင် status ပေါင်းထည့်ထားသည်)
+    // (B) Active Tasks List (Status: accepted, on_the_way, arrived)
     onSnapshot(query(collection(db, "orders"), where("riderId", "==", myUid)), (snap) => {
         const list = document.getElementById('active-orders-list');
         const activeCountDisplay = document.getElementById('active-count');
@@ -110,7 +110,9 @@ function startTracking() {
         list.innerHTML = "";
         snap.forEach(orderDoc => {
             const d = orderDoc.data();
-            // RiderDismissed မလုပ်မချင်း Cancel ဖြစ်သွားရင်လည်း ပြပေးထားမည်
+            // Completed ဖြစ်သွားတဲ့ order ကို active list ထဲမှာ မပြတော့ဘဲ history ထဲ တန်းရောက်စေရန်
+            if (d.status === "completed") return;
+
             if (d.riderDismissed !== true && d.pickupSchedule !== "tomorrow") {
                 const isCancelled = d.status === "cancelled" || d.status === "rider_rejected";
                 if(!isCancelled) activeCount++;
@@ -171,7 +173,6 @@ function startTracking() {
                     <div style="background:#222; padding:10px; border-radius:8px; margin:10px 0; font-size:0.9rem; line-height:1.6;">
                         <div style="color:#00ff00;"><b>💵 ပို့ခ:</b> ${(d.deliveryFee || 0).toLocaleString()} KS</div>
                         <div style="color:#00e5ff;"><b>💰 တန်ဖိုး:</b> ${(d.itemValue || 0).toLocaleString()} KS</div>
-                        <div style="color:#fff;"><b>📞 ဖုန်း:</b> <a href="tel:${d.phone}" style="color:#ffcc00; text-decoration:none;">${d.phone}</a></div>
                         <hr style="border:0.1px solid #333; margin:8px 0;">
                         <div style="color:#ff4444;"><b>📍 ယူရန်:</b> ${pFull}</div>
                         <div style="color:#2ed573;"><b>🏁 ပို့ရန်:</b> ${dFull}</div>
@@ -187,7 +188,7 @@ function startTracking() {
         if(tomCount === 0) tomList.innerHTML = "<div class='empty-msg'>မနက်ဖြန်အတွက် မရှိသေးပါ</div>";
     });
 
-    // (E) History Section
+    // (E) History Section (Status: completed)
     onSnapshot(query(collection(db, "orders"), where("riderId", "==", myUid), where("status", "==", "completed")), (snap) => {
         const historyList = document.getElementById('history-orders-list');
         const earningsDisplay = document.getElementById('total-earnings');
@@ -205,7 +206,7 @@ function startTracking() {
                 <div style="display:flex; justify-content:space-between; align-items:start;">
                     <div>
                         <b style="color:#fff;">✅ ${h.item}</b><br>
-                        <small style="color:#666;">${h.completedAt?.toDate().toLocaleString() || ''}</small>
+                        <small style="color:#666;">${h.completedAt?.toDate().toLocaleString() || 'ရက်စွဲမသိရ'}</small>
                     </div>
                     <div style="text-align:right;">
                         <b style="color:#00ff00;">+${h.deliveryFee?.toLocaleString()} KS</b><br>
@@ -222,12 +223,6 @@ function startTracking() {
 }
 
 // --- Action Functions ---
-
-window.dismissOrder = async (id) => {
-    try {
-        await updateDoc(doc(db, "orders", id), { riderDismissed: true });
-    } catch (err) { console.error(err); }
-};
 
 window.handleAccept = async (id, time) => {
     try {
@@ -283,10 +278,6 @@ window.startTomorrowOrder = async (id) => {
     await notifyTelegram(createOrderMessage("🚀 Started Tomorrow Order", order, riderName, "မနက်ဖြန်အော်ဒါကို ယနေ့အတွက် စတင်လိုက်ပါပြီ"));
 };
 
-window.dismissTomorrowOrder = async (id) => {
-    try { await updateDoc(doc(db, "orders", id), { riderDismissedTomorrow: auth.currentUser.uid, tempRiderId: null }); } catch (err) { console.error(err); }
-};
-
 window.deleteHistory = async (id) => {
     const res = await Swal.fire({ title: 'မှတ်တမ်းဖျက်မလား?', text: "ဤမှတ်တမ်းကို History ထဲမှ အပြီးဖျက်ပါမည်။", icon: 'warning', showCancelButton: true });
     if (res.isConfirmed) {
@@ -328,25 +319,9 @@ const createOrderMessage = (title, order, currentRiderName, statusText = "") => 
 };
 
 window.handleLogout = async () => {
-    const res = await Swal.fire({
-        title: 'Logout လုပ်မှာလား?',
-        text: "အကောင့်ထဲမှ ထွက်ရန် သေချာပါသလား?",
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#ffcc00',
-        cancelButtonColor: '#333',
-        confirmButtonText: 'ထွက်မည်',
-        cancelButtonText: 'မထွက်ပါ'
-    });
-
+    const res = await Swal.fire({ title: 'Logout လုပ်မှာလား?', text: "အကောင့်ထဲမှ ထွက်ရန် သေချာပါသလား?", icon: 'question', showCancelButton: true, confirmButtonColor: '#ffcc00', cancelButtonColor: '#333', confirmButtonText: 'ထွက်မည်', cancelButtonText: 'မထွက်ပါ' });
     if (res.isConfirmed) {
-        try {
-            await signOut(auth);
-            window.location.href = "../index.html";
-        } catch (e) {
-            console.error(e);
-            Swal.fire('Error', 'Logout လုပ်၍ မရပါ', 'error');
-        }
+        try { await signOut(auth); window.location.href = "../index.html"; } catch (e) { console.error(e); }
     }
 };
 
