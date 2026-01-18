@@ -1,6 +1,6 @@
 import { db, auth } from './firebase-config.js';
 import { 
-    collection, addDoc, serverTimestamp, query, where, onSnapshot, doc, updateDoc, getDoc 
+    collection, addDoc, serverTimestamp, query, where, onSnapshot, doc, updateDoc 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { notifyTelegram } from './telegram.js';
@@ -37,8 +37,13 @@ if (logoutBtn) {
 }
 
 // --- ၂။ Map Setup ---
-const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 12); 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+// Map container ရှိမရှိ အရင်စစ်ပါ (Error ကာကွယ်ရန်)
+const mapElement = document.getElementById('map');
+let map;
+if (mapElement) {
+    map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 12); 
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+}
 
 let pickupMarker = null, dropoffMarker = null;
 let pickupCoords = null, dropoffCoords = null;
@@ -52,7 +57,7 @@ const riderIcon = L.icon({
 
 // --- (က) Go To My Location ---
 window.goToMyLocation = function() {
-    if (navigator.geolocation) {
+    if (navigator.geolocation && map) {
         navigator.geolocation.getCurrentPosition((position) => {
             const lat = position.coords.latitude, lng = position.coords.longitude;
             map.flyTo([lat, lng], 16);
@@ -76,7 +81,7 @@ onSnapshot(ridersQuery, (snap) => {
         const data = change.doc.data(), id = change.doc.id;
         if (change.type === "added" || change.type === "modified") {
             if (riderMarkers[id]) map.removeLayer(riderMarkers[id]);
-            riderMarkers[id] = L.marker([data.lat, data.lng], { icon: riderIcon }).addTo(map);
+            if (map) riderMarkers[id] = L.marker([data.lat, data.lng], { icon: riderIcon }).addTo(map);
         } else if (change.type === "removed" && riderMarkers[id]) {
             map.removeLayer(riderMarkers[id]); delete riderMarkers[id];
         }
@@ -86,8 +91,9 @@ onSnapshot(ridersQuery, (snap) => {
 // --- (ဂ) Update From Dropdown ---
 window.updateLocation = function(type) {
     const select = document.getElementById(`${type}-township`);
-    const option = select?.options[select.selectedIndex];
-    if (!option?.value) return;
+    if (!select) return;
+    const option = select.options[select.selectedIndex];
+    if (!option?.value || !map) return;
     const lat = parseFloat(option.getAttribute('data-lat')), lng = parseFloat(option.getAttribute('data-lng'));
 
     if (type === 'pickup') {
@@ -113,8 +119,11 @@ window.updateLocation = function(type) {
     calculatePrice();
 };
 
-document.getElementById('pickup-township')?.addEventListener('change', () => window.updateLocation('pickup'));
-document.getElementById('dropoff-township')?.addEventListener('change', () => window.updateLocation('dropoff'));
+// Event Listeners for Dropdowns
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('pickup-township')?.addEventListener('change', () => window.updateLocation('pickup'));
+    document.getElementById('dropoff-township')?.addEventListener('change', () => window.updateLocation('dropoff'));
+});
 
 // --- ၃။ Auto Pricing ---
 function calculatePrice() {
@@ -158,7 +167,7 @@ function displayMyOrders() {
 
             card.innerHTML = `
                 <div style="flex-grow:1;" onclick="window.location.href='track.html?id=${orderDoc.id}'">
-                    <b style="color:var(--primary); display:block; margin-bottom:4px;">📦 ${order.item}</b>
+                    <b style="color:#4e342e; display:block; margin-bottom:4px;">📦 ${order.item}</b>
                     <span style="font-size:0.7rem; font-weight:bold; color:${statusColor}; background:${statusColor}22; padding:2px 8px; border-radius:10px;">${order.status.toUpperCase()}</span>
                     <b style="font-size:0.85rem; margin-left:10px;">${(order.deliveryFee || 0).toLocaleString()} KS</b>
                     <div style="font-size:0.7rem; color:#888; margin-top:6px;">${order.pickup.township} ➔ ${order.dropoff.township}</div>
