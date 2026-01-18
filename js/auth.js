@@ -3,29 +3,29 @@ import {
     createUserWithEmailAndPassword, 
     signInWithEmailAndPassword,
     updateProfile,
-    onAuthStateChanged
+    onAuthStateChanged,
+    setPersistence,
+    browserLocalPersistence,
+    browserSessionPersistence
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { doc, setDoc, getDoc, serverTimestamp, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { notifyTelegram } from './telegram.js';
 
 /**
- * ၁။ Auto Login Checker
- * စာမျက်နှာစဖွင့်တာနဲ့ User က Login ဝင်ထားပြီးသားလားဆိုတာကို စစ်ဆေးပေးပါတယ်။
+ * ၁။ Auto Login Checker & Role Redirect
  */
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         console.log("User already logged in:", user.uid);
-        
-        // ဘယ် Role လဲဆိုတာ စစ်ဆေးပြီး သက်ဆိုင်ရာ Dashboard ကို ပို့ပေးမယ်
         try {
-            // Rider ဟုတ်မဟုတ် အရင်စစ်
+            // Rider Collection မှာ အရင်ရှာ
             const riderDoc = await getDoc(doc(db, "riders", user.uid));
             if (riderDoc.exists()) {
                 window.location.href = "html/delivery.html";
                 return;
             }
 
-            // Customer ဟုတ်မဟုတ် ထပ်စစ်
+            // Customer Collection မှာ ဆက်ရှာ
             const customerDoc = await getDoc(doc(db, "customers", user.uid));
             if (customerDoc.exists()) {
                 window.location.href = "html/customer.html";
@@ -33,19 +33,19 @@ onAuthStateChanged(auth, async (user) => {
         } catch (error) {
             console.error("Auto Login Error:", error);
         }
-    } else {
-        console.log("No user logged in. Stay on login page.");
     }
 });
 
-// Signup Function
+/**
+ * ၂။ Signup Function (Coins, Rating, Online Field များ ထည့်သွင်းထားသည်)
+ */
 async function handleSignUp() {
     const signupBtn = document.getElementById('signupBtn');
     const name = document.getElementById('reg-name').value.trim();
     const email = document.getElementById('reg-email').value.trim();
     const password = document.getElementById('reg-password').value.trim();
     const phone = document.getElementById('reg-phone').value.trim();
-    const role = document.getElementById('reg-role').value; // 'customer' သို့မဟုတ် 'rider'
+    const role = document.getElementById('reg-role').value;
 
     if (!name || !email || !password || !phone) {
         alert("အချက်အလက်အားလုံး ဖြည့်ပါ");
@@ -72,11 +72,13 @@ async function handleSignUp() {
             createdAt: serverTimestamp()
         };
 
+        // Rider များအတွက် Coin နှင့် Rating System Field များ
         if (role === "rider") {
-            userData.rating = 5.0;
-            userData.ratingSum = 0;
-            userData.reviewCount = 0;
-            userData.status = "online";
+            userData.coins = 0;           // Manual ဖြည့်ရန်အတွက် default 0
+            userData.totalStars = 0;      // ကြယ်ပွင့်စုစုပေါင်း
+            userData.ratingCount = 0;     // Rating ပေးသူဦးရေ
+            userData.isOnline = false;    // အစတွင် Offline ထားမည်
+            userData.lastLocation = null; // တည်နေရာမှတ်ရန်
         }
 
         await setDoc(doc(db, collectionName, user.uid), userData);
@@ -93,11 +95,14 @@ async function handleSignUp() {
     }
 }
 
-// Login Function
+/**
+ * ၃။ Login Function (Remember Me Logic ပါဝင်သည်)
+ */
 async function handleLogin() {
     const loginBtn = document.getElementById('loginBtn');
     const email = document.getElementById('login-email').value.trim();
     const password = document.getElementById('login-password').value.trim();
+    const rememberMe = document.getElementById('remember-checkbox').checked;
 
     if (!email || !password) {
         alert("Email နှင့် Password ဖြည့်ပါ");
@@ -108,16 +113,21 @@ async function handleLogin() {
     loginBtn.innerText = "Signing In...";
 
     try {
+        // Remember Me အမှန်ခြစ်ထားရင် Local (အမြဲ), မခြစ်ထားရင် Session (Browser ပိတ်ရင် logout)
+        const persistenceType = rememberMe ? browserLocalPersistence : browserSessionPersistence;
+        await setPersistence(auth, persistenceType);
+
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
 
+        // Rider ဟုတ်မဟုတ် စစ်
         let userDoc = await getDoc(doc(db, "riders", user.uid));
-        
         if (userDoc.exists()) {
             window.location.href = "html/delivery.html";
             return;
         }
 
+        // Customer ဟုတ်မဟုတ် စစ်
         userDoc = await getDoc(doc(db, "customers", user.uid));
         if (userDoc.exists()) {
             window.location.href = "html/customer.html";
@@ -128,13 +138,15 @@ async function handleLogin() {
         }
 
     } catch (error) {
-        alert("Login မှားယွင်းနေပါသည်။ (Password သို့မဟုတ် Email မှားနိုင်သည်)");
+        alert("Login မှားယွင်းနေပါသည်။");
         loginBtn.disabled = false;
         loginBtn.innerText = "Sign In";
     }
 }
 
-// Event Listeners
+/**
+ * ၄။ Event Listeners
+ */
 document.addEventListener('DOMContentLoaded', () => {
     const signupBtn = document.getElementById('signupBtn');
     const loginBtn = document.getElementById('loginBtn');
@@ -142,3 +154,4 @@ document.addEventListener('DOMContentLoaded', () => {
     if(signupBtn) signupBtn.addEventListener('click', handleSignUp);
     if(loginBtn) loginBtn.addEventListener('click', handleLogin);
 });
+
