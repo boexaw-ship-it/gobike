@@ -54,14 +54,14 @@
         /* Page Management */
         .page-section { display: none; height: calc(100vh - 125px); overflow-y: auto; }
         .page-section.active { display: block; }
-        #order-section { overflow: hidden; position: relative; } /* Map ဧရိယာအတွက် Scroll ပိတ် */
+        #order-section { overflow: hidden; position: relative; height: calc(100vh - 125px); }
 
-        /* === မြေပုံ Tiles ကွဲတာ ပြင်ဆင်ရန် CSS === */
+        /* === မြေပုံ Fix === */
         #map-container { 
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
-            width: 100%; 
-            background: #f1eee9; /* Loading ဖြစ်နေချိန်ပြမည့်အရောင် */
+            width: 100%; height: 100%;
+            background: #f1eee9;
         }
         #map { 
             height: 100%; 
@@ -69,10 +69,14 @@
             z-index: 1; 
         }
         
-        /* Leaflet အကွက်ကွဲခြင်းကို ကာကွယ်ရန် */
+        /* မြေပုံအကွက်ကွဲခြင်းကို ကာကွယ်ရန် CSS */
+        .leaflet-container {
+            touch-action: none;
+        }
         .leaflet-tile-container img {
-            width: 256.5px !important;
-            height: 256.5px !important;
+            width: 256px !important;
+            height: 256px !important;
+            outline: 1px solid transparent;
         }
 
         #pin-address-display {
@@ -98,7 +102,7 @@
             background: white; border-top-left-radius: 25px; border-top-right-radius: 25px;
             box-shadow: 0 -10px 30px rgba(0,0,0,0.15); z-index: 2000;
             transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.1);
-            transform: translateY(calc(100% - 100px)); /* လက်ကိုင်ဖတ်ရုံပဲပြထားမည် */
+            transform: translateY(calc(100% - 100px));
         }
         .bottom-sheet.expanded { transform: translateY(0); }
 
@@ -181,7 +185,7 @@
                         <b>PICK-UP (ပစ္စည်းယူရန်)</b>
                         <select id="pickup-township" required>
                             <option value="">မြို့နယ်ရွေးပါ</option>
-                            </select>
+                        </select>
                         <input type="text" id="pickup-address" placeholder="လမ်းအမည်/အိမ်အမှတ် (Manual)" style="margin-top:10px;" required>
                     </div>
 
@@ -244,12 +248,10 @@
     <script type="module" src="../js/customer.js"></script>
 
     <script>
-        // Bottom Sheet Toggle
         function toggleSheet() {
             document.getElementById('bottomSheet').classList.toggle('expanded');
         }
 
-        // Tab Switcher
         function switchTab(type) {
             document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
             if(event) event.target.classList.add('active');
@@ -257,7 +259,6 @@
             document.getElementById(type + '-orders').classList.add('active');
         }
 
-        // Section Switcher & Map Fix
         function showSection(sectionId, el) {
             document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
             document.getElementById(sectionId + '-section').classList.add('active');
@@ -266,11 +267,11 @@
             el.classList.add('active');
             
             if(sectionId === 'order') {
-                // မြေပုံ Tiles ပြန်ပေါ်စေရန် အရေးကြီးသော Logic
-                if(window.mapInstance) { // customer.js ထဲမှာ map ကို window.mapInstance ထဲ သိမ်းထားရပါမယ်
+                // မြေပုံပြန်ရောက်ချိန်တွင် size မမှန်တာကို invalidateSize ဖြင့် ပြင်ရန်
+                if(window.mapInstance) {
                     setTimeout(() => {
                         window.mapInstance.invalidateSize();
-                    }, 200);
+                    }, 300);
                 }
             } else {
                 document.getElementById('bottomSheet').classList.remove('expanded');
@@ -281,7 +282,6 @@
             document.getElementById('detailModal').style.display = 'none';
         }
 
-        // Township Syncing
         window.addEventListener('DOMContentLoaded', () => {
             const list = `
                 <option value="">မြို့နယ်ရွေးပါ</option>
