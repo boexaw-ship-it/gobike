@@ -17,51 +17,144 @@
         /* အရေးကြီးဆုံးအပိုင်း: Keyboard Suggestion မတက်စေရန် */
         * {
             -webkit-tap-highlight-color: transparent;
-            -webkit-user-select: none; /* စာသားတွေကို Keyboard က လှမ်းဖတ်လို့မရအောင် ပိတ်ထားခြင်း */
+            -webkit-user-select: none;
             user-select: none;
+            box-sizing: border-box;
         }
 
-        /* စာရိုက်ရမယ့်နေရာတွေကိုတော့ ပြန်ဖွင့်ပေးရပါမယ် */
         input, select, textarea {
             -webkit-user-select: text !important;
             user-select: text !important;
         }
 
-        /* Logo ကို ပုံစံကျစေရန် */
+        body.dark-theme {
+            background: #2b1d1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .auth-box {
+            background: #3e2723;
+            width: 100%;
+            max-width: 400px;
+            padding: 35px 25px;
+            border-radius: 24px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Logo Area */
         .logo-bg {
             width: 110px;
             height: 110px;
             background: #fff;
-            border-radius: 25px; /* ပုံထဲကအတိုင်း ထောင့်ဝိုင်းလေး ဖြစ်စေရန် */
+            border-radius: 25px;
             display: flex;
             align-items: center;
             justify-content: center;
             margin: 0 auto 20px;
             overflow: hidden;
-            border: 3px solid #ffcc00; /* Logo ဘေးပတ်ပတ်လည်ကို highlight ပြုလုပ်ခြင်း */
+            border: 3px solid #ffcc00;
             box-shadow: 0 8px 20px rgba(0,0,0,0.3);
         }
 
         .logo-bg img {
             width: 100%;
             height: 100%;
-            object-fit: cover; /* ပုံကို ဘောင်ထဲမှာ အချိုးကျကျ ပြည့်နေစေရန် */
+            object-fit: cover;
         }
 
         .auth-box h1 {
             color: #ffcc00;
             margin-bottom: 5px;
             letter-spacing: 1px;
+            font-size: 2.2rem;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 5px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+        }
+
+        .tabs button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            background: transparent;
+            color: #bcaaa4;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: 0.3s;
+        }
+
+        .tabs button.active {
+            background: #4e342e;
+            color: #ffcc00;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Forms */
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 14px 18px;
+            border-radius: 12px;
+            border: 1px solid #5d4037;
+            background: #4e342e;
+            color: #fff;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        /* Remember Me & Auto Login Area */
+        .remember-container {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            margin: -5px 0 20px 5px;
+            color: #bcaaa4;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        .remember-container input {
+            width: 18px;
+            height: 18px;
+            margin-right: 10px;
+            accent-color: #ffcc00;
+            cursor: pointer;
         }
 
         .main-btn {
+            width: 100%;
             background: #ffcc00;
             color: #4e342e;
             font-weight: bold;
+            border: none;
             border-radius: 12px;
             padding: 15px;
             font-size: 1.1rem;
+            cursor: pointer;
             box-shadow: 0 4px 15px rgba(255, 204, 0, 0.3);
+            transition: 0.3s;
+        }
+
+        .main-btn:hover {
+            background: #ffdb4d;
+            transform: translateY(-2px);
         }
     </style>
 </head>
@@ -83,11 +176,17 @@
 
         <div id="loginForm" class="form-container">
             <div class="input-group">
-                <input type="email" id="login-email" placeholder="Gmail Address" spellcheck="false" autocomplete="off">
+                <input type="email" id="login-email" placeholder="Gmail Address" spellcheck="false" autocomplete="on">
             </div>
             <div class="input-group">
                 <input type="password" id="login-password" placeholder="Password" spellcheck="false">
             </div>
+
+            <label class="remember-container">
+                <input type="checkbox" id="rememberMe" checked>
+                အကောင့်ကို မှတ်ထားမည် (Auto Login)
+            </label>
+
             <button type="button" id="loginBtn" class="main-btn">Sign In</button> 
         </div>
 
