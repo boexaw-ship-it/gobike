@@ -5,6 +5,9 @@ import {
 import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { notifyTelegram } from './telegram.js';
 
+// --- (Ratings & Coin Logic ကို ချိတ်ဆက်ခြင်း) ---
+import { watchRiderStats, hasEnoughCoins, deductOrderFee } from './ratings_coin.js';
+
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzoqWIjISI8MrzFYu-B7CBldle8xuo-B5jNQtCRsqHLOaLPEPelYX84W5lRXoB9RhL6uw/exec";
 
 // --- ၀။ Alarm Sound Setup ---
@@ -16,11 +19,13 @@ soundBtn.style = "position:fixed; bottom:85px; right:20px; z-index:3000; padding
 document.body.appendChild(soundBtn);
 soundBtn.onclick = () => { isSoundAllowed = true; alarmSound.play().then(() => { soundBtn.style.display = 'none'; }).catch(e => {}); };
 
-// --- ၁။ Map Fix ---
+// --- ၁။ Map Fix & Global Status ---
 let map;
+let isRiderOnline = false; // လက်ရှိ Online/Offline အခြေအနေမှတ်ရန်
+
 function initMap() {
     const mapElement = document.getElementById('map');
-    if (mapElement) {
+    if (mapElement && !map) {
         mapElement.style.height = "250px"; 
         map = L.map('map').setView([16.8661, 96.1951], 12); 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -32,6 +37,19 @@ onAuthStateChanged(auth, async (user) => {
     if (user) {
         initMap();
         await getRiderData(); 
+        
+        // Coin နဲ့ Rating ကို Real-time စောင့်ကြည့်ရန် ချိတ်ဆက်ခြင်း
+        watchRiderStats(user.uid, 'display-coins', 'display-rating');
+
+        // Database ထဲက Online Status အတိုင်း Switch ကို လိုက်ပြင်ပေးခြင်း
+        const riderSnap = await getDoc(doc(db, "riders", user.uid));
+        if (riderSnap.exists()) {
+            isRiderOnline = riderSnap.data().isOnline || false;
+            const toggle = document.getElementById('online-toggle');
+            if (toggle) toggle.checked = isRiderOnline;
+            updateStatusUI(isRiderOnline);
+        }
+
         startTracking(); 
     } else {
         window.location.href = "../index.html";
@@ -48,21 +66,53 @@ async function getRiderData() {
     }
 }
 
-// --- ၃။ Main Logic ---
+// --- ၃။ Online/Offline Toggle Logic ---
+window.toggleOnlineStatus = async (isOn) => {
+    if (!auth.currentUser) return;
+    isRiderOnline = isOn;
+    const myUid = auth.currentUser.uid;
+
+    try {
+        // Riders collection မှာ update လုပ်ခြင်း
+        await updateDoc(doc(db, "riders", myUid), { isOnline: isOn });
+        updateStatusUI(isOn);
+
+        if (!isOn) {
+            // Offline လုပ်ရင် active_riders ထဲကနေ ဖျက်ပေးရမယ်
+            await deleteDoc(doc(db, "active_riders", myUid));
+            Swal.fire({ title: 'Offline ဖြစ်သွားပါပြီ', icon: 'info', timer: 1500, showConfirmButton: false });
+        } else {
+            Swal.fire({ title: 'Online ဖြစ်ပါပြီ', icon: 'success', timer: 1500, showConfirmButton: false });
+        }
+    } catch (err) { console.error(err); }
+};
+
+function updateStatusUI(isOn) {
+    const statusText = document.getElementById('status-text');
+    if (statusText) {
+        statusText.innerText = isOn ? "● Online" : "● Offline";
+        statusText.style.color = isOn ? "#2ed573" : "#ff4444";
+    }
+}
+
+// --- ၄။ Main Logic ---
 function startTracking() {
     if (!auth.currentUser) return;
     const myUid = auth.currentUser.uid;
 
     if (navigator.geolocation) {
         navigator.geolocation.watchPosition(async (pos) => {
-            const name = await getRiderName();
-            await setDoc(doc(db, "active_riders", myUid), {
-                name, lat: pos.coords.latitude, lng: pos.coords.longitude, lastSeen: serverTimestamp()
-            }, { merge: true });
+            // Rider သည် Online ဖြစ်နေမှသာ မြေပုံပေါ်ပြရန် တည်နေရာပို့မည်
+            if (isRiderOnline) {
+                const name = await getRiderName();
+                await setDoc(doc(db, "active_riders", myUid), {
+                    name, lat: pos.coords.latitude, lng: pos.coords.longitude, lastSeen: serverTimestamp()
+                }, { merge: true });
+            }
         }, null, { enableHighAccuracy: true });
     }
 
-    // (A) Available Orders - မူလအတိုင်း Details မပြောင်းလဲပါ
+    // (A) Available Orders
     onSnapshot(query(collection(db, "orders"), where("status", "==", "pending")), async (snap) => {
         const container = document.getElementById('available-orders');
         if(!container) return;
@@ -131,7 +181,7 @@ function startTracking() {
         if(activeCount === 0) list.innerHTML = "<div class='empty-msg'>လက်ခံထားသော အော်ဒါမရှိပါ</div>";
     });
 
-    // (D) Tomorrow Section - လက်ခံပြီးပါက Details အကုန်ပြပါမည်
+    // (D) Tomorrow Section
     onSnapshot(query(collection(db, "orders"), where("pickupSchedule", "==", "tomorrow")), (snap) => {
         const tomList = document.getElementById('tomorrow-orders-list');
         if(!tomList) return;
@@ -215,14 +265,33 @@ function startTracking() {
 window.handleAccept = async (id, time) => {
     try {
         const docRef = doc(db, "orders", id);
+        
+        // --- အော်ဒါ တစ်ယောက်ထက်ပိုလက်ခံ၍မရအောင် စစ်ဆေးခြင်း ---
         const orderSnap = await getDoc(docRef);
+        if (!orderSnap.exists()) return;
         const order = orderSnap.data();
+
+        if (order.status !== "pending") {
+            Swal.fire({ title: 'Order Taken!', text: 'ဤအော်ဒါကို အခြား Rider တစ်ဦးမှ လက်ခံသွားပါပြီ။', icon: 'error' });
+            return;
+        }
+
+        const myUid = auth.currentUser.uid;
         const riderName = await getRiderName();
+
+        // --- Coin စစ်ဆေးခြင်း (ဥပမာ- လက်ခံခ ၅၀၀ နှုတ်မည်) ---
+        const commissionAmount = 500; 
+        const canAccept = await hasEnoughCoins(myUid, commissionAmount);
+
+        if (!canAccept) {
+            Swal.fire({ title: 'Coin မလုံလောက်ပါ', text: 'အော်ဒါလက်ခံရန် အနည်းဆုံး ၅၀၀ Coins ရှိရန်လိုအပ်ပါသည်။', icon: 'warning' });
+            return;
+        }
 
         if(time === 'tomorrow') {
             await updateDoc(docRef, { 
                 status: "pending_confirmation", 
-                tempRiderId: auth.currentUser.uid, 
+                tempRiderId: myUid, 
                 tempRiderName: riderName, 
                 pickupSchedule: "tomorrow",
                 riderDismissedTomorrow: null 
@@ -230,9 +299,12 @@ window.handleAccept = async (id, time) => {
             await notifyTelegram(createOrderMessage("⏳ Tomorrow Scheduled", order, riderName, "မနက်ဖြန်အတွက် ကြိုယူထားသည်"));
             Swal.fire({ title: 'အောင်မြင်ပါသည်', text: 'မနက်ဖြန်အတွက် Customer အတည်ပြုချက် စောင့်ပါမည်', icon: 'success' });
         } else {
+            // Coin နှုတ်ယူခြင်း
+            await deductOrderFee(myUid, commissionAmount);
+
             await updateDoc(docRef, { 
                 status: "accepted", 
-                riderId: auth.currentUser.uid, 
+                riderId: myUid, 
                 riderName: riderName, 
                 acceptedAt: serverTimestamp(), 
                 tempRiderId: null, 
@@ -240,6 +312,7 @@ window.handleAccept = async (id, time) => {
             });
             fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ action: "update", orderId: id, riderName, status: "Accepted" }) });
             await notifyTelegram(createOrderMessage("✅ Order Accepted", order, riderName, "Rider လက်ခံလိုက်ပါပြီ"));
+            Swal.fire({ title: 'လက်ခံပြီးပါပြီ', text: '၅၀၀ Coins နှုတ်ယူလိုက်ပါသည်။', icon: 'success' });
         }
     } catch (err) { console.error(err); }
 };
@@ -308,4 +381,27 @@ const createOrderMessage = (title, order, currentRiderName, statusText = "") => 
     return `${title}\n📊 Status: ${statusText}\n--------------------------\n📝 ပစ္စည်း: ${order.item}\n💵 ပို့ခ: ${(order.deliveryFee || 0).toLocaleString()} KS\n📍 ယူရန်: ${p}\n🏁 ပို့ရန်: ${d}\n--------------------------\n🚴 Rider: ${currentRiderName}`;
 };
 
-window.handleLogout = async () => { try { await signOut(auth); } catch (e) { console.error(e); } };
+// --- Logout with Alert & Status Clean up ---
+window.handleLogout = async () => { 
+    const res = await Swal.fire({
+        title: 'Logout လုပ်မှာလား?',
+        text: "အကောင့်ထဲမှ ထွက်မှာ သေချာပါသလား?",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#ff4444',
+        confirmButtonText: 'ထွက်မည်',
+        cancelButtonText: 'မထွက်ပါ'
+    });
+
+    if (res.isConfirmed) {
+        try { 
+            // ထွက်ခါနီးမှာ Offline အလိုအလျောက်ပြောင်းပေးခြင်း (Safety)
+            if (auth.currentUser) {
+                const myUid = auth.currentUser.uid;
+                await updateDoc(doc(db, "riders", myUid), { isOnline: false });
+                await deleteDoc(doc(db, "active_riders", myUid));
+            }
+            await signOut(auth); 
+        } catch (e) { console.error(e); } 
+    }
+};
