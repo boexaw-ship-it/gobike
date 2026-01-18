@@ -5,7 +5,7 @@ import {
 import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { notifyTelegram } from './telegram.js';
 
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzoqWIjISI8MrzFYu-B7CBldle8xuo-B5jNQtCRsqHLOaLPEPelYX84W5lRXoB9RhL6uo/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzoqWIjISI8MrzFYu-B7CBldle8xuo-B5jNQtCRsqHLOaLPEPelYX84W5lRXoB9RhL6uw/exec";
 
 // --- ၁။ Auth & Profile Logic ---
 onAuthStateChanged(auth, (user) => {
@@ -13,10 +13,6 @@ onAuthStateChanged(auth, (user) => {
     if (user) {
         if (nameDisplay) nameDisplay.innerText = user.displayName || "User";
         displayMyOrders(); 
-        // Page စဖွင့်ချိန် မြေပုံ Tiles ငြိမ်အောင်လုပ်ခြင်း
-        setTimeout(() => { 
-            if (map) map.invalidateSize(); 
-        }, 1000);
     } else {
         if (!window.location.pathname.includes('index.html')) window.location.href = "../index.html";
     }
@@ -41,16 +37,8 @@ const setupLogout = () => {
 setupLogout();
 
 // --- ၂။ Map Setup ---
-// မြေပုံကို စဖွင့်ချင်း Initialize လုပ်ခြင်း
-const map = L.map('map', { 
-    zoomControl: false,
-    tap: false 
-}).setView([16.8661, 96.1951], 12); 
-
+const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 12); 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-// Tiles ကွက်တာကာကွယ်ရန် အရေးပေါ် Refresh တစ်ချက်လုပ်ခြင်း
-setTimeout(() => { map.invalidateSize(); }, 500);
 
 let pickupMarker = null, dropoffMarker = null;
 let pickupCoords = null, dropoffCoords = null;
@@ -62,10 +50,11 @@ const riderIcon = L.icon({
     iconAnchor: [16, 16]
 });
 
+// Marker create လုပ်ရာတွင် title မပါဝင်စေရန်နှင့် Keyboard suggestion ကို ရှောင်ရန် helper
 const createCustomMarker = (latlng, options = {}) => {
     return L.marker(latlng, {
         ...options,
-        title: "", 
+        title: "", // စာသားအလွတ်ပေးထားခြင်းဖြင့် suggestion တက်ခြင်းကို ကာကွယ်သည်
         alt: ""
     });
 };
@@ -86,25 +75,19 @@ window.goToMyLocation = function() {
                 pickupCoords = { lat: pos.lat, lng: pos.lng };
                 calculatePrice();
             });
-            
-            setTimeout(() => { map.invalidateSize(); }, 300);
             calculatePrice();
         }, () => Swal.fire("Error", "GPS ဖွင့်ပေးပါ", "error"));
     }
 };
 
 // --- (ခ) Live Riders ---
-const ridersQuery = query(collection(db, "riders"), where("status", "==", "online"));
+const ridersQuery = query(collection(db, "active_riders"), where("isOnline", "==", true));
 onSnapshot(ridersQuery, (snap) => {
     snap.docChanges().forEach((change) => {
         const data = change.doc.data(), id = change.doc.id;
         if (change.type === "added" || change.type === "modified") {
-            // Rider marker တွေ မတုန်အောင် .setLatLng ကို သုံးခြင်း
-            if (riderMarkers[id]) {
-                riderMarkers[id].setLatLng([data.lat, data.lng]);
-            } else {
-                riderMarkers[id] = createCustomMarker([data.lat, data.lng], { icon: riderIcon }).addTo(map);
-            }
+            if (riderMarkers[id]) map.removeLayer(riderMarkers[id]);
+            riderMarkers[id] = createCustomMarker([data.lat, data.lng], { icon: riderIcon }).addTo(map);
         } else if (change.type === "removed" && riderMarkers[id]) {
             map.removeLayer(riderMarkers[id]); delete riderMarkers[id];
         }
@@ -138,7 +121,6 @@ window.updateLocation = function(type) {
         });
     }
     map.flyTo([lat, lng], 15);
-    setTimeout(() => { map.invalidateSize(); }, 400);
     calculatePrice();
 };
 
@@ -194,10 +176,11 @@ window.showOrderDetails = async (orderId) => {
 
 window.closeModal = () => { document.getElementById('detailModal').style.display = 'none'; };
 
-// --- ၅။ Display My Orders ---
+// --- ၅။ Display My Orders (Tabs Logic) ---
 function displayMyOrders() {
     const activeList = document.getElementById('active-orders');
     const historyList = document.getElementById('history-orders');
+    
     if (!activeList || !historyList || !auth.currentUser) return;
 
     const q = query(collection(db, "orders"), where("userId", "==", auth.currentUser.uid));
@@ -326,4 +309,5 @@ if (placeOrderBtn) {
             Swal.fire("Error", e.message, "error");
         }
     };
-}
+                                             }
+
