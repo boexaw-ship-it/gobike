@@ -46,7 +46,7 @@
             overflow: hidden;
         }
 
-        /* Profile Bar Modernized */
+        /* Profile Bar */
         .profile-bar {
             background: var(--primary); 
             padding: 12px 18px;
@@ -62,7 +62,6 @@
         .logout-btn {
             background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.3);
             padding: 6px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; cursor: pointer;
-            transition: all 0.3s;
         }
 
         .page-section { display: none; height: 100%; flex-direction: column; }
@@ -76,7 +75,6 @@
             background-color: #cfd8dc;
             flex-shrink: 0;
         }
-
         #map { height: 100% !important; width: 100% !important; z-index: 1; }
         
         #pin-address-display {
@@ -97,7 +95,7 @@
             cursor: pointer; font-size: 1.2rem; border: none;
         }
 
-        /* Order Form Area Design */
+        /* Order Panel */
         .order-panel {
             flex-grow: 1;
             background: linear-gradient(180deg, var(--bg) 0%, #ffffff 100%);
@@ -132,9 +130,7 @@
             width: 100%; padding: 14px; border: 1.5px solid #eceff1;
             border-radius: 12px; font-size: 0.9rem; outline: none;
             box-sizing: border-box; background: #f8fafb; color: var(--text-main);
-            transition: all 0.3s;
         }
-        input:focus, select:focus { border-color: var(--primary-light); background: #fff; box-shadow: 0 0 0 4px rgba(78,52,46,0.05); }
 
         .btn-confirm {
             background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
@@ -142,11 +138,17 @@
             padding: 18px; border: none; border-radius: 16px;
             font-weight: 700; font-size: 1rem; cursor: pointer;
             box-shadow: 0 8px 20px rgba(78, 52, 46, 0.3);
-            margin-top: 10px; transition: transform 0.2s;
         }
-        .btn-confirm:active { transform: scale(0.98); }
 
-        /* Bottom Nav Modern */
+        /* List Section Tabs */
+        .history-tabs { display: flex; background: white; border-bottom: 1px solid #eee; flex-shrink: 0; }
+        .tab-item { flex: 1; text-align: center; padding: 15px; font-size: 0.85rem; color: #888; font-weight: 600; cursor: pointer; }
+        .tab-item.active { color: var(--primary); border-bottom: 3px solid var(--primary); }
+
+        .tab-content { display: none; flex-grow: 1; overflow-y: auto; padding: 15px; }
+        .tab-content.active { display: block; }
+
+        /* Bottom Nav */
         .bottom-nav {
             position: fixed; bottom: 0; left: 0; width: 100%;
             background: white; display: flex; height: 70px;
@@ -156,10 +158,6 @@
         .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #b0bec5; font-size: 0.7rem; cursor: pointer; gap: 4px; }
         .nav-item i { font-size: 1.2rem; }
         .nav-item.active { color: var(--primary); font-weight: 800; }
-
-        /* Custom Scrollbar */
-        .order-scroll-area::-webkit-scrollbar { width: 5px; }
-        .order-scroll-area::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 10px; }
     </style>
 </head>
 <body>
@@ -182,7 +180,6 @@
         <div class="order-panel">
             <div class="order-scroll-area">
                 <form id="orderForm" onsubmit="return false;">
-                    
                     <div class="section-title"><i class="fas fa-map-marker-alt"></i> Pick-up Location</div>
                     <div class="loc-box">
                         <select id="pickup-township" required>
@@ -205,7 +202,7 @@
                                 <option value="Mayangone" data-lat="16.8697" data-lng="96.1436">မရမ်းကုန်း</option>
                                 <option value="Mingaladon" data-lat="16.9038" data-lng="96.1557">မင်္ဂလာဒုံ</option>
                                 <option value="North_Okkalapa" data-lat="16.9142" data-lng="96.1717">မြောက်ဥက္ကလာပ</option>
-                                <option value="Shwepyithar" data-lat="16.9747" data-lng="96.0964">ရွှပြည်သာ</option>
+                                <option value="Shwepyithar" data-lat="16.9747" data-lng="96.0964">ရွှေပြည်သာ</option>
                                 <option value="Hlaingthaya" data-lat="16.8775" data-lng="96.0617">လှိုင်သာယာ</option>
                             </optgroup>
                             <optgroup label="Eastern">
@@ -225,15 +222,13 @@
 
                     <div class="section-title"><i class="fas fa-paper-plane"></i> Drop-off Location</div>
                     <div class="loc-box">
-                        <select id="dropoff-township" required>
-                            <option value="">မြို့နယ်ရွေးပါ</option>
-                        </select>
+                        <select id="dropoff-township" required></select>
                         <input type="text" id="dropoff-address" placeholder="အိမ်အမှတ် / လမ်းအမည်" style="margin-top:12px;" required>
                     </div>
 
                     <div class="section-title"><i class="fas fa-box-open"></i> Item Details</div>
                     <div class="loc-box">
-                        <input type="text" id="item-detail" placeholder="ဘာပစ္စည်းပို့မှာလဲ? (ဥပမာ- ထမင်းဘူး)" style="margin-bottom:12px;" required>
+                        <input type="text" id="item-detail" placeholder="ဘာပစ္စည်းပို့မှာလဲ?" style="margin-bottom:12px;" required>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                             <input type="number" id="item-weight" placeholder="Weight (kg)">
                             <input type="number" id="item-value" placeholder="Value (KS)">
@@ -256,12 +251,13 @@
     </div>
 
     <div id="list-section" class="page-section">
-        <div class="header" style="background:var(--primary); padding:20px;">MY ORDERS</div>
+        <div class="header" style="background:var(--primary); padding:15px; text-align:center; color:white; font-weight:bold;">MY ORDERS</div>
         <div class="history-tabs">
             <div class="tab-item active" onclick="switchTab('active')">ACTIVE</div>
             <div class="tab-item" onclick="switchTab('history')">HISTORY</div>
         </div>
-        <div id="active-orders" style="padding:15px; overflow-y:auto;" class="tab-content active"></div>
+        <div id="active-orders" class="tab-content active"></div>
+        <div id="history-orders" class="tab-content"></div>
     </div>
 
     <nav class="bottom-nav">
@@ -277,13 +273,10 @@
     <script type="module" src="../js/customer.js"></script>
 
     <script>
-        // Dropdown Copy Logic
         window.addEventListener('load', () => {
             const pSelect = document.getElementById('pickup-township');
             const dSelect = document.getElementById('dropoff-township');
             if(pSelect && dSelect) dSelect.innerHTML = pSelect.innerHTML;
-            
-            setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 500);
         });
 
         function showSection(sectionId, el) {
@@ -291,15 +284,17 @@
             document.getElementById(sectionId + '-section').classList.add('active');
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             el.classList.add('active');
-            
             if(sectionId === 'order') {
-                setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 100);
+                setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 200);
             }
         }
 
         function switchTab(type) {
             document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
             event.currentTarget.classList.add('active');
+            
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(type + '-orders').classList.add('active');
         }
     </script>
 </body>
