@@ -5,27 +5,27 @@ import {
     updateProfile,
     onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { doc, setDoc, getDoc, serverTimestamp, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { notifyTelegram } from './telegram.js';
 
 /**
  * ၁။ Auto Login Checker
- * စာမျက်နှာစဖွင့်တာနဲ့ User က Login ဝင်ထားပြီးသားလားဆိုတာကို စစ်ဆေးပေးပါတယ်။
+ * စာမျက်နှာဖွင့်တာနဲ့ User က ရှိပြီးသားဆိုရင် Dashboard ကို တန်းပို့ပေးမယ်
  */
 onAuthStateChanged(auth, async (user) => {
     if (user) {
-        console.log("User already logged in:", user.uid);
-        
-        // ဘယ် Role လဲဆိုတာ စစ်ဆေးပြီး သက်ဆိုင်ရာ Dashboard ကို ပို့ပေးမယ်
+        console.log("User detected:", user.uid);
         try {
             // Rider ဟုတ်မဟုတ် အရင်စစ်
             const riderDoc = await getDoc(doc(db, "riders", user.uid));
             if (riderDoc.exists()) {
+                // Rider ဖြစ်ရင် Online Status ကိုပါ တစ်ခါတည်း True ပေးခဲ့မယ်
+                await updateDoc(doc(db, "riders", user.uid), { isOnline: true });
                 window.location.href = "html/delivery.html";
                 return;
             }
 
-            // Customer ဟုတ်မဟုတ် ထပ်စစ်
+            // Customer ဟုတ်မဟုတ် စစ်
             const customerDoc = await getDoc(doc(db, "customers", user.uid));
             if (customerDoc.exists()) {
                 window.location.href = "html/customer.html";
@@ -33,8 +33,6 @@ onAuthStateChanged(auth, async (user) => {
         } catch (error) {
             console.error("Auto Login Error:", error);
         }
-    } else {
-        console.log("No user logged in. Stay on login page.");
     }
 });
 
@@ -45,7 +43,7 @@ async function handleSignUp() {
     const email = document.getElementById('reg-email').value.trim();
     const password = document.getElementById('reg-password').value.trim();
     const phone = document.getElementById('reg-phone').value.trim();
-    const role = document.getElementById('reg-role').value; // 'customer' သို့မဟုတ် 'rider'
+    const role = document.getElementById('reg-role').value;
 
     if (!name || !email || !password || !phone) {
         alert("အချက်အလက်အားလုံး ဖြည့်ပါ");
@@ -72,22 +70,23 @@ async function handleSignUp() {
             createdAt: serverTimestamp()
         };
 
+        // Rider အတွက် လိုအပ်သော status များ ထည့်သွင်းခြင်း
         if (role === "rider") {
             userData.rating = 5.0;
             userData.ratingSum = 0;
             userData.reviewCount = 0;
+            userData.isOnline = true; // Dashboard ရောက်ရင် မြေပုံပေါ်တန်းပေါ်စေရန်
             userData.status = "online";
         }
 
         await setDoc(doc(db, collectionName, user.uid), userData);
-
         await notifyTelegram(`👤 User အသစ်: ${name}\nRole: ${role}\nPhone: ${phone}`);
 
-        alert("Account ဖွင့်လှစ်ပြီးပါပြီ။ Dashboard သို့ ပို့ဆောင်ပေးနေပါသည်...");
-        window.location.href = (role === "customer") ? "html/customer.html" : "html/delivery.html";
+        alert("အကောင့်ဖွင့်ခြင်း အောင်မြင်ပါသည်။");
+        window.location.href = (role === "rider") ? "html/delivery.html" : "html/customer.html";
 
     } catch (error) {
-        alert("Error: " + error.message);
+        alert("Signup Error: " + error.message);
         signupBtn.disabled = false;
         signupBtn.innerText = "Create Account";
     }
@@ -111,15 +110,18 @@ async function handleLogin() {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
 
-        let userDoc = await getDoc(doc(db, "riders", user.uid));
-        
-        if (userDoc.exists()) {
+        // Rider စစ်ဆေးခြင်း
+        const riderDoc = await getDoc(doc(db, "riders", user.uid));
+        if (riderDoc.exists()) {
+            // Login ဝင်တာနဲ့ Online ဖြစ်သွားအောင် Update လုပ်မယ်
+            await updateDoc(doc(db, "riders", user.uid), { isOnline: true });
             window.location.href = "html/delivery.html";
             return;
         }
 
-        userDoc = await getDoc(doc(db, "customers", user.uid));
-        if (userDoc.exists()) {
+        // Customer စစ်ဆေးခြင်း
+        const customerDoc = await getDoc(doc(db, "customers", user.uid));
+        if (customerDoc.exists()) {
             window.location.href = "html/customer.html";
         } else {
             alert("အကောင့်အချက်အလက် ရှာမတွေ့ပါ။");
