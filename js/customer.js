@@ -2,7 +2,7 @@ import { db, auth } from './firebase-config.js';
 import { 
     collection, addDoc, serverTimestamp, query, where, onSnapshot, doc, updateDoc, getDoc 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { signOut, onAuthStateChanged } from "https://www.react-auth-kit.com/firebase-auth.js"; // Note: Ensure your import source is correct, standard is "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"
+import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { notifyTelegram } from './telegram.js';
 
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzoqWIjISI8MrzFYu-B7CBldle8xuo-B5jNQtCRsqHLOaLPEPelYX84W5lRXoB9RhL6uw/exec";
@@ -14,11 +14,13 @@ onAuthStateChanged(auth, (user) => {
         if (nameDisplay) nameDisplay.innerText = user.displayName || "User";
         displayMyOrders(); 
     } else {
-        if (!window.location.pathname.includes('index.html')) window.location.href = "../index.html";
+        if (!window.location.pathname.includes('index.html')) {
+            window.location.href = "../index.html";
+        }
     }
 });
 
-// Logout setup
+// Logout Logic
 const logoutBtn = document.getElementById('logoutBtn');
 if (logoutBtn) {
     logoutBtn.onclick = async () => {
@@ -54,18 +56,16 @@ window.goToMyLocation = function() {
         navigator.geolocation.getCurrentPosition((position) => {
             const lat = position.coords.latitude, lng = position.coords.longitude;
             map.flyTo([lat, lng], 16);
-            
             if (pickupMarker) map.removeLayer(pickupMarker);
             pickupMarker = L.marker([lat, lng], { draggable: true }).addTo(map);
             pickupCoords = { lat, lng };
-            
             pickupMarker.on('dragend', () => {
                 const pos = pickupMarker.getLatLng();
                 pickupCoords = { lat: pos.lat, lng: pos.lng };
                 calculatePrice();
             });
             calculatePrice();
-        }, () => Swal.fire("Error", "GPS ဖွင့်ပေးပါ သို့မဟုတ် ခွင့်ပြုချက်ပေးပါ", "error"));
+        }, () => Swal.fire("Error", "GPS ဖွင့်ပေးပါ", "error"));
     }
 };
 
@@ -83,12 +83,11 @@ onSnapshot(ridersQuery, (snap) => {
     });
 });
 
-// --- (ဂ) Update Location From Dropdown ---
+// --- (ဂ) Update From Dropdown ---
 window.updateLocation = function(type) {
     const select = document.getElementById(`${type}-township`);
     const option = select?.options[select.selectedIndex];
-    if (!option || option.value === "") return;
-
+    if (!option?.value) return;
     const lat = parseFloat(option.getAttribute('data-lat')), lng = parseFloat(option.getAttribute('data-lng'));
 
     if (type === 'pickup') {
@@ -96,7 +95,8 @@ window.updateLocation = function(type) {
         if (pickupMarker) map.removeLayer(pickupMarker);
         pickupMarker = L.marker([lat, lng], { draggable: true }).addTo(map);
         pickupMarker.on('dragend', () => {
-            pickupCoords = { lat: pickupMarker.getLatLng().lat, lng: pickupMarker.getLatLng().lng };
+            const pos = pickupMarker.getLatLng();
+            pickupCoords = { lat: pos.lat, lng: pos.lng };
             calculatePrice();
         });
     } else {
@@ -104,7 +104,8 @@ window.updateLocation = function(type) {
         if (dropoffMarker) map.removeLayer(dropoffMarker);
         dropoffMarker = L.marker([lat, lng], { draggable: true }).addTo(map);
         dropoffMarker.on('dragend', () => {
-            dropoffCoords = { lat: dropoffMarker.getLatLng().lat, lng: dropoffMarker.getLatLng().lng };
+            const pos = dropoffMarker.getLatLng();
+            dropoffCoords = { lat: pos.lat, lng: pos.lng };
             calculatePrice();
         });
     }
@@ -112,7 +113,6 @@ window.updateLocation = function(type) {
     calculatePrice();
 };
 
-// Event Listeners for Dropdowns
 document.getElementById('pickup-township')?.addEventListener('change', () => window.updateLocation('pickup'));
 document.getElementById('dropoff-township')?.addEventListener('change', () => window.updateLocation('dropoff'));
 
@@ -122,90 +122,57 @@ function calculatePrice() {
     if (pickupCoords && dropoffCoords) {
         const p1 = L.latLng(pickupCoords.lat, pickupCoords.lng), p2 = L.latLng(dropoffCoords.lat, dropoffCoords.lng);
         const dist = (p1.distanceTo(p2) / 1000).toFixed(2); 
-        
         const weight = parseFloat(document.getElementById('item-weight')?.value) || 0;
         const itemValue = parseFloat(document.getElementById('item-value')?.value) || 0;
-        
         const weightExtra = weight > 5 ? (weight - 5) * 200 : 0;
         const total = Math.round(1500 + (dist * 500) + weightExtra + (itemValue > 50000 ? itemValue * 0.01 : 0));
         
         if (btn) btn.innerText = `CONFIRM ORDER - ${total.toLocaleString()} KS (${dist} km)`;
         return { dist, total };
     }
-    if (btn) btn.innerText = "CONFIRM ORDER";
     return null;
 }
+['item-weight', 'item-value'].forEach(id => document.getElementById(id)?.addEventListener('input', calculatePrice));
 
-// အလေးချိန်နှင့် တန်ဖိုးပြောင်းလဲလျှင် ဈေးနှုန်းချက်ချင်းတွက်ရန်
-['item-weight', 'item-value'].forEach(id => {
-    document.getElementById(id)?.addEventListener('input', calculatePrice);
-});
-
-// --- ၄။ Display My Orders (Tabs Logic) ---
+// --- ၄။ Display My Orders ---
 function displayMyOrders() {
     const activeList = document.getElementById('active-orders');
     const historyList = document.getElementById('history-orders');
-    
     if (!activeList || !historyList || !auth.currentUser) return;
 
     const q = query(collection(db, "orders"), where("userId", "==", auth.currentUser.uid));
-    
     onSnapshot(q, (snap) => {
         activeList.innerHTML = "";
         historyList.innerHTML = "";
-
         if (snap.empty) {
-            const emptyMsg = "<p style='text-align:center; color:#888; margin-top:30px;'>မှတ်တမ်းမရှိပါ</p>";
-            activeList.innerHTML = emptyMsg;
-            historyList.innerHTML = emptyMsg;
+            activeList.innerHTML = historyList.innerHTML = "<p style='text-align:center; color:#888; margin-top:30px;'>မှတ်တမ်းမရှိပါ</p>";
             return;
         }
-
         snap.forEach((orderDoc) => {
             const order = orderDoc.data();
             if (order.customerHide) return;
-
             const card = document.createElement('div');
-            card.style.cssText = "background:white; padding:15px; border-radius:15px; margin-bottom:12px; display:flex; align-items:center; box-shadow:0 4px 10px rgba(0,0,0,0.05); position:relative;";
+            card.style.cssText = "background:white; padding:15px; border-radius:15px; margin-bottom:12px; display:flex; align-items:center; box-shadow:0 4px 10px rgba(0,0,0,0.05); cursor:pointer;";
             
-            // Status Color Logic
-            let statusColor = "#e67e22"; // Orange for pending/accepted
-            if (order.status === "completed") statusColor = "var(--success)";
-            if (order.status === "cancelled") statusColor = "var(--danger)";
+            let statusColor = (order.status === "completed") ? "#66bb6a" : "#e67e22";
 
             card.innerHTML = `
                 <div style="flex-grow:1;" onclick="window.location.href='track.html?id=${orderDoc.id}'">
                     <b style="color:var(--primary); display:block; margin-bottom:4px;">📦 ${order.item}</b>
-                    <span style="font-size:0.75rem; font-weight:bold; color:${statusColor}; background:${statusColor}22; padding:2px 8px; border-radius:10px;">${order.status.toUpperCase()}</span>
+                    <span style="font-size:0.7rem; font-weight:bold; color:${statusColor}; background:${statusColor}22; padding:2px 8px; border-radius:10px;">${order.status.toUpperCase()}</span>
                     <b style="font-size:0.85rem; margin-left:10px;">${(order.deliveryFee || 0).toLocaleString()} KS</b>
-                    <div style="font-size:0.7rem; color:#888; margin-top:6px;">
-                        <i class="fas fa-map-marker-alt"></i> ${order.pickup.township} ➔ <i class="fas fa-flag-checkered"></i> ${order.dropoff.township}
-                    </div>
+                    <div style="font-size:0.7rem; color:#888; margin-top:6px;">${order.pickup.township} ➔ ${order.dropoff.township}</div>
                 </div>
-                <div onclick="window.deleteOrder('${orderDoc.id}')" style="padding:10px; color:#ff4757; cursor:pointer;">
-                    <i class="fas fa-trash-alt"></i>
-                </div>
-            `;
+                <div onclick="event.stopPropagation(); window.deleteOrder('${orderDoc.id}')" style="padding:10px; color:#ef5350;"><i class="fas fa-trash-alt"></i></div>`;
 
-            if (order.status === "completed" || order.status === "cancelled") {
-                historyList.appendChild(card);
-            } else {
-                activeList.appendChild(card);
-            }
+            if (order.status === "completed" || order.status === "cancelled") historyList.appendChild(card);
+            else activeList.appendChild(card);
         });
     });
 }
 
-// မှတ်တမ်းဖျောက်ရန်
 window.deleteOrder = async (id) => {
-    const res = await Swal.fire({ 
-        title: 'မှတ်တမ်းမှ ဖယ်ထုတ်မလား?', 
-        text: "အော်ဒါစာရင်းမှ ဖျောက်လိုက်ပါမည်။",
-        icon: 'warning', 
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        confirmButtonText: 'ဖယ်ထုတ်မည်'
-    });
+    const res = await Swal.fire({ title: 'ဖယ်ထုတ်မလား?', icon: 'warning', showCancelButton: true, confirmButtonText: 'ဖယ်ထုတ်မည်' });
     if (res.isConfirmed) await updateDoc(doc(db, "orders", id), { customerHide: true });
 };
 
@@ -215,12 +182,12 @@ if (placeOrderBtn) {
     placeOrderBtn.onclick = async () => {
         try {
             const feeInfo = calculatePrice();
-            const item = document.getElementById('item-detail')?.value;
-            const phone = document.getElementById('receiver-phone')?.value;
-            const pAddr = document.getElementById('pickup-address')?.value;
-            const dAddr = document.getElementById('dropoff-address')?.value;
-            const weight = document.getElementById('item-weight')?.value || 0;
-            const itemValue = document.getElementById('item-value')?.value || 0;
+            const item = document.getElementById('item-detail').value;
+            const phone = document.getElementById('receiver-phone').value;
+            const pAddr = document.getElementById('pickup-address').value;
+            const dAddr = document.getElementById('dropoff-address').value;
+            const weight = document.getElementById('item-weight').value || 0;
+            const itemValue = document.getElementById('item-value').value || 0;
 
             const pTSel = document.getElementById('pickup-township');
             const dTSel = document.getElementById('dropoff-township');
@@ -228,8 +195,7 @@ if (placeOrderBtn) {
             const dTownship = dTSel.options[dTSel.selectedIndex]?.text;
 
             if (!feeInfo || !item || !phone || !pAddr || !dAddr || pTSel.value === "" || dTSel.value === "") {
-                Swal.fire({ icon: 'error', title: 'အချက်အလက်မစုံလင်ပါ', text: 'မြို့နယ်နှင့် လိပ်စာများ မှန်ကန်စွာ ဖြည့်သွင်းပေးပါ' }); 
-                return;
+                Swal.fire("Error", "အချက်အလက်များ ပြည့်စုံစွာဖြည့်ပါ", "error"); return;
             }
 
             placeOrderBtn.disabled = true;
@@ -243,15 +209,12 @@ if (placeOrderBtn) {
                 dropoff: { ...dropoffCoords, address: dAddr, township: dTownship },
                 item, weight, itemValue, phone,
                 paymentMethod: document.getElementById('payment-method').value,
-                deliveryFee: feeInfo.total, 
-                distance: feeInfo.dist,
-                status: "pending", 
-                createdAt: serverTimestamp()
+                deliveryFee: feeInfo.total, status: "pending", createdAt: serverTimestamp()
             };
 
             const docRef = await addDoc(collection(db, "orders"), orderData);
             
-            // Telegram Notification
+            // Telegram Message
             const trackUrl = `https://boexaw-ship-it.github.io/gobike/html/track.html?id=${docRef.id}`;
             const msg = `📦 <b>New Order Received!</b>\n` +
                         `━━━━━━━━━━━━━━━━━━\n` +
@@ -267,13 +230,12 @@ if (placeOrderBtn) {
 
             await notifyTelegram(msg);
 
-            // Google Sheets Sync (Optional)
             fetch(SCRIPT_URL, { 
                 method: "POST", mode: "no-cors", 
                 body: JSON.stringify({ action: "create", orderId: docRef.id, ...orderData, deliveryFee: feeInfo.total }) 
             });
 
-            await Swal.fire({ title: 'အော်ဒါတင်ပြီးပါပြီ!', icon: 'success', timer: 2000 });
+            await Swal.fire({ title: 'အော်ဒါတင်ပြီးပါပြီ!', icon: 'success' });
             window.location.href = `track.html?id=${docRef.id}`;
         } catch (e) {
             placeOrderBtn.disabled = false;
