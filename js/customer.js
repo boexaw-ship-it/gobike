@@ -13,6 +13,8 @@ onAuthStateChanged(auth, (user) => {
     if (user) {
         if (nameDisplay) nameDisplay.innerText = user.displayName || "User";
         displayMyOrders(); 
+        // Page စဖွင့်ချိန် မြေပုံ Tiles ငြိမ်အောင်လုပ်ခြင်း
+        setTimeout(() => { map.invalidateSize(); }, 800);
     } else {
         if (!window.location.pathname.includes('index.html')) window.location.href = "../index.html";
     }
@@ -37,7 +39,11 @@ const setupLogout = () => {
 setupLogout();
 
 // --- ၂။ Map Setup ---
-const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 12); 
+const map = L.map('map', { 
+    zoomControl: false,
+    tap: false // Mobile browser တွေမှာ click နှေးတာကို ကာကွယ်ရန်
+}).setView([16.8661, 96.1951], 12); 
+
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 let pickupMarker = null, dropoffMarker = null;
@@ -50,11 +56,10 @@ const riderIcon = L.icon({
     iconAnchor: [16, 16]
 });
 
-// Marker create လုပ်ရာတွင် title မပါဝင်စေရန်နှင့် Keyboard suggestion ကို ရှောင်ရန် helper
 const createCustomMarker = (latlng, options = {}) => {
     return L.marker(latlng, {
         ...options,
-        title: "", // စာသားအလွတ်ပေးထားခြင်းဖြင့် suggestion တက်ခြင်းကို ကာကွယ်သည်
+        title: "", 
         alt: ""
     });
 };
@@ -75,19 +80,26 @@ window.goToMyLocation = function() {
                 pickupCoords = { lat: pos.lat, lng: pos.lng };
                 calculatePrice();
             });
+            
+            // မြေပုံ Tiles ညှိရန်
+            setTimeout(() => { map.invalidateSize(); }, 300);
             calculatePrice();
         }, () => Swal.fire("Error", "GPS ဖွင့်ပေးပါ", "error"));
     }
 };
 
-// --- (ခ) Live Riders ---
-const ridersQuery = query(collection(db, "active_riders"), where("isOnline", "==", true));
+// --- (ခ) Live Riders (Rider Marker တွေ မတုန်အောင် ပြင်ဆင်ထားသည်) ---
+const ridersQuery = query(collection(db, "riders"), where("status", "==", "online"));
 onSnapshot(ridersQuery, (snap) => {
     snap.docChanges().forEach((change) => {
         const data = change.doc.data(), id = change.doc.id;
         if (change.type === "added" || change.type === "modified") {
-            if (riderMarkers[id]) map.removeLayer(riderMarkers[id]);
-            riderMarkers[id] = createCustomMarker([data.lat, data.lng], { icon: riderIcon }).addTo(map);
+            // Marker အဟောင်းရှိရင် position ပဲ ပြောင်းမယ် (မဖျက်တော့ဘူး - မတုန်အောင်)
+            if (riderMarkers[id]) {
+                riderMarkers[id].setLatLng([data.lat, data.lng]);
+            } else {
+                riderMarkers[id] = createCustomMarker([data.lat, data.lng], { icon: riderIcon }).addTo(map);
+            }
         } else if (change.type === "removed" && riderMarkers[id]) {
             map.removeLayer(riderMarkers[id]); delete riderMarkers[id];
         }
@@ -121,6 +133,9 @@ window.updateLocation = function(type) {
         });
     }
     map.flyTo([lat, lng], 15);
+    
+    // ရွှေ့ပြီးတိုင်း Tiles ညှိမယ်
+    setTimeout(() => { map.invalidateSize(); }, 400);
     calculatePrice();
 };
 
@@ -176,7 +191,7 @@ window.showOrderDetails = async (orderId) => {
 
 window.closeModal = () => { document.getElementById('detailModal').style.display = 'none'; };
 
-// --- ၅။ Display My Orders (Tabs Logic) ---
+// --- ၅။ Display My Orders ---
 function displayMyOrders() {
     const activeList = document.getElementById('active-orders');
     const historyList = document.getElementById('history-orders');
@@ -309,5 +324,4 @@ if (placeOrderBtn) {
             Swal.fire("Error", e.message, "error");
         }
     };
-                                             }
-
+}
