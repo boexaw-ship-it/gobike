@@ -22,11 +22,12 @@
             --text-muted: #757575;
         }
 
-        /* Prevent unwanted selections */
+        /* Base Settings */
         * {
             -webkit-tap-highlight-color: transparent;
             -webkit-user-select: none;
             user-select: none;
+            box-sizing: border-box;
         }
 
         input, textarea, select {
@@ -43,7 +44,7 @@
             height: 100vh;
         }
 
-        /* Profile Bar */
+        /* Profile & Header */
         .profile-bar {
             background: white; padding: 10px 15px;
             display: flex; justify-content: space-between; align-items: center;
@@ -60,17 +61,16 @@
         .header { 
             background: var(--primary); padding: 14px; text-align: center; 
             font-weight: 700; font-size: 0.9rem; color: white;
-            display: flex; align-items: center; justify-content: center;
-            position: relative;
         }
 
-        .page-section { display: none; height: 100vh; width: 100%; }
+        /* Layout Sections */
+        .page-section { display: none; height: calc(100vh - 65px); width: 100%; overflow-y: auto; }
         .page-section.active { display: block; }
 
-        /* Map Section - Ensure proper container height */
+        /* Map Styles */
         #map-container { 
             position: relative; 
-            height: calc(100vh - 125px); /* Adjusted for profile bar & nav */
+            height: calc(100vh - 125px); 
             width: 100%; 
             background: #eee;
         }
@@ -83,18 +83,17 @@
             text-align: center; font-weight: 600; z-index: 1000;
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
             border-left: 4px solid var(--primary);
-            pointer-events: none;
         }
 
         .locate-btn {
-            position: absolute; bottom: 180px; right: 15px; z-index: 1000;
+            position: absolute; bottom: 120px; right: 15px; z-index: 1000;
             background: white; width: 48px; height: 48px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2); border: 2px solid var(--primary);
             cursor: pointer; font-size: 1.3rem;
         }
 
-        /* Bottom Sheet */
+        /* Bottom Sheet Order Form */
         .bottom-sheet {
             position: fixed; bottom: 65px; left: 0; width: 100%;
             background: white; border-top-left-radius: 25px; border-top-right-radius: 25px;
@@ -111,7 +110,7 @@
         .handle-bar { width: 40px; height: 4px; background: #e0e0e0; border-radius: 2px; }
         .handle-text { font-size: 0.75rem; color: var(--text-muted); margin-top: 5px; font-weight: 600; }
 
-        .order-scroll-area { max-height: 65vh; overflow-y: auto; padding: 0 20px 30px; }
+        .order-scroll-area { max-height: 70vh; overflow-y: auto; padding: 0 20px 30px; }
 
         .loc-box { background: #fdfdfd; padding: 15px; border-radius: 15px; border: 1px solid #eee; margin-bottom: 15px; }
         .loc-box b { display: block; font-size: 0.7rem; color: var(--primary); margin-bottom: 8px; opacity: 0.8; }
@@ -119,7 +118,7 @@
         select, input {
             width: 100%; padding: 14px; border: 1px solid #eee;
             border-radius: 12px; font-size: 0.95rem; outline: none;
-            box-sizing: border-box; background: #f9f9f9; color: var(--text-main);
+            background: #f9f9f9; color: var(--text-main);
         }
         input:focus { border-color: var(--primary); background: #fff; }
 
@@ -131,7 +130,7 @@
         }
 
         /* History Tabs */
-        .history-tabs { display: flex; background: white; border-bottom: 1px solid #eee; }
+        .history-tabs { display: flex; background: white; border-bottom: 1px solid #eee; position: sticky; top: 0; z-index: 10; }
         .tab-item { flex: 1; text-align: center; padding: 15px; font-size: 0.85rem; color: #888; font-weight: 600; cursor: pointer; }
         .tab-item.active { color: var(--primary); border-bottom: 3px solid var(--primary); }
 
@@ -145,13 +144,14 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.02);
         }
 
-        /* Modal */
+        /* Modal Details */
         .detail-modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.85); z-index: 3000; align-items: center; justify-content: center;
         }
         .modal-card { background: #1e1e1e; width: 88%; border-radius: 25px; padding: 25px; color: white; }
 
+        /* Navigation Bar */
         .bottom-nav {
             position: fixed; bottom: 0; left: 0; width: 100%;
             background: white; display: flex; height: 65px;
@@ -171,7 +171,7 @@
         <button class="logout-btn" id="logoutBtn">Logout</button>
     </div>
 
-    <div id="order-section" class="page-section active">
+    <div id="order-section" class="page-section active" style="overflow: hidden;">
         <div id="map-container">
             <div id="map"></div>
             <div id="pin-address-display">📍 မြို့နယ်ရွေးပြီး မြေပုံပေါ်တွင် တည်နေရာညှိပါ</div>
@@ -233,7 +233,7 @@
                                 <option value="Twante" data-lat="16.7117" data-lng="95.9317">တွံတေး</option>
                             </optgroup>
                         </select>
-                        <input type="text" id="pickup-address" placeholder="လမ်းအမည်/အိမ်အမှတ် (Manual)" style="margin-top:10px;" autocomplete="off" spellcheck="false" required>
+                        <input type="text" id="pickup-address" placeholder="လမ်းအမည်/အိမ်အမှတ် (Manual)" style="margin-top:10px;" autocomplete="off" required>
                     </div>
 
                     <div class="loc-box" style="border-left: 4px solid var(--danger);">
@@ -241,17 +241,17 @@
                         <select id="dropoff-township" required>
                             <option value="">မြို့နယ်ရွေးပါ</option>
                             </select>
-                        <input type="text" id="dropoff-address" placeholder="လမ်းအမည်/အိမ်အမှတ် (Manual)" style="margin-top:10px;" autocomplete="off" spellcheck="false" required>
+                        <input type="text" id="dropoff-address" placeholder="လမ်းအမည်/အိမ်အမှတ် (Manual)" style="margin-top:10px;" autocomplete="off" required>
                     </div>
 
-                    <input type="text" id="item-detail" placeholder="ဘာပစ္စည်းပို့မှာလဲ? (ဥပမာ- ထမင်းဘူး)" autocomplete="off" spellcheck="false" style="margin-bottom:15px;" required>
+                    <input type="text" id="item-detail" placeholder="ဘာပစ္စည်းပို့မှာလဲ? (ဥပမာ- ထမင်းဘူး)" style="margin-bottom:15px;" required>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 15px;">
-                        <input type="number" id="item-weight" placeholder="အလေးချိန် (kg)" autocomplete="off">
-                        <input type="number" id="item-value" placeholder="တန်ဖိုး (KS)" autocomplete="off">
+                        <input type="number" id="item-weight" placeholder="အလေးချိန် (kg)">
+                        <input type="number" id="item-value" placeholder="တန်ဖိုး (KS)">
                     </div>
 
-                    <input type="tel" id="receiver-phone" placeholder="လက်ခံသူဖုန်းနံပါတ်" autocomplete="off" style="margin-bottom:15px;" required>
+                    <input type="tel" id="receiver-phone" placeholder="လက်ခံသူဖုန်းနံပါတ်" style="margin-bottom:15px;" required>
 
                     <select id="payment-method" style="margin-bottom:15px;">
                         <option value="COD">Cash on Delivery (ပစ္စည်းရောက်မှရှင်းမည်)</option>
@@ -259,7 +259,8 @@
                     </select>
 
                     <button id="placeOrderBtn" type="button" class="btn-confirm">ORDER NOW</button>
-                    <div style="height: 40px;"></div> </form>
+                    <div style="height: 40px;"></div> 
+                </form>
             </div>
         </div>
     </div>
@@ -297,7 +298,7 @@
     <script type="module" src="../js/customer.js"></script>
 
     <script>
-        // Global functions for UI interaction
+        // UI Logic
         function toggleSheet() {
             document.getElementById('bottomSheet').classList.toggle('expanded');
         }
@@ -314,15 +315,6 @@
             document.getElementById('detailModal').style.display = 'none';
         }
 
-        // Initialize Dropdowns
-        window.addEventListener('DOMContentLoaded', () => {
-            const pSelect = document.getElementById('pickup-township');
-            const dSelect = document.getElementById('dropoff-township');
-            if(pSelect && dSelect) {
-                dSelect.innerHTML = pSelect.innerHTML;
-            }
-        });
-
         function showSection(sectionId, el) {
             document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
             document.getElementById(sectionId + '-section').classList.add('active');
@@ -333,29 +325,28 @@
             if(sectionId === 'list') {
                 document.getElementById('bottomSheet').classList.remove('expanded');
             } else {
-                // If switching back to map, force Leaflet to recalculate size
-                // Using a small delay to ensure display: block is applied
+                // Fix Leaflet map rendering when switching back
                 setTimeout(() => {
-                    if (window.dispatchEvent) {
-                        window.dispatchEvent(new Event('resize'));
-                    }
-                }, 100);
+                    window.dispatchEvent(new Event('resize'));
+                }, 200);
             }
         }
 
-        // Map Locate Helper
+        // Initialize Select Dropdowns
+        window.addEventListener('DOMContentLoaded', () => {
+            const pSelect = document.getElementById('pickup-township');
+            const dSelect = document.getElementById('dropoff-township');
+            if(pSelect && dSelect) {
+                dSelect.innerHTML = pSelect.innerHTML;
+            }
+        });
+
+        // Map Locate Trigger
         function handleLocate() {
             if (typeof window.goToMyLocation === 'function') {
                 window.goToMyLocation();
             }
         }
-
-        // Keyboard Adjustment
-        window.addEventListener('resize', () => {
-            if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT')) {
-                document.activeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-        });
     </script>
 </body>
 </html>
