@@ -55,6 +55,48 @@
             cursor: pointer;
         }
 
+        /* --- Online/Offline Switch Area --- */
+        .status-bar {
+            background: #1e1e1e;
+            padding: 12px 15px;
+            margin: 10px;
+            border-radius: 15px;
+            border: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .status-info b { display: block; font-size: 0.9rem; }
+        #status-text { font-size: 0.8rem; font-weight: bold; }
+        
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 26px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #444;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px; width: 18px;
+            left: 4px; bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider { background-color: var(--success); }
+        input:checked + .slider:before { transform: translateX(24px); }
+        /* ---------------------------------- */
+
         .header { 
             background: var(--primary); 
             padding: 12px; 
@@ -132,6 +174,17 @@
             <b id="display-name">Loading...</b>
         </div>
         <button class="logout-btn" onclick="handleLogout()">Logout</button>
+    </div>
+
+    <div class="status-bar">
+        <div class="status-info">
+            <b id="display-coins" style="color: var(--primary);">0 Coins</b>
+            <span id="status-text" style="color: var(--danger);">● Offline</span>
+        </div>
+        <label class="switch">
+            <input type="checkbox" id="online-toggle" onchange="toggleOnlineStatus(this.checked)">
+            <span class="slider"></span>
+        </label>
     </div>
 
     <div id="home-section" class="page-section active">
