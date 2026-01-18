@@ -5,7 +5,7 @@ import {
 import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { notifyTelegram } from './telegram.js';
 
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzoqWIjISI8MrzFYu-B7CBldle8xuo-B5jNQtCRsqHLOaLPEPelYX84W5lRXoB9RhL6uo/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzoqWIjISI8MrzFYu-B7CBldle8xuo-B5jNQtCRsqHLOaLPEPelYX84W5lRXoB9RhL6uw/exec";
 
 // --- ၀။ Alarm Sound Setup ---
 const alarmSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
@@ -101,7 +101,7 @@ function startTracking() {
         if (!snap.empty && isSoundAllowed) alarmSound.play().catch(e => {});
     });
 
-    // (B) Active Tasks List (Including Rejected View)
+    // (B) Active Tasks List (Fix: Dismiss Button Added to Window)
     onSnapshot(query(collection(db, "orders"), where("riderId", "==", myUid)), (snap) => {
         const list = document.getElementById('active-orders-list');
         const activeCountDisplay = document.getElementById('active-count');
@@ -111,7 +111,6 @@ function startTracking() {
         snap.forEach(orderDoc => {
             const d = orderDoc.data();
             if (d.status === "completed") return;
-            // Rider က Dismiss နှိပ်လိုက်ပြီဆိုမှ dashboard က ဖျက်မည်
             if (d.riderDismissed === true) return;
             if (d.pickupSchedule === "tomorrow") return;
 
@@ -144,7 +143,7 @@ function startTracking() {
         if(activeCount === 0 && list.innerHTML === "") list.innerHTML = "<div class='empty-msg'>လက်ခံထားသော အော်ဒါမရှိပါ</div>";
     });
 
-    // (D) Tomorrow Section (Reject အော်ဒါများ မြင်တွေ့စေရန်)
+    // (D) Tomorrow Section (Fix: Dismiss Button Added to Window)
     onSnapshot(query(collection(db, "orders"), where("pickupSchedule", "==", "tomorrow")), (snap) => {
         const tomList = document.getElementById('tomorrow-orders-list');
         if(!tomList) return;
@@ -154,7 +153,6 @@ function startTracking() {
             const d = docSnap.data();
             const id = docSnap.id;
             
-            // Rider က dismiss လုပ်ထားရင် မပြပါနဲ့
             if (d.riderDismissedTomorrow === true) return;
             
             if (d.tempRiderId === myUid || d.riderId === myUid) {
@@ -222,7 +220,7 @@ function startTracking() {
     });
 }
 
-// --- Action Functions ---
+// --- Action Functions (Added to window for Global Access) ---
 
 window.dismissOrder = async (id) => {
     try {
@@ -336,4 +334,3 @@ window.handleLogout = async () => {
         try { await signOut(auth); window.location.href = "../index.html"; } catch (e) { console.error(e); }
     }
 };
-
