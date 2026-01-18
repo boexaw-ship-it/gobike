@@ -5,7 +5,7 @@ import {
 import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { notifyTelegram } from './telegram.js';
 
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzoqWIjISI8MrzFYu-B7CBldle8xuo-B5jNQtCRsqHLOaLPEPelYX84W5lRXoB9RhL6uw/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzoqWIjISI8MrzFYu-B7CBldle8xuo-B5jNQtCRsqHLOaLPEPelYX84W5lRXoB9RhL6uo/exec";
 
 // --- ၁။ Auth & Profile Logic ---
 onAuthStateChanged(auth, (user) => {
@@ -14,7 +14,9 @@ onAuthStateChanged(auth, (user) => {
         if (nameDisplay) nameDisplay.innerText = user.displayName || "User";
         displayMyOrders(); 
         // Page စဖွင့်ချိန် မြေပုံ Tiles ငြိမ်အောင်လုပ်ခြင်း
-        setTimeout(() => { map.invalidateSize(); }, 800);
+        setTimeout(() => { 
+            if (map) map.invalidateSize(); 
+        }, 1000);
     } else {
         if (!window.location.pathname.includes('index.html')) window.location.href = "../index.html";
     }
@@ -39,12 +41,16 @@ const setupLogout = () => {
 setupLogout();
 
 // --- ၂။ Map Setup ---
+// မြေပုံကို စဖွင့်ချင်း Initialize လုပ်ခြင်း
 const map = L.map('map', { 
     zoomControl: false,
-    tap: false // Mobile browser တွေမှာ click နှေးတာကို ကာကွယ်ရန်
+    tap: false 
 }).setView([16.8661, 96.1951], 12); 
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+// Tiles ကွက်တာကာကွယ်ရန် အရေးပေါ် Refresh တစ်ချက်လုပ်ခြင်း
+setTimeout(() => { map.invalidateSize(); }, 500);
 
 let pickupMarker = null, dropoffMarker = null;
 let pickupCoords = null, dropoffCoords = null;
@@ -81,20 +87,19 @@ window.goToMyLocation = function() {
                 calculatePrice();
             });
             
-            // မြေပုံ Tiles ညှိရန်
             setTimeout(() => { map.invalidateSize(); }, 300);
             calculatePrice();
         }, () => Swal.fire("Error", "GPS ဖွင့်ပေးပါ", "error"));
     }
 };
 
-// --- (ခ) Live Riders (Rider Marker တွေ မတုန်အောင် ပြင်ဆင်ထားသည်) ---
+// --- (ခ) Live Riders ---
 const ridersQuery = query(collection(db, "riders"), where("status", "==", "online"));
 onSnapshot(ridersQuery, (snap) => {
     snap.docChanges().forEach((change) => {
         const data = change.doc.data(), id = change.doc.id;
         if (change.type === "added" || change.type === "modified") {
-            // Marker အဟောင်းရှိရင် position ပဲ ပြောင်းမယ် (မဖျက်တော့ဘူး - မတုန်အောင်)
+            // Rider marker တွေ မတုန်အောင် .setLatLng ကို သုံးခြင်း
             if (riderMarkers[id]) {
                 riderMarkers[id].setLatLng([data.lat, data.lng]);
             } else {
@@ -133,8 +138,6 @@ window.updateLocation = function(type) {
         });
     }
     map.flyTo([lat, lng], 15);
-    
-    // ရွှေ့ပြီးတိုင်း Tiles ညှိမယ်
     setTimeout(() => { map.invalidateSize(); }, 400);
     calculatePrice();
 };
@@ -195,7 +198,6 @@ window.closeModal = () => { document.getElementById('detailModal').style.display
 function displayMyOrders() {
     const activeList = document.getElementById('active-orders');
     const historyList = document.getElementById('history-orders');
-    
     if (!activeList || !historyList || !auth.currentUser) return;
 
     const q = query(collection(db, "orders"), where("userId", "==", auth.currentUser.uid));
