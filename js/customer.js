@@ -13,6 +13,11 @@ onAuthStateChanged(auth, (user) => {
     if (user) {
         if (nameDisplay) nameDisplay.innerText = user.displayName || "User";
         displayMyOrders(); 
+        
+        // Auth ရပြီးနောက် မြေပုံကို တစ်ချက်ပြန်ဆွဲခိုင်းခြင်း (မဲမနေစေရန်)
+        setTimeout(() => {
+            if (map) map.invalidateSize();
+        }, 600);
     } else {
         if (!window.location.pathname.includes('index.html')) window.location.href = "../index.html";
     }
@@ -40,6 +45,11 @@ setupLogout();
 const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 12); 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
+// *** မြေပုံမဲနေသည့်ပြဿနာအတွက် အရေးကြီးသောအပိုင်း ***
+setTimeout(() => {
+    map.invalidateSize();
+}, 400);
+
 let pickupMarker = null, dropoffMarker = null;
 let pickupCoords = null, dropoffCoords = null;
 let riderMarkers = {};
@@ -50,11 +60,10 @@ const riderIcon = L.icon({
     iconAnchor: [16, 16]
 });
 
-// Marker create လုပ်ရာတွင် title မပါဝင်စေရန်နှင့် Keyboard suggestion ကို ရှောင်ရန် helper
 const createCustomMarker = (latlng, options = {}) => {
     return L.marker(latlng, {
         ...options,
-        title: "", // စာသားအလွတ်ပေးထားခြင်းဖြင့် suggestion တက်ခြင်းကို ကာကွယ်သည်
+        title: "", 
         alt: ""
     });
 };
@@ -76,6 +85,9 @@ window.goToMyLocation = function() {
                 calculatePrice();
             });
             calculatePrice();
+            
+            // Marker ချပြီးနောက် မြေပုံအရွယ်အစား တစ်ချက်ပြန်စစ်ခြင်း
+            map.invalidateSize();
         }, () => Swal.fire("Error", "GPS ဖွင့်ပေးပါ", "error"));
     }
 };
@@ -122,6 +134,9 @@ window.updateLocation = function(type) {
     }
     map.flyTo([lat, lng], 15);
     calculatePrice();
+    
+    // Dropdown ရွေးချိန်တွင် မြေပုံကို နေရာပြန်ညှိပေးပါ
+    setTimeout(() => map.invalidateSize(), 300);
 };
 
 document.addEventListener('change', (e) => {
@@ -176,7 +191,7 @@ window.showOrderDetails = async (orderId) => {
 
 window.closeModal = () => { document.getElementById('detailModal').style.display = 'none'; };
 
-// --- ၅။ Display My Orders (Tabs Logic) ---
+// --- ၅။ Display My Orders ---
 function displayMyOrders() {
     const activeList = document.getElementById('active-orders');
     const historyList = document.getElementById('history-orders');
@@ -309,5 +324,4 @@ if (placeOrderBtn) {
             Swal.fire("Error", e.message, "error");
         }
     };
-                                             }
-
+}
