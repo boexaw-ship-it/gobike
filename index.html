@@ -13,11 +13,13 @@
     <meta name="theme-color" content="#4e342e"> 
     <link rel="stylesheet" href="css/style.css">
 
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
     <style>
         /* အရေးကြီးဆုံးအပိုင်း: Keyboard Suggestion မတက်စေရန် */
         * {
             -webkit-tap-highlight-color: transparent;
-            -webkit-user-select: none; /* စာသားတွေကို Keyboard က လှမ်းဖတ်လို့မရအောင် ပိတ်ထားခြင်း */
+            -webkit-user-select: none;
             user-select: none;
         }
 
@@ -32,20 +34,20 @@
             width: 110px;
             height: 110px;
             background: #fff;
-            border-radius: 25px; /* ပုံထဲကအတိုင်း ထောင့်ဝိုင်းလေး ဖြစ်စေရန် */
+            border-radius: 25px;
             display: flex;
             align-items: center;
             justify-content: center;
             margin: 0 auto 20px;
             overflow: hidden;
-            border: 3px solid #ffcc00; /* Logo ဘေးပတ်ပတ်လည်ကို highlight ပြုလုပ်ခြင်း */
+            border: 3px solid #ffcc00;
             box-shadow: 0 8px 20px rgba(0,0,0,0.3);
         }
 
         .logo-bg img {
             width: 100%;
             height: 100%;
-            object-fit: cover; /* ပုံကို ဘောင်ထဲမှာ အချိုးကျကျ ပြည့်နေစေရန် */
+            object-fit: cover;
         }
 
         .auth-box h1 {
@@ -62,6 +64,18 @@
             padding: 15px;
             font-size: 1.1rem;
             box-shadow: 0 4px 15px rgba(255, 204, 0, 0.3);
+            border: none;
+            width: 100%;
+            cursor: pointer;
+        }
+
+        /* === (၂) မြေပုံပြသမည့် Div အတွက် CSS === */
+        #map {
+            height: 250px;
+            width: 100%;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: none; /* Login စာမျက်နှာမှာ မြေပုံကို ခဏဖုံးထားရန် (လိုအပ်မှ Dashboard မှာ ပြမည်) */
         }
     </style>
 </head>
@@ -80,6 +94,8 @@
             <button id="loginTab" class="active" onclick="showLogin()">Login</button>
             <button id="signupTab" onclick="showSignup()">Sign Up</button>
         </div>
+
+        <div id="map"></div>
 
         <div id="loginForm" class="form-container">
             <div class="input-group">
@@ -117,6 +133,8 @@
             <p style="font-size: 0.75rem; color: #757575;">© 2026 GoBike Service. All rights reserved.</p>
         </div>
     </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script type="module" src="js/auth.js"></script>
     
