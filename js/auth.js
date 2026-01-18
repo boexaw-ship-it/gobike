@@ -76,6 +76,7 @@ async function handleSignUp() {
             createdAt: serverTimestamp()
         };
 
+        // Rider အဖြစ် register လုပ်လျှင် သိမ်းဆည်းမည့် မူလ field များ
         if (role === "rider") {
             userData.rating = 5.0;
             userData.ratingSum = 0;
@@ -115,8 +116,7 @@ async function handleLogin() {
     loginBtn.innerText = "Signing In...";
 
     try {
-        // အမှန်ခြစ်ထားရင် Browser ပိတ်လိုက်လည်း Login မထွက်အောင် (local)
-        // အမှန်ခြစ်ဖြုတ်ထားရင် Browser ပိတ်ရင် Logout ဖြစ်အောင် (session) သတ်မှတ်ခြင်း
+        // Remember Me အခြေအနေပေါ်မူတည်၍ Persistence သတ်မှတ်ခြင်း
         const persistenceType = rememberMe ? browserLocalPersistence : browserSessionPersistence;
         
         await setPersistence(auth, persistenceType);
@@ -124,7 +124,7 @@ async function handleLogin() {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
 
-        // Role စစ်ဆေးခြင်း
+        // Rider သို့မဟုတ် Customer ဟုတ်မဟုတ် စစ်ဆေးပြီး သက်ဆိုင်ရာ Dashboard သို့ ပို့ခြင်း
         let userDoc = await getDoc(doc(db, "riders", user.uid));
         if (userDoc.exists()) {
             window.location.href = "html/delivery.html";
