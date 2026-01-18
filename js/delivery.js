@@ -21,7 +21,7 @@ soundBtn.onclick = () => { isSoundAllowed = true; alarmSound.play().then(() => {
 
 // --- ၁။ Map Fix & Global Status ---
 let map;
-let isRiderOnline = false; // လက်ရှိ Online/Offline အခြေအနေမှတ်ရန်
+let isRiderOnline = false; 
 
 function initMap() {
     const mapElement = document.getElementById('map');
@@ -38,10 +38,8 @@ onAuthStateChanged(auth, async (user) => {
         initMap();
         await getRiderData(); 
         
-        // Coin နဲ့ Rating ကို Real-time စောင့်ကြည့်ရန် ချိတ်ဆက်ခြင်း
         watchRiderStats(user.uid, 'display-coins', 'display-rating');
 
-        // Database ထဲက Online Status အတိုင်း Switch ကို လိုက်ပြင်ပေးခြင်း
         const riderSnap = await getDoc(doc(db, "riders", user.uid));
         if (riderSnap.exists()) {
             isRiderOnline = riderSnap.data().isOnline || false;
@@ -73,12 +71,10 @@ window.toggleOnlineStatus = async (isOn) => {
     const myUid = auth.currentUser.uid;
 
     try {
-        // Riders collection မှာ update လုပ်ခြင်း
         await updateDoc(doc(db, "riders", myUid), { isOnline: isOn });
         updateStatusUI(isOn);
 
         if (!isOn) {
-            // Offline လုပ်ရင် active_riders ထဲကနေ ဖျက်ပေးရမယ်
             await deleteDoc(doc(db, "active_riders", myUid));
             Swal.fire({ title: 'Offline ဖြစ်သွားပါပြီ', icon: 'info', timer: 1500, showConfirmButton: false });
         } else {
@@ -95,18 +91,22 @@ function updateStatusUI(isOn) {
     }
 }
 
-// --- ၄။ Main Logic ---
+// --- ၄။ Main Logic (Tracking & Real-time Orders) ---
 function startTracking() {
     if (!auth.currentUser) return;
     const myUid = auth.currentUser.uid;
 
     if (navigator.geolocation) {
         navigator.geolocation.watchPosition(async (pos) => {
-            // Rider သည် Online ဖြစ်နေမှသာ မြေပုံပေါ်ပြရန် တည်နေရာပို့မည်
+            // Rider သည် Online ဖြစ်နေမှသာ Customer Map မှာ ပေါ်ရန် တည်နေရာပို့မည်
             if (isRiderOnline) {
                 const name = await getRiderName();
+                // သတိပြုရန် - 'lat' နှင့် 'lng' ဟုသာ သုံးရန် (Customer Code နှင့် ကိုက်ညီစေရန်)
                 await setDoc(doc(db, "active_riders", myUid), {
-                    name, lat: pos.coords.latitude, lng: pos.coords.longitude, lastSeen: serverTimestamp()
+                    name, 
+                    lat: pos.coords.latitude, 
+                    lng: pos.coords.longitude, 
+                    lastSeen: serverTimestamp()
                 }, { merge: true });
             }
         }, null, { enableHighAccuracy: true });
@@ -265,8 +265,6 @@ function startTracking() {
 window.handleAccept = async (id, time) => {
     try {
         const docRef = doc(db, "orders", id);
-        
-        // --- အော်ဒါ တစ်ယောက်ထက်ပိုလက်ခံ၍မရအောင် စစ်ဆေးခြင်း ---
         const orderSnap = await getDoc(docRef);
         if (!orderSnap.exists()) return;
         const order = orderSnap.data();
@@ -279,7 +277,7 @@ window.handleAccept = async (id, time) => {
         const myUid = auth.currentUser.uid;
         const riderName = await getRiderName();
 
-        // --- Coin စစ်ဆေးခြင်း (ဥပမာ- လက်ခံခ ၅၀၀ နှုတ်မည်) ---
+        // --- Coin စစ်ဆေးခြင်း ---
         const commissionAmount = 500; 
         const canAccept = await hasEnoughCoins(myUid, commissionAmount);
 
@@ -299,7 +297,6 @@ window.handleAccept = async (id, time) => {
             await notifyTelegram(createOrderMessage("⏳ Tomorrow Scheduled", order, riderName, "မနက်ဖြန်အတွက် ကြိုယူထားသည်"));
             Swal.fire({ title: 'အောင်မြင်ပါသည်', text: 'မနက်ဖြန်အတွက် Customer အတည်ပြုချက် စောင့်ပါမည်', icon: 'success' });
         } else {
-            // Coin နှုတ်ယူခြင်း
             await deductOrderFee(myUid, commissionAmount);
 
             await updateDoc(docRef, { 
@@ -381,7 +378,6 @@ const createOrderMessage = (title, order, currentRiderName, statusText = "") => 
     return `${title}\n📊 Status: ${statusText}\n--------------------------\n📝 ပစ္စည်း: ${order.item}\n💵 ပို့ခ: ${(order.deliveryFee || 0).toLocaleString()} KS\n📍 ယူရန်: ${p}\n🏁 ပို့ရန်: ${d}\n--------------------------\n🚴 Rider: ${currentRiderName}`;
 };
 
-// --- Logout with Alert & Status Clean up ---
 window.handleLogout = async () => { 
     const res = await Swal.fire({
         title: 'Logout လုပ်မှာလား?',
@@ -395,7 +391,6 @@ window.handleLogout = async () => {
 
     if (res.isConfirmed) {
         try { 
-            // ထွက်ခါနီးမှာ Offline အလိုအလျောက်ပြောင်းပေးခြင်း (Safety)
             if (auth.currentUser) {
                 const myUid = auth.currentUser.uid;
                 await updateDoc(doc(db, "riders", myUid), { isOnline: false });
