@@ -2,6 +2,7 @@ import { db } from './firebase-config.js';
 import { 
     doc, onSnapshot, updateDoc, serverTimestamp, getDoc 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { notifyTelegram } from './telegram.js'; // Telegram notification အတွက် ထည့်သွင်းထားသည်
 
 const params = new URLSearchParams(window.location.search);
 const orderId = params.get('id');
@@ -10,7 +11,6 @@ const orderId = params.get('id');
 const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-// Rider အတွက် အသုံးပြုမည့် Icon
 const riderIcon = L.icon({
     iconUrl: 'https://cdn-icons-png.flaticon.com/512/3198/3198336.png',
     iconSize: [40, 40],
@@ -22,22 +22,18 @@ let riderUnsubscribe = null;
 let routingControl = null;
 let isAlertShown = false; 
 
-// --- ၂။ Main Listener (Order အခြေအနေစောင့်ကြည့်ခြင်း) ---
+// --- ၂။ Main Listener ---
 if (orderId) {
     onSnapshot(doc(db, "orders", orderId), async (docSnap) => {
-        if (!docSnap.exists()) {
-            console.error("Order not found!");
-            return;
-        }
+        if (!docSnap.exists()) return;
         
         const data = docSnap.data();
 
-        // --- (က) Completion Logic ---
+        // (က) Completion Logic
         if (data.status === "completed" && !isAlertShown) {
             isAlertShown = true; 
             cleanupTracking();
             updateProgressBar("arrived"); 
-            
             Swal.fire({
                 title: 'ပို့ဆောင်မှု ပြီးဆုံးပါပြီ',
                 text: 'အော်ဒါကို အောင်မြင်စွာ ပို့ဆောင်ပြီးစီးခဲ့ပါသည်။ ကျေးဇူးတင်ပါသည်!',
@@ -46,14 +42,12 @@ if (orderId) {
                 confirmButtonColor: '#4e342e',
                 allowOutsideClick: false
             }).then((result) => {
-                if (result.isConfirmed) {
-                    window.location.href = "customer.html?tab=list";
-                }
+                if (result.isConfirmed) window.location.href = "customer.html?tab=list";
             });
             return;
         }
 
-        // --- (ခ) Status Check & UI Update ---
+        // (ခ) Status Check & UI Update
         const detRider = document.getElementById('det-rider');
         if (detRider) {
             if (data.status === "cancelled") {
@@ -65,48 +59,27 @@ if (orderId) {
             }
         }
 
-        // --- (ဂ) Progress Bar Update ---
         updateProgressBar(data.status);
 
-        // --- (ဃ) Details Display (Fixed: Township & Address separation) ---
         if (document.getElementById('status-badge')) {
             document.getElementById('status-badge').innerText = (data.status || "LOADING").replace("_", " ").toUpperCase();
         }
         
-        if (document.getElementById('det-item')) {
-            document.getElementById('det-item').innerText = data.item || "-";
-        }
-        
-        if (document.getElementById('det-fee')) {
-            document.getElementById('det-fee').innerText = data.deliveryFee ? data.deliveryFee.toLocaleString() + " KS" : "0 KS";
-        }
+        if (document.getElementById('det-item')) document.getElementById('det-item').innerText = data.item || "-";
+        if (document.getElementById('det-fee')) document.getElementById('det-fee').innerText = data.deliveryFee ? data.deliveryFee.toLocaleString() + " KS" : "0 KS";
 
-        // Pickup Display
         if (data.pickup) {
-            if (document.getElementById('det-p-township')) {
-                document.getElementById('det-p-township').innerText = data.pickup.township || "မသိရ";
-            }
-            if (document.getElementById('det-p-address')) {
-                document.getElementById('det-p-address').innerText = data.pickup.address || "-";
-            }
+            if (document.getElementById('det-p-township')) document.getElementById('det-p-township').innerText = data.pickup.township || "မသိရ";
+            if (document.getElementById('det-p-address')) document.getElementById('det-p-address').innerText = data.pickup.address || "-";
         }
 
-        // Dropoff Display
         if (data.dropoff) {
-            if (document.getElementById('det-d-township')) {
-                document.getElementById('det-d-township').innerText = data.dropoff.township || "မသိရ";
-            }
-            if (document.getElementById('det-d-address')) {
-                document.getElementById('det-d-address').innerText = data.dropoff.address || "-";
-            }
+            if (document.getElementById('det-d-township')) document.getElementById('det-d-township').innerText = data.dropoff.township || "မသိရ";
+            if (document.getElementById('det-d-address')) document.getElementById('det-d-address').innerText = data.dropoff.address || "-";
         }
 
-        // --- (င) Route Visualization ---
-        if (data.pickup && data.dropoff && !routingControl) {
-            drawStaticRoute(data.pickup, data.dropoff);
-        }
+        if (data.pickup && data.dropoff && !routingControl) drawStaticRoute(data.pickup, data.dropoff);
 
-        // --- (စ) Confirmation UI Logic ---
         const confirmBox = document.getElementById('confirmation-ui');
         if (confirmBox) {
             confirmBox.style.display = (data.status === "pending_confirmation") ? "block" : "none";
@@ -117,15 +90,12 @@ if (orderId) {
             }
         }
 
-        // --- (ဆ) Live Rider Tracking ---
         if (data.riderId && ["accepted", "on_the_way", "arrived"].includes(data.status)) {
             if (riderUnsubscribe) riderUnsubscribe();
-            
             riderUnsubscribe = onSnapshot(doc(db, "active_riders", data.riderId), (riderLocSnap) => {
                 if (riderLocSnap.exists()) {
                     const loc = riderLocSnap.data();
                     const pos = [loc.lat, loc.lng];
-                    
                     if (!riderMarker) {
                         riderMarker = L.marker(pos, { icon: riderIcon }).addTo(map);
                     } else {
@@ -135,23 +105,18 @@ if (orderId) {
                 }
             });
         }
-
-    }, (error) => console.error("Main Listener Error:", error));
+    });
 }
 
-// --- အထောက်အကူပြု Function များ ---
-
+// --- Helper Functions ---
 function updateProgressBar(status) {
     const steps = ["pending", "accepted", "on_the_way", "arrived"];
     const currentStatusIdx = steps.indexOf(status);
     steps.forEach((step, idx) => {
         const el = document.getElementById(`step-${idx + 1}`);
         if (el) {
-            if (currentStatusIdx >= idx) {
-                el.classList.add('active');
-            } else {
-                el.classList.remove('active');
-            }
+            if (currentStatusIdx >= idx) el.classList.add('active');
+            else el.classList.remove('active');
         }
     });
 }
@@ -163,9 +128,7 @@ function drawStaticRoute(p, d) {
         show: false,
         addWaypoints: false,
         draggableWaypoints: false,
-        lineOptions: { 
-            styles: [{ color: '#ffcc00', weight: 4, opacity: 0.7 }] 
-        },
+        lineOptions: { styles: [{ color: '#ffcc00', weight: 4, opacity: 0.7 }] },
         createMarker: function(i, wp) {
             const iconUrl = i === 0 ? 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png' : 
                                      'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png';
@@ -179,34 +142,29 @@ function cleanupTracking() {
     if (riderUnsubscribe) { riderUnsubscribe(); riderUnsubscribe = null; }
 }
 
-// --- Window Functions (Global accessibility) ---
-
+// --- Window Functions ---
 window.respondRider = async (isAccepted) => {
     try {
         const orderRef = doc(db, "orders", orderId);
         const snap = await getDoc(orderRef);
         const d = snap.data();
-
         if (isAccepted) {
             await updateDoc(orderRef, { 
-                status: "accepted", 
-                riderId: d.tempRiderId, 
-                riderName: d.tempRiderName,
-                pickupSchedule: d.pickupSchedule, 
-                acceptedAt: serverTimestamp()
+                status: "accepted", riderId: d.tempRiderId, riderName: d.tempRiderName,
+                pickupSchedule: d.pickupSchedule, acceptedAt: serverTimestamp(), riderDismissed: false
             });
             Swal.fire({ title: 'အတည်ပြုပြီးပါပြီ', icon: 'success', background: '#1a1a1a', color: '#fff' });
         } else {
             await updateDoc(orderRef, { 
-                status: "pending", 
-                riderId: null, tempRiderId: null, tempRiderName: null,
+                status: "pending", riderId: null, tempRiderId: null, tempRiderName: null,
                 pickupSchedule: null, lastRejectedRiderId: d.tempRiderId 
             });
             Swal.fire({ title: 'ငြင်းပယ်လိုက်ပါပြီ', icon: 'info', background: '#1a1a1a', color: '#fff' });
         }
-    } catch (error) { console.error("Respond Error:", error); }
+    } catch (error) { console.error(error); }
 };
 
+// --- ပြင်ဆင်ထားသော Cancel Order Function (Firebase + Telegram) ---
 window.cancelOrder = async () => {
     const result = await Swal.fire({
         title: 'သေချာပါသလား?',
@@ -220,8 +178,40 @@ window.cancelOrder = async () => {
 
     if (result.isConfirmed) {
         try {
-            await updateDoc(doc(db, "orders", orderId), { status: "cancelled" });
-            window.location.href = "customer.html";
-        } catch (err) { console.error(err); }
+            const orderRef = doc(db, "orders", orderId);
+            const orderSnap = await getDoc(orderRef);
+            
+            if (orderSnap.exists()) {
+                const orderData = orderSnap.data();
+                
+                // ၁။ Firebase Status Update
+                await updateDoc(orderRef, { 
+                    status: "cancelled",
+                    riderDismissed: false // Rider ဘက်မှာ Cancel ဖြစ်သွားတာ မြင်ရအောင်
+                });
+
+                // ၂။ Telegram Notification ပို့ခြင်း
+                const p = orderData.pickup ? `${orderData.pickup.township}၊ ${orderData.pickup.address}` : (orderData.pickupAddress || "-");
+                const d = orderData.dropoff ? `${orderData.dropoff.township}၊ ${orderData.dropoff.address}` : (orderData.dropoffAddress || "-");
+                const riderTag = orderData.riderName ? `🚴 Rider: ${orderData.riderName}` : "🚴 Rider: မရှိသေးပါ";
+
+                const msg = `⚠️ **Order Cancelled by Customer**\n--------------------------\n📝 ပစ္စည်း: ${orderData.item}\n📍 ယူရန်: ${p}\n🏁 ပို့ရန်: ${d}\n--------------------------\n${riderTag}\n📌 Status: Customer မှ အော်ဒါပယ်ဖျက်လိုက်သည်`;
+                
+                await notifyTelegram(msg);
+
+                Swal.fire({
+                    title: 'Cancelled',
+                    text: 'အော်ဒါကို ပယ်ဖျက်လိုက်ပါပြီ။',
+                    icon: 'success',
+                    background: '#1a1a1a', color: '#fff'
+                }).then(() => {
+                    window.location.href = "customer.html";
+                });
+            }
+        } catch (err) { 
+            console.error(err);
+            Swal.fire('Error', 'ဖျက်သိမ်း၍မရပါ။ နောက်မှပြန်ကြိုးစားပါ။', 'error');
+        }
     }
 };
+
