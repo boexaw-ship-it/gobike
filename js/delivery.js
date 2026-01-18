@@ -62,7 +62,7 @@ function startTracking() {
         }, null, { enableHighAccuracy: true });
     }
 
-    // (A) Available Orders - မူလအတိုင်း Details မပြောင်းလဲပါ
+    // (A) Available Orders
     onSnapshot(query(collection(db, "orders"), where("status", "==", "pending")), async (snap) => {
         const container = document.getElementById('available-orders');
         if(!container) return;
@@ -131,7 +131,7 @@ function startTracking() {
         if(activeCount === 0) list.innerHTML = "<div class='empty-msg'>လက်ခံထားသော အော်ဒါမရှိပါ</div>";
     });
 
-    // (D) Tomorrow Section - လက်ခံပြီးပါက Details အကုန်ပြပါမည်
+    // (D) Tomorrow Section
     onSnapshot(query(collection(db, "orders"), where("pickupSchedule", "==", "tomorrow")), (snap) => {
         const tomList = document.getElementById('tomorrow-orders-list');
         if(!tomList) return;
@@ -308,4 +308,27 @@ const createOrderMessage = (title, order, currentRiderName, statusText = "") => 
     return `${title}\n📊 Status: ${statusText}\n--------------------------\n📝 ပစ္စည်း: ${order.item}\n💵 ပို့ခ: ${(order.deliveryFee || 0).toLocaleString()} KS\n📍 ယူရန်: ${p}\n🏁 ပို့ရန်: ${d}\n--------------------------\n🚴 Rider: ${currentRiderName}`;
 };
 
-window.handleLogout = async () => { try { await signOut(auth); } catch (e) { console.error(e); } };
+// Logout with Alert Confirmation
+window.handleLogout = async () => {
+    const res = await Swal.fire({
+        title: 'Logout လုပ်မှာလား?',
+        text: "အကောင့်ထဲမှ ထွက်ရန် သေချာပါသလား?",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#ffcc00',
+        cancelButtonColor: '#333',
+        confirmButtonText: 'ထွက်မည်',
+        cancelButtonText: 'မထွက်ပါ'
+    });
+
+    if (res.isConfirmed) {
+        try {
+            await signOut(auth);
+            window.location.href = "../index.html";
+        } catch (e) {
+            console.error(e);
+            Swal.fire('Error', 'Logout လုပ်၍ မရပါ', 'error');
+        }
+    }
+};
+
