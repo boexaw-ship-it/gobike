@@ -13,22 +13,33 @@ import { notifyTelegram } from './telegram.js';
 
 /**
  * ၁။ Auto Login Checker & Role Redirect
+ * မြေပုံမဲနေသည့်ပြဿနာအတွက် လက်ရှိစာမျက်နှာကို စစ်ဆေးသည့် logic ထည့်သွင်းထားသည်
  */
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         console.log("User already logged in:", user.uid);
+        
+        // လက်ရှိရောက်နေသော URL Path ကိုရယူပါ
+        const currentPath = window.location.pathname;
+
         try {
             // Rider Collection မှာ အရင်ရှာ
             const riderDoc = await getDoc(doc(db, "riders", user.uid));
             if (riderDoc.exists()) {
-                window.location.href = "html/delivery.html";
+                // လက်ရှိစာမျက်နှာက delivery.html မဟုတ်မှသာ Redirect လုပ်ပါ
+                if (!currentPath.includes("delivery.html")) {
+                    window.location.href = "html/delivery.html";
+                }
                 return;
             }
 
             // Customer Collection မှာ ဆက်ရှာ
             const customerDoc = await getDoc(doc(db, "customers", user.uid));
             if (customerDoc.exists()) {
-                window.location.href = "html/customer.html";
+                // လက်ရှိစာမျက်နှာက customer.html မဟုတ်မှသာ Redirect လုပ်ပါ
+                if (!currentPath.includes("customer.html")) {
+                    window.location.href = "html/customer.html";
+                }
             }
         } catch (error) {
             console.error("Auto Login Error:", error);
@@ -37,7 +48,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 /**
- * ၂။ Signup Function (Coins, Rating, Online Field များ ထည့်သွင်းထားသည်)
+ * ၂။ Signup Function
  */
 async function handleSignUp() {
     const signupBtn = document.getElementById('signupBtn');
@@ -72,17 +83,15 @@ async function handleSignUp() {
             createdAt: serverTimestamp()
         };
 
-        // Rider များအတွက် Coin နှင့် Rating System Field များ
         if (role === "rider") {
-            userData.coins = 0;           // Manual ဖြည့်ရန်အတွက် default 0
-            userData.totalStars = 0;      // ကြယ်ပွင့်စုစုပေါင်း
-            userData.ratingCount = 0;     // Rating ပေးသူဦးရေ
-            userData.isOnline = false;    // အစတွင် Offline ထားမည်
-            userData.lastLocation = null; // တည်နေရာမှတ်ရန်
+            userData.coins = 0;
+            userData.totalStars = 0;
+            userData.ratingCount = 0;
+            userData.isOnline = false;
+            userData.lastLocation = null;
         }
 
         await setDoc(doc(db, collectionName, user.uid), userData);
-
         await notifyTelegram(`👤 User အသစ်: ${name}\nRole: ${role}\nPhone: ${phone}`);
 
         alert("Account ဖွင့်လှစ်ပြီးပါပြီ။ Dashboard သို့ ပို့ဆောင်ပေးနေပါသည်...");
@@ -96,7 +105,7 @@ async function handleSignUp() {
 }
 
 /**
- * ၃။ Login Function (Remember Me Logic ပါဝင်သည်)
+ * ၃။ Login Function
  */
 async function handleLogin() {
     const loginBtn = document.getElementById('loginBtn');
@@ -113,21 +122,18 @@ async function handleLogin() {
     loginBtn.innerText = "Signing In...";
 
     try {
-        // Remember Me အမှန်ခြစ်ထားရင် Local (အမြဲ), မခြစ်ထားရင် Session (Browser ပိတ်ရင် logout)
         const persistenceType = rememberMe ? browserLocalPersistence : browserSessionPersistence;
         await setPersistence(auth, persistenceType);
 
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
 
-        // Rider ဟုတ်မဟုတ် စစ်
         let userDoc = await getDoc(doc(db, "riders", user.uid));
         if (userDoc.exists()) {
             window.location.href = "html/delivery.html";
             return;
         }
 
-        // Customer ဟုတ်မဟုတ် စစ်
         userDoc = await getDoc(doc(db, "customers", user.uid));
         if (userDoc.exists()) {
             window.location.href = "html/customer.html";
@@ -154,4 +160,3 @@ document.addEventListener('DOMContentLoaded', () => {
     if(signupBtn) signupBtn.addEventListener('click', handleSignUp);
     if(loginBtn) loginBtn.addEventListener('click', handleLogin);
 });
-
