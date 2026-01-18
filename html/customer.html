@@ -22,14 +22,14 @@
             --text-muted: #757575;
         }
 
-        /* Base Settings */
+        /* Keyboard Suggestion လုံးဝမတက်အောင် ဤအပိုင်းက အဓိကပါ */
         * {
             -webkit-tap-highlight-color: transparent;
-            -webkit-user-select: none;
-            user-select: none;
-            box-sizing: border-box;
+            -webkit-user-select: none; /* iOS */
+            user-select: none;         /* Android/Standard */
         }
 
+        /* input တွေထဲမှာတော့ စာရိုက်လို့ရအောင် ပြန်ဖွင့်ပေးရပါမည် */
         input, textarea, select {
             -webkit-user-select: text !important;
             user-select: text !important;
@@ -41,10 +41,9 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
             color: var(--text-main);
             overflow: hidden;
-            height: 100vh;
         }
 
-        /* Profile & Header */
+        /* Profile Bar */
         .profile-bar {
             background: white; padding: 10px 15px;
             display: flex; justify-content: space-between; align-items: center;
@@ -61,20 +60,16 @@
         .header { 
             background: var(--primary); padding: 14px; text-align: center; 
             font-weight: 700; font-size: 0.9rem; color: white;
+            display: flex; align-items: center; justify-content: center;
+            position: relative;
         }
 
-        /* Layout Sections */
-        .page-section { display: none; height: calc(100vh - 65px); width: 100%; overflow-y: auto; }
+        .page-section { display: none; height: 100vh; }
         .page-section.active { display: block; }
 
-        /* Map Styles */
-        #map-container { 
-            position: relative; 
-            height: calc(100vh - 125px); 
-            width: 100%; 
-            background: #eee;
-        }
-        #map { height: 100%; width: 100%; z-index: 1; outline: none; }
+        /* Map Section */
+        #map-container { position: relative; height: calc(100vh - 120px); width: 100%; }
+        #map { height: 100%; width: 100%; z-index: 1; }
         
         #pin-address-display {
             position: absolute; top: 10px; left: 10px; right: 10px;
@@ -83,17 +78,18 @@
             text-align: center; font-weight: 600; z-index: 1000;
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
             border-left: 4px solid var(--primary);
+            pointer-events: none;
         }
 
         .locate-btn {
-            position: absolute; bottom: 120px; right: 15px; z-index: 1000;
+            position: absolute; bottom: 170px; right: 15px; z-index: 1000;
             background: white; width: 48px; height: 48px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2); border: 2px solid var(--primary);
             cursor: pointer; font-size: 1.3rem;
         }
 
-        /* Bottom Sheet Order Form */
+        /* Bottom Sheet */
         .bottom-sheet {
             position: fixed; bottom: 65px; left: 0; width: 100%;
             background: white; border-top-left-radius: 25px; border-top-right-radius: 25px;
@@ -118,7 +114,7 @@
         select, input {
             width: 100%; padding: 14px; border: 1px solid #eee;
             border-radius: 12px; font-size: 0.95rem; outline: none;
-            background: #f9f9f9; color: var(--text-main);
+            box-sizing: border-box; background: #f9f9f9; color: var(--text-main);
         }
         input:focus { border-color: var(--primary); background: #fff; }
 
@@ -130,12 +126,9 @@
         }
 
         /* History Tabs */
-        .history-tabs { display: flex; background: white; border-bottom: 1px solid #eee; position: sticky; top: 0; z-index: 10; }
+        .history-tabs { display: flex; background: white; border-bottom: 1px solid #eee; }
         .tab-item { flex: 1; text-align: center; padding: 15px; font-size: 0.85rem; color: #888; font-weight: 600; cursor: pointer; }
         .tab-item.active { color: var(--primary); border-bottom: 3px solid var(--primary); }
-
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
 
         .order-card {
             background: white; padding: 16px; border-radius: 16px; 
@@ -144,14 +137,13 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.02);
         }
 
-        /* Modal Details */
+        /* Modal */
         .detail-modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.85); z-index: 3000; align-items: center; justify-content: center;
         }
         .modal-card { background: #1e1e1e; width: 88%; border-radius: 25px; padding: 25px; color: white; }
 
-        /* Navigation Bar */
         .bottom-nav {
             position: fixed; bottom: 0; left: 0; width: 100%;
             background: white; display: flex; height: 65px;
@@ -171,11 +163,11 @@
         <button class="logout-btn" id="logoutBtn">Logout</button>
     </div>
 
-    <div id="order-section" class="page-section active" style="overflow: hidden;">
+    <div id="order-section" class="page-section active">
         <div id="map-container">
             <div id="map"></div>
             <div id="pin-address-display">📍 မြို့နယ်ရွေးပြီး မြေပုံပေါ်တွင် တည်နေရာညှိပါ</div>
-            <div class="locate-btn" onclick="handleLocate()">🎯</div>
+            <div class="locate-btn" onclick="goToMyLocation()">🎯</div>
         </div>
 
         <div class="bottom-sheet" id="bottomSheet">
@@ -233,25 +225,25 @@
                                 <option value="Twante" data-lat="16.7117" data-lng="95.9317">တွံတေး</option>
                             </optgroup>
                         </select>
-                        <input type="text" id="pickup-address" placeholder="လမ်းအမည်/အိမ်အမှတ် (Manual)" style="margin-top:10px;" autocomplete="off" required>
+                        <input type="text" id="pickup-address" placeholder="လမ်းအမည်/အိမ်အမှတ် (Manual)" style="margin-top:10px;" autocomplete="off" spellcheck="false" required>
                     </div>
 
                     <div class="loc-box" style="border-left: 4px solid var(--danger);">
                         <b>DROP-OFF (ပို့ဆောင်ရန်)</b>
                         <select id="dropoff-township" required>
                             <option value="">မြို့နယ်ရွေးပါ</option>
-                            </select>
-                        <input type="text" id="dropoff-address" placeholder="လမ်းအမည်/အိမ်အမှတ် (Manual)" style="margin-top:10px;" autocomplete="off" required>
+                        </select>
+                        <input type="text" id="dropoff-address" placeholder="လမ်းအမည်/အိမ်အမှတ် (Manual)" style="margin-top:10px;" autocomplete="off" spellcheck="false" required>
                     </div>
 
-                    <input type="text" id="item-detail" placeholder="ဘာပစ္စည်းပို့မှာလဲ? (ဥပမာ- ထမင်းဘူး)" style="margin-bottom:15px;" required>
+                    <input type="text" id="item-detail" placeholder="ဘာပစ္စည်းပို့မှာလဲ? (ဥပမာ- ထမင်းဘူး)" autocomplete="off" spellcheck="false" style="margin-bottom:15px;" required>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 15px;">
-                        <input type="number" id="item-weight" placeholder="အလေးချိန် (kg)">
-                        <input type="number" id="item-value" placeholder="တန်ဖိုး (KS)">
+                        <input type="number" id="item-weight" placeholder="အလေးချိန် (kg)" autocomplete="off">
+                        <input type="number" id="item-value" placeholder="တန်ဖိုး (KS)" autocomplete="off">
                     </div>
 
-                    <input type="tel" id="receiver-phone" placeholder="လက်ခံသူဖုန်းနံပါတ်" style="margin-bottom:15px;" required>
+                    <input type="tel" id="receiver-phone" placeholder="လက်ခံသူဖုန်းနံပါတ်" autocomplete="off" style="margin-bottom:15px;" required>
 
                     <select id="payment-method" style="margin-bottom:15px;">
                         <option value="COD">Cash on Delivery (ပစ္စည်းရောက်မှရှင်းမည်)</option>
@@ -259,7 +251,6 @@
                     </select>
 
                     <button id="placeOrderBtn" type="button" class="btn-confirm">ORDER NOW</button>
-                    <div style="height: 40px;"></div> 
                 </form>
             </div>
         </div>
@@ -268,8 +259,8 @@
     <div id="list-section" class="page-section">
         <div class="header">MY ORDERS</div>
         <div class="history-tabs">
-            <div id="tab-active" class="tab-item active" onclick="switchTab('active')">ACTIVE</div>
-            <div id="tab-history" class="tab-item" onclick="switchTab('history')">HISTORY</div>
+            <div class="tab-item active" onclick="switchTab('active')">ACTIVE</div>
+            <div class="tab-item" onclick="switchTab('history')">HISTORY</div>
         </div>
         <div id="active-orders" style="padding:15px;" class="tab-content active"></div>
         <div id="history-orders" style="padding:15px;" class="tab-content"></div>
@@ -277,37 +268,29 @@
 
     <div id="detailModal" class="detail-modal">
         <div class="modal-card">
-            <h2 style="text-align:center; color:var(--accent); font-size: 1.2rem;">Order Details</h2>
+            <h2 style="text-align:center; color:var(--accent);">Order Details</h2>
             <div id="modal-content"></div>
-            <button onclick="closeModal()" style="width:100%; padding:15px; margin-top:20px; border-radius:10px; background:var(--primary); color:white; border:none; font-weight:bold;">ပိတ်မည်</button>
+            <button onclick="closeModal()" class="btn-modal-close" style="width:100%; padding:15px; margin-top:20px; border-radius:10px; background:var(--primary); color:white; border:none;">ပိတ်မည်</button>
         </div>
     </div>
 
     <nav class="bottom-nav">
-        <div id="nav-order" class="nav-item active" onclick="showSection('order', this)">
-            <i class="fas fa-map-marker-alt" style="font-size: 1.2rem; margin-bottom: 4px;"></i>
-            <span>New Order</span>
-        </div>
-        <div id="nav-list" class="nav-item" onclick="showSection('list', this)">
-            <i class="fas fa-box" style="font-size: 1.2rem; margin-bottom: 4px;"></i>
-            <span>My Orders</span>
-        </div>
+        <div class="nav-item active" onclick="showSection('order', this)">📍<br>New Order</div>
+        <div class="nav-item" onclick="showSection('list', this)">📦<br>My Orders</div>
     </nav>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script type="module" src="../js/customer.js"></script>
 
     <script>
-        // UI Logic
         function toggleSheet() {
             document.getElementById('bottomSheet').classList.toggle('expanded');
         }
 
         function switchTab(type) {
             document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            
-            document.getElementById('tab-' + type).classList.add('active');
             document.getElementById(type + '-orders').classList.add('active');
         }
 
@@ -315,38 +298,26 @@
             document.getElementById('detailModal').style.display = 'none';
         }
 
+        window.addEventListener('load', () => {
+            const pSelect = document.getElementById('pickup-township');
+            const dSelect = document.getElementById('dropoff-township');
+            if(pSelect && dSelect) dSelect.innerHTML = pSelect.innerHTML;
+        });
+
         function showSection(sectionId, el) {
             document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
             document.getElementById(sectionId + '-section').classList.add('active');
-            
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             el.classList.add('active');
-
-            if(sectionId === 'list') {
-                document.getElementById('bottomSheet').classList.remove('expanded');
-            } else {
-                // Fix Leaflet map rendering when switching back
-                setTimeout(() => {
-                    window.dispatchEvent(new Event('resize'));
-                }, 200);
-            }
+            if(sectionId === 'list') document.getElementById('bottomSheet').classList.remove('expanded');
         }
 
-        // Initialize Select Dropdowns
-        window.addEventListener('DOMContentLoaded', () => {
-            const pSelect = document.getElementById('pickup-township');
-            const dSelect = document.getElementById('dropoff-township');
-            if(pSelect && dSelect) {
-                dSelect.innerHTML = pSelect.innerHTML;
+        // Keyboard တက်လာလျှင် UI မပျက်စေရန် Handle လုပ်ခြင်း
+        window.addEventListener('resize', () => {
+            if (document.activeElement.tagName === 'INPUT') {
+                document.activeElement.scrollIntoView({ behavior: 'smooth' });
             }
         });
-
-        // Map Locate Trigger
-        function handleLocate() {
-            if (typeof window.goToMyLocation === 'function') {
-                window.goToMyLocation();
-            }
-        }
     </script>
 </body>
 </html>
