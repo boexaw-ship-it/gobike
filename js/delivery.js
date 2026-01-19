@@ -32,34 +32,12 @@ onAuthStateChanged(auth, async (user) => {
     if (user) {
         initMap();
         await getRiderData(); 
-        initRiderSync(); // Coin & Online Status ကို Real-time စောင့်ကြည့်ရန်
-        startTracking(); 
+        startTracking();
+        listenForCoinDeduction(); // အော်ဒါပြီးဆုံးပါက Coin နှုတ်ရန် စောင့်ကြည့်ခြင်း
     } else {
         window.location.href = "../index.html";
     }
 });
-
-// Coin နဲ့ Online Status ကို Real-time UI မှာ ပြောင်းပေးဖို့
-function initRiderSync() {
-    const user = auth.currentUser;
-    if (!user) return;
-    const riderRef = doc(db, "riders", user.uid);
-    onSnapshot(riderRef, (snap) => {
-        if (snap.exists()) {
-            const data = snap.data();
-            if (document.getElementById('rider-coins')) document.getElementById('rider-coins').innerText = data.coins || 0;
-            const toggle = document.getElementById('online-toggle');
-            const label = document.getElementById('status-label');
-            if (toggle) {
-                toggle.checked = data.isOnline || false;
-                if (label) {
-                    label.innerText = data.isOnline ? "Online" : "Offline";
-                    data.isOnline ? label.classList.add('online') : label.classList.remove('online');
-                }
-            }
-        }
-    });
-}
 
 async function getRiderData() {
     if (!auth.currentUser) return;
@@ -68,10 +46,44 @@ async function getRiderData() {
         const data = snap.data();
         document.getElementById('display-name').innerText = data.name;
         document.getElementById('display-role').innerText = data.role || "Rider";
+        if(document.getElementById('rider-coins')) document.getElementById('rider-coins').innerText = data.coins || 0;
     }
 }
 
-// --- ၃။ Main Logic ---
+// --- ၃။ Coin Deduction Logic (Complete ဖြစ်မှနှုတ်ရန်) ---
+function listenForCoinDeduction() {
+    const myUid = auth.currentUser.uid;
+    // status က completed ဖြစ်ပြီး coin မနှုတ်ရသေးသော အော်ဒါများကို စစ်သည်
+    const q = query(collection(db, "orders"), where("riderId", "==", myUid), where("status", "==", "completed"), where("coinDeducted", "!=", true));
+    
+    onSnapshot(q, (snap) => {
+        snap.forEach(async (orderDoc) => {
+            const orderData = orderDoc.data();
+            const orderRef = doc(db, "orders", orderDoc.id);
+            const riderRef = doc(db, "riders", myUid);
+
+            try {
+                await runTransaction(db, async (transaction) => {
+                    const riderSnap = await transaction.get(riderRef);
+                    if (!riderSnap.exists()) return;
+
+                    const currentCoins = riderSnap.data().coins || 0;
+                    const deliveryFee = orderData.deliveryFee || 0;
+                    
+                    // ၁၀% တွက်ချက်ခြင်း (၁၀၀ ကျပ် = ၁ Coin)
+                    let deduction = Math.floor((deliveryFee * 0.1) / 100);
+                    if (deduction < 1) deduction = 1; // အနည်းဆုံး ၁ Coin နှုတ်မည်
+
+                    transaction.update(riderRef, { coins: currentCoins - deduction });
+                    transaction.update(orderRef, { coinDeducted: true });
+                });
+                console.log(`Order ${orderDoc.id} အတွက် Coin နှုတ်ပြီးပါပြီ`);
+            } catch (e) { console.error("Coin deduction error: ", e); }
+        });
+    });
+}
+
+// --- ၄။ Main Logic ---
 function startTracking() {
     if (!auth.currentUser) return;
     const myUid = auth.currentUser.uid;
@@ -79,17 +91,9 @@ function startTracking() {
     if (navigator.geolocation) {
         navigator.geolocation.watchPosition(async (pos) => {
             const name = await getRiderName();
-            const riderDoc = await getDoc(doc(db, "riders", myUid));
-            const isOnline = riderDoc.exists() ? (riderDoc.data().isOnline || false) : false;
-
-            // Online ဖြစ်မှသာ Active Map ပေါ်မှာ ပြပေးမယ်
-            if (isOnline) {
-                await setDoc(doc(db, "active_riders", myUid), {
-                    name, lat: pos.coords.latitude, lng: pos.coords.longitude, lastSeen: serverTimestamp()
-                }, { merge: true });
-            } else {
-                await deleteDoc(doc(db, "active_riders", myUid));
-            }
+            await setDoc(doc(db, "active_riders", myUid), {
+                name, lat: pos.coords.latitude, lng: pos.coords.longitude, lastSeen: serverTimestamp()
+            }, { merge: true });
         }, null, { enableHighAccuracy: true });
     }
 
@@ -242,79 +246,48 @@ function startTracking() {
     });
 }
 
-// --- Online Status Logic ---
-window.toggleOnlineStatus = async (checkbox) => {
-    const user = auth.currentUser;
-    if (!user) return;
+// --- Action Functions ---
+
+window.handleAccept = async (id, time) => {
     try {
-        await updateDoc(doc(db, "riders", user.uid), {
-            isOnline: checkbox.checked,
-            lastSeen: serverTimestamp()
-        });
-        if (!checkbox.checked) {
-            await deleteDoc(doc(db, "active_riders", user.uid));
+        const docRef = doc(db, "orders", id);
+        const orderSnap = await getDoc(docRef);
+        const order = orderSnap.data();
+        const riderName = await getRiderName();
+
+        // Coin ၅၀ ရှိမရှိ အရင်စစ်သည် (နှုတ်ယူခြင်းကိုတော့ Complete မှလုပ်မည်)
+        const riderSnap = await getDoc(doc(db, "riders", auth.currentUser.uid));
+        const currentCoins = riderSnap.data().coins || 0;
+        if (currentCoins < 50) {
+            Swal.fire({ title: 'Coin မလုံလောက်ပါ', text: 'အော်ဒါလက်ခံရန် Coin အနည်းဆုံး ၅၀ ရှိရပါမည်။', icon: 'error' });
+            return;
+        }
+
+        if(time === 'tomorrow') {
+            await updateDoc(docRef, { 
+                status: "pending_confirmation", 
+                tempRiderId: auth.currentUser.uid, 
+                tempRiderName: riderName, 
+                pickupSchedule: "tomorrow",
+                riderDismissedTomorrow: false,
+                riderDismissed: false
+            });
+            await notifyTelegram(createOrderMessage("⏳ Tomorrow Scheduled", order, riderName, "မနက်ဖြန်အတွက် ကြိုယူထားသည်"));
+            Swal.fire({ title: 'အောင်မြင်ပါသည်', text: 'မနက်ဖြန်အတွက် Customer အတည်ပြုချက် စောင့်ပါမည်', icon: 'success' });
+        } else {
+            await updateDoc(docRef, { 
+                status: "accepted", 
+                riderId: auth.currentUser.uid, 
+                riderName: riderName, 
+                acceptedAt: serverTimestamp(), 
+                tempRiderId: null, 
+                pickupSchedule: "now",
+                riderDismissed: false
+            });
+            fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ action: "update", orderId: id, riderName, status: "Accepted" }) });
+            await notifyTelegram(createOrderMessage("✅ Order Accepted", order, riderName, "Rider လက်ခံလိုက်ပါပြီ"));
         }
     } catch (err) { console.error(err); }
-};
-
-// --- Secure Accept Order Logic (Modified with Coin Deduction) ---
-window.handleAccept = async (id, time) => {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    try {
-        const riderName = await getRiderName();
-        const orderRef = doc(db, "orders", id);
-        const riderRef = doc(db, "riders", user.uid);
-
-        await runTransaction(db, async (transaction) => {
-            const orderSnap = await transaction.get(orderRef);
-            const riderSnap = await transaction.get(riderRef);
-
-            if (!orderSnap.exists()) throw "အော်ဒါရှာမတွေ့ပါ။";
-            if (orderSnap.data().status !== "pending") throw "ဤအော်ဒါကို တခြားသူယူသွားပါပြီ။";
-
-            const order = orderSnap.data();
-            const currentCoins = riderSnap.data().coins || 0;
-
-            // (၁) Coin ၅၀ အနည်းဆုံးရှိမရှိ စစ်ဆေးခြင်း
-            if (currentCoins < 50) {
-                throw "Coin အနည်းဆုံး ၅၀ ရှိမှ လက်ခံနိုင်ပါမည်။ ကျေးဇူးပြု၍ ငွေဖြည့်ပါ။";
-            }
-
-            // (၂) ၁၀% Fee တွက်ချက်ခြင်း (1 coin = 100 kyats)
-            const feeAmount = order.deliveryFee || 0;
-            const deductionCoins = Math.floor((feeAmount * 0.1) / 100);
-            const finalDeduction = deductionCoins < 1 ? 1 : deductionCoins;
-
-            if (currentCoins < finalDeduction) throw "Coin မလုံလောက်ပါ။";
-
-            if (time === 'tomorrow') {
-                transaction.update(orderRef, { 
-                    status: "pending_confirmation", tempRiderId: user.uid, tempRiderName: riderName,
-                    pickupSchedule: "tomorrow", riderDismissedTomorrow: false, riderDismissed: false
-                });
-                return { type: 'tomorrow', order };
-            } else {
-                // Coin နှုတ်ပြီး အော်ဒါလက်ခံခြင်း
-                transaction.update(riderRef, { coins: currentCoins - finalDeduction });
-                transaction.update(orderRef, { 
-                    status: "accepted", riderId: user.uid, riderName: riderName,
-                    acceptedAt: serverTimestamp(), tempRiderId: null, pickupSchedule: "now", riderDismissed: false
-                });
-                return { type: 'now', order };
-            }
-        }).then(async (res) => {
-            if (res.type === 'tomorrow') {
-                await notifyTelegram(createOrderMessage("⏳ Tomorrow Scheduled", res.order, riderName, "မနက်ဖြန်အတွက် ကြိုယူထားသည်"));
-                Swal.fire('အောင်မြင်ပါသည်', 'မနက်ဖြန်အတွက် Customer အတည်ပြုချက် စောင့်ပါမည်', 'success');
-            } else {
-                fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ action: "update", orderId: id, riderName, status: "Accepted" }) });
-                await notifyTelegram(createOrderMessage("✅ Order Accepted", res.order, riderName, "Rider လက်ခံလိုက်ပါပြီ"));
-                Swal.fire('အောင်မြင်ပါသည်', 'အော်ဒါလက်ခံပြီးပါပြီ', 'success');
-            }
-        });
-    } catch (err) { Swal.fire('မအောင်မြင်ပါ', err, 'error'); }
 };
 
 window.dismissOrder = async (id) => {
@@ -336,9 +309,11 @@ window.rejectActiveOrder = async (id) => {
 window.startTomorrowOrder = async (id) => {
     const activeSnap = await getDocs(query(collection(db, "orders"), where("riderId", "==", auth.currentUser.uid), where("status", "in", ["accepted", "on_the_way", "arrived"]), where("pickupSchedule", "==", "now")));
     if (activeSnap.size >= 7) { Swal.fire({ title: 'Limit Full!', icon: 'warning', text: 'ယနေ့အတွက် အော်ဒါ ၇ ခု ပြည့်နေပါသည်' }); return; }
+    
     const docRef = doc(db, "orders", id);
     const order = (await getDoc(docRef)).data();
     const riderName = await getRiderName();
+    
     await updateDoc(docRef, { status: "accepted", riderId: auth.currentUser.uid, pickupSchedule: "now", acceptedAt: serverTimestamp(), riderDismissed: false });
     await notifyTelegram(createOrderMessage("🚀 Started Tomorrow Order", order, riderName, "မနက်ဖြန်အော်ဒါကို ယနေ့အတွက် စတင်လိုက်ပါပြီ"));
 };
