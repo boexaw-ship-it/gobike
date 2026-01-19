@@ -1,6 +1,6 @@
 import { db, auth } from './firebase-config.js';
 import { 
-    doc, onSnapshot, updateDoc, getDoc 
+    doc, onSnapshot, updateDoc, getDoc, serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const params = new URLSearchParams(window.location.search);
@@ -36,19 +36,16 @@ if (orderId) {
         document.getElementById('status-badge').innerText = (data.status || "PENDING").toUpperCase();
         document.getElementById('det-item').innerText = data.item || "ပစ္စည်းအမည်မရှိ";
         
-        // Address ပြသခြင်း (မြို့အမည်ပါ ထည့်သွင်းပြသခြင်း)
         const pickupAddr = data.pickup?.township ? `(${data.pickup.township}) ${data.pickup.address}` : (data.pickup?.address || "လိပ်စာမရှိ");
         const dropoffAddr = data.dropoff?.township ? `(${data.dropoff.township}) ${data.dropoff.address}` : (data.dropoff?.address || "လိပ်စာမရှိ");
 
         document.getElementById('det-pickup').innerText = pickupAddr;
         document.getElementById('det-dropoff').innerText = dropoffAddr;
 
-        // Stats (တန်ဖိုး၊ အလေးချိန်၊ ပို့ခ)
         document.getElementById('det-value').innerText = (data.itemValue || 0).toLocaleString() + " KS";
         document.getElementById('det-weight').innerText = (data.weight || 0) + " KG";
         document.getElementById('det-fee').innerText = (data.deliveryFee || 0).toLocaleString() + " KS";
 
-        // Phone & Call Logic
         const phone = data.phone || data.customerPhone || "ဖုန်းနံပါတ်မရှိ";
         const phoneDisplay = document.getElementById('det-phone');
         const callLink = document.getElementById('call-link');
@@ -62,11 +59,11 @@ if (orderId) {
         if (data.pickup && data.dropoff) {
             drawRoute(data.pickup, data.dropoff);
             
-            // Google Maps Link ပေးရန် (Template Literals အမှားပြင်ဆင်ထားသည်)
             const pickupLink = document.getElementById('map-pickup-link');
             const dropoffLink = document.getElementById('map-dropoff-link');
-            if(pickupLink) pickupLink.href = `https://www.google.com/maps?q=${data.pickup.lat},${data.pickup.lng}`;
-            if(dropoffLink) dropoffLink.href = `https://www.google.com/maps?q=${data.dropoff.lat},${data.dropoff.lng}`;
+            // Google Maps Link template literals fixation
+            if(pickupLink) pickupLink.href = `https://www.google.com/maps/dir/?api=1&destination=${data.pickup.lat},${data.pickup.lng}`;
+            if(dropoffLink) dropoffLink.href = `https://www.google.com/maps/dir/?api=1&destination=${data.dropoff.lat},${data.dropoff.lng}`;
         }
 
         updateActionButtons(data.status);
@@ -75,7 +72,7 @@ if (orderId) {
     window.location.replace("delivery.html");
 }
 
-// --- ၃။ Draw Route Function (Tracking Line ကို အနီရောင်ပြောင်းထားသည်) ---
+// --- ၃။ Draw Route Function ---
 function drawRoute(p, d) {
     if (routingControl) map.removeControl(routingControl);
     routingControl = L.Routing.control({
@@ -83,7 +80,6 @@ function drawRoute(p, d) {
         show: false,
         addWaypoints: false,      
         draggableWaypoints: false,
-        // Line color ကို #ff4757 (အနီရောင်) သို့ ပြောင်းလဲထားပါသည်
         lineOptions: { 
             styles: [{ color: '#ff4757', weight: 6, opacity: 0.8 }] 
         },
@@ -139,7 +135,10 @@ function updateActionButtons(status) {
 async function changeStatus(newStatus) {
     try {
         const orderRef = doc(db, "orders", orderId);
-        let updateData = { status: newStatus };
+        let updateData = { 
+            status: newStatus,
+            lastUpdated: serverTimestamp() 
+        };
 
         if (newStatus === "accepted") {
             const riderId = auth.currentUser?.uid;
@@ -147,7 +146,14 @@ async function changeStatus(newStatus) {
                 const riderSnap = await getDoc(doc(db, "riders", riderId));
                 updateData.riderId = riderId;
                 updateData.riderName = riderSnap.exists() ? riderSnap.data().name : "Rider";
+                updateData.coinDeducted = false; // Accept လုပ်ချိန်တွင် coinDeducted field ကို စတင်ထည့်သွင်းသည်
             }
+        }
+
+        // --- အဓိကပြင်ဆင်ချက်- အော်ဒါပြီးဆုံးချိန်တွင် coinDeducted ကို false ဖြစ်ကြောင်း confirm လုပ်သည် ---
+        if (newStatus === "completed") {
+            updateData.completedAt = serverTimestamp();
+            updateData.coinDeducted = false; // ဒီ field က listenForCoinDeduction ကို trigger ပေးမှာဖြစ်ပါတယ်
         }
 
         await updateDoc(orderRef, updateData);
@@ -161,7 +167,8 @@ async function changeStatus(newStatus) {
         });
 
         if (newStatus === "completed") {
-            setTimeout(() => window.location.replace("delivery.html"), 1200);
+            // Coin နှုတ်သည့် Listener အလုပ်လုပ်ချိန်ရစေရန် ခဏစောင့်ပြီးမှ ပြန်ထွက်မည်
+            setTimeout(() => window.location.replace("delivery.html"), 1500);
         }
     } catch (err) {
         console.error(err);
