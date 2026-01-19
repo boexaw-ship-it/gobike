@@ -4,12 +4,14 @@ import {
     updateDoc, 
     onSnapshot, 
     runTransaction, 
-    serverTimestamp 
+    serverTimestamp,
+    query,
+    collection,
+    where
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 /**
  * ၁။ Rider Profile ကို Real-time စောင့်ကြည့်ခြင်း
- * Coin အရေအတွက်ပြောင်းလဲမှုနဲ့ Online Status ကို UI မှာ ချက်ချင်းပြဖို့
  */
 export function initRiderSync() {
     const user = auth.currentUser;
@@ -19,12 +21,9 @@ export function initRiderSync() {
     onSnapshot(riderRef, (snap) => {
         if (snap.exists()) {
             const data = snap.data();
-            
-            // Coin ပြခြင်း
             const coinDisplay = document.getElementById('rider-coins');
             if (coinDisplay) coinDisplay.innerText = data.coins || 0;
 
-            // Switch အခြေအနေပြခြင်း
             const toggle = document.getElementById('online-toggle');
             const label = document.getElementById('status-label');
             if (toggle) {
@@ -36,11 +35,13 @@ export function initRiderSync() {
             }
         }
     });
+
+    // အော်ဒါ Complete ဖြစ်မဖြစ် စောင့်ကြည့်သည့် Function ကို စတင်ပတ်ထားမည်
+    listenForCoinDeduction(user.uid);
 }
 
 /**
  * ၂။ Online/Offline Toggle Function
- * Map ပေါ်မှာ ပေါ်/မပေါ် status ကို ထိန်းချုပ်သည်
  */
 window.toggleOnlineStatus = async (checkbox) => {
     const user = auth.currentUser;
@@ -54,15 +55,15 @@ window.toggleOnlineStatus = async (checkbox) => {
         });
     } catch (error) {
         console.error("Status Update Error:", error);
-        checkbox.checked = !checkbox.checked; // Error တက်ရင် switch ပြန်ဖြုတ်မယ်
+        checkbox.checked = !checkbox.checked;
     }
 };
 
 /**
- * ၃၊ ၄၊ ၅။ Secure Order Acceptance Logic
- * Coin စစ်ဆေးခြင်း၊ ၁၀% နှုတ်ခြင်း နှင့် တစ်ယောက်ပဲရအောင်ထိန်းချုပ်ခြင်း
+ * ၃။ အော်ဒါလက်ခံသည့် Logic (ဒီနေရာမှာ Coin မနှုတ်တော့ပါ)
+ * Rider မှာ Coin အနည်းဆုံး ၅၀ ရှိမရှိကိုတော့ Safety အနေနဲ့ စစ်ထားပေးပါတယ်
  */
-window.secureAcceptOrder = async (orderId, deliveryFee) => {
+window.secureAcceptOrder = async (orderId) => {
     const user = auth.currentUser;
     if (!user) return;
 
@@ -70,7 +71,7 @@ window.secureAcceptOrder = async (orderId, deliveryFee) => {
     const riderRef = doc(db, "riders", user.uid);
 
     try {
-        const result = await runTransaction(db, async (transaction) => {
+        await runTransaction(db, async (transaction) => {
             const orderSnap = await transaction.get(orderRef);
             const riderSnap = await transaction.get(riderRef);
 
@@ -79,33 +80,19 @@ window.secureAcceptOrder = async (orderId, deliveryFee) => {
 
             const currentCoins = riderSnap.data().coins || 0;
 
-            // အချက် (၂) - Coin ၅၀ အနည်းဆုံးရှိမှ လက်ခံခွင့်ပြုမယ်
+            // လက်ခံနိုင်ရန် အနည်းဆုံး Coin ၅၀ ရှိရမည့် စည်းကမ်း (မနှုတ်ပါ)
             if (currentCoins < 50) {
                 throw "Coin အနည်းဆုံး ၅၀ ရှိမှ လက်ခံနိုင်ပါမည်။ ကျေးဇူးပြု၍ ငွေဖြည့်ပါ။";
             }
 
-            // အချက် (၃) - 1 coin = 100 kyats (10% နှုတ်မယ်)
-            // ဥပမာ - Fee က ၁၀၀၀ ဆိုရင် ၁၀% က ၁၀၀ ဖြစ်တဲ့အတွက် 1 coin နှုတ်ပါမယ်
-            const deductionCoins = Math.floor((deliveryFee * 0.1) / 100);
-            const finalDeduction = deductionCoins < 1 ? 1 : deductionCoins; // အနည်းဆုံး 1 coin နှုတ်မယ်
-
-            if (currentCoins < finalDeduction) {
-                throw "အော်ဒါလက်ခံရန် Coin မလုံလောက်ပါ။";
-            }
-
-            // အချက် (၄) - Transaction ဖြစ်တဲ့အတွက် တစ်ယောက်ပဲ Update လုပ်နိုင်မယ်
-            transaction.update(riderRef, { 
-                coins: currentCoins - finalDeduction 
-            });
-
+            // အော်ဒါ Status ကို Accepted ပြောင်းရုံသာ လုပ်သည်
             transaction.update(orderRef, {
                 status: "accepted",
                 riderId: user.uid,
-                riderName: user.displayName || "Rider",
-                acceptedAt: serverTimestamp()
+                riderName: riderSnap.data().name || "Rider",
+                acceptedAt: serverTimestamp(),
+                coinDeducted: false // နှုတ်ပြီး/မပြီး မှတ်ထားရန် field အသစ်
             });
-
-            return "Success";
         });
 
         Swal.fire("အောင်မြင်ပါသည်", "အော်ဒါလက်ခံပြီးပါပြီ", "success");
@@ -113,3 +100,43 @@ window.secureAcceptOrder = async (orderId, deliveryFee) => {
         Swal.fire("မအောင်မြင်ပါ", error, "error");
     }
 };
+
+/**
+ * ၄။ အော်ဒါပြီးဆုံးမှ Coin နှုတ်မည့် Logic (စောင့်ကြည့်စနစ်)
+ */
+function listenForCoinDeduction(riderUid) {
+    // Rider ရဲ့ အော်ဒါတွေထဲက Status က Completed ဖြစ်ပြီး Coin မနှုတ်ရသေးတာတွေကို စစ်မယ်
+    const q = query(
+        collection(db, "orders"), 
+        where("riderId", "==", riderUid), 
+        where("status", "==", "completed"),
+        where("coinDeducted", "==", false)
+    );
+
+    onSnapshot(q, (snap) => {
+        snap.forEach(async (orderDoc) => {
+            const orderData = orderDoc.data();
+            const orderRef = doc(db, "orders", orderDoc.id);
+            const riderRef = doc(db, "riders", riderUid);
+
+            try {
+                await runTransaction(db, async (transaction) => {
+                    const riderSnap = await transaction.get(riderRef);
+                    const currentCoins = riderSnap.data().coins || 0;
+                    const deliveryFee = orderData.deliveryFee || 0;
+
+                    // ၁၀% တွက်ချက်ခြင်း
+                    let deduction = Math.floor((deliveryFee * 0.1) / 100);
+                    if (deduction < 1) deduction = 1;
+
+                    // Coin နှုတ်ခြင်းနှင့် မှတ်တမ်းတင်ခြင်း
+                    transaction.update(riderRef, { coins: currentCoins - deduction });
+                    transaction.update(orderRef, { coinDeducted: true });
+                });
+                console.log("Coin deducted for completed order:", orderDoc.id);
+            } catch (e) {
+                console.error("Coin deduction error:", e);
+            }
+        });
+    });
+}
