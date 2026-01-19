@@ -53,7 +53,6 @@ async function getRiderData() {
 // --- ၃။ Coin Deduction Logic (Complete ဖြစ်မှနှုတ်ရန်) ---
 function listenForCoinDeduction() {
     const myUid = auth.currentUser.uid;
-    // status က completed ဖြစ်ပြီး coin မနှုတ်ရသေးသော အော်ဒါများကို စစ်သည်
     const q = query(collection(db, "orders"), where("riderId", "==", myUid), where("status", "==", "completed"), where("coinDeducted", "!=", true));
     
     onSnapshot(q, (snap) => {
@@ -72,12 +71,14 @@ function listenForCoinDeduction() {
                     
                     // ၁၀% တွက်ချက်ခြင်း (၁၀၀ ကျပ် = ၁ Coin)
                     let deduction = Math.floor((deliveryFee * 0.1) / 100);
-                    if (deduction < 1) deduction = 1; // အနည်းဆုံး ၁ Coin နှုတ်မည်
+                    if (deduction < 1) deduction = 1; 
 
                     transaction.update(riderRef, { coins: currentCoins - deduction });
                     transaction.update(orderRef, { coinDeducted: true });
                 });
                 console.log(`Order ${orderDoc.id} အတွက် Coin နှုတ်ပြီးပါပြီ`);
+                // UI မှာ Coin update ဖြစ်အောင် ပြန်ခေါ်သည်
+                getRiderData();
             } catch (e) { console.error("Coin deduction error: ", e); }
         });
     });
@@ -255,7 +256,7 @@ window.handleAccept = async (id, time) => {
         const order = orderSnap.data();
         const riderName = await getRiderName();
 
-        // Coin ၅၀ ရှိမရှိ အရင်စစ်သည် (နှုတ်ယူခြင်းကိုတော့ Complete မှလုပ်မည်)
+        // Safety Check: Coin ၅၀ ရှိမရှိ အရင်စစ်သည် (နှုတ်ယူခြင်းကိုတော့ Complete မှလုပ်မည်)
         const riderSnap = await getDoc(doc(db, "riders", auth.currentUser.uid));
         const currentCoins = riderSnap.data().coins || 0;
         if (currentCoins < 50) {
