@@ -15,12 +15,13 @@
             --primary-light: #5d4037;
             --accent: #d4a373; /* Gold/Tan Accent */
             --dark: #1a1a1a;
-            --bg: #fdfaf9;
+            --bg: #f8f5f2;
             --card: #ffffff;
             --danger: #b71c1c;
             --success: #2e7d32;
             --text-main: #2d2d2d;
             --text-muted: #8d6e63;
+            --border-color: #e0d6d1;
         }
 
         * {
@@ -72,7 +73,7 @@
             border-radius: 12px; color: var(--primary); 
             text-align: center; font-weight: 600; z-index: 1000;
             box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-            border: 1px solid var(--accent);
+            border: 1.5px solid var(--accent);
         }
 
         .locate-btn {
@@ -86,7 +87,7 @@
         /* Bottom Sheet - Improved Order Form */
         .bottom-sheet {
             position: fixed; bottom: 65px; left: 0; width: 100%;
-            background: white; border-top-left-radius: 30px; border-top-right-radius: 30px;
+            background: #fff; border-top-left-radius: 30px; border-top-right-radius: 30px;
             box-shadow: 0 -10px 40px rgba(0,0,0,0.2); z-index: 1050;
             transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.1);
             transform: translateY(calc(100% - 110px));
@@ -98,25 +99,43 @@
             display: flex; flex-direction: column; align-items: center;
         }
         .handle-bar { width: 50px; height: 5px; background: #e0e0e0; border-radius: 10px; }
-        .handle-text { font-size: 0.8rem; color: var(--primary); margin-top: 8px; font-weight: 700; }
+        .handle-text { font-size: 0.8rem; color: var(--primary); margin-top: 8px; font-weight: 700; letter-spacing: 1px; }
 
-        .order-scroll-area { max-height: 75vh; overflow-y: auto; padding: 10px 20px 40px; }
+        .order-scroll-area { max-height: 75vh; overflow-y: auto; padding: 10px 20px 40px; background: #fafafa; border-radius: 30px 30px 0 0; }
 
-        /* Form Styling */
+        /* Form Styling - Section Box */
         .form-group-title { 
-            font-size: 0.75rem; font-weight: 800; color: var(--primary); 
-            margin: 15px 0 8px 5px; display: flex; align-items: center; gap: 5px;
+            font-size: 0.75rem; font-weight: 800; color: var(--primary-light); 
+            margin: 15px 0 8px 5px; display: flex; align-items: center; gap: 8px;
+            opacity: 0.9;
         }
 
+        /* ဘောင်များကို ရှင်းလင်းအောင် ပြုပြင်ထားခြင်း */
         .input-card {
-            background: #fff; border: 1.5px solid #eee; border-radius: 16px;
-            padding: 12px; margin-bottom: 15px; transition: 0.3s;
+            background: #ffffff; 
+            border: 1px solid var(--border-color); 
+            border-radius: 16px;
+            padding: 8px 12px; 
+            margin-bottom: 18px; 
+            transition: 0.3s;
+            box-shadow: 0 4px 10px rgba(62, 39, 35, 0.05); /* ညင်သာသော အရိပ် */
         }
-        .input-card:focus-within { border-color: var(--accent); background: #fffaf5; }
+        .input-card:focus-within { 
+            border-color: var(--accent); 
+            box-shadow: 0 4px 12px rgba(212, 163, 115, 0.2); 
+            background: #fff;
+        }
 
         select, input {
             width: 100%; padding: 12px; border: none; background: transparent;
-            font-size: 1rem; outline: none; color: var(--text-main);
+            font-size: 0.95rem; outline: none; color: var(--text-main);
+        }
+
+        /* မျဉ်းတားလေးများဖြင့် ခြားထားခြင်း */
+        .card-divider {
+            height: 1px;
+            background: #f0f0f0;
+            margin: 0 10px;
         }
 
         .btn-confirm {
@@ -184,53 +203,59 @@
         <div class="bottom-sheet" id="bottomSheet">
             <div class="sheet-handle" onclick="toggleSheet()">
                 <div class="handle-bar"></div>
-                <div class="handle-text">CREATE NEW ORDER</div>
+                <div class="handle-text">NEW BOOKING</div>
             </div>
             
             <div class="order-scroll-area">
                 <form id="orderForm">
-                    <div class="form-group-title"><i class="fas fa-map-marker-alt"></i> PICK-UP LOCATION</div>
+                    <div class="form-group-title"><i class="fas fa-map-marker-alt" style="color:var(--primary)"></i> PICK-UP LOCATION</div>
                     <div class="input-card">
                         <select id="pickup-township" required>
                             <option value="">မြို့နယ်ရွေးပါ</option>
-                            </select>
+                        </select>
+                        <div class="card-divider"></div>
                         <input type="text" id="pickup-address" placeholder="အိမ်အမှတ် / လမ်းအမည်" autocomplete="off" required>
                     </div>
 
-                    <div class="form-group-title"><i class="fas fa-paper-plane"></i> DROP-OFF LOCATION</div>
+                    <div class="form-group-title"><i class="fas fa-paper-plane" style="color:var(--success)"></i> DROP-OFF LOCATION</div>
                     <div class="input-card">
                         <select id="dropoff-township" required>
                             <option value="">မြို့နယ်ရွေးပါ</option>
                         </select>
+                        <div class="card-divider"></div>
                         <input type="text" id="dropoff-address" placeholder="အိမ်အမှတ် / လမ်းအမည်" autocomplete="off" required>
                     </div>
 
-                    <div class="form-group-title"><i class="fas fa-box"></i> ITEM DETAILS</div>
+                    <div class="form-group-title"><i class="fas fa-box-open" style="color:var(--accent)"></i> ITEM DETAILS</div>
                     <div class="input-card">
                         <input type="text" id="item-detail" placeholder="ဘာပစ္စည်းပို့မှာလဲ? (ဥပမာ- ထမင်းဘူး)" required>
-                        <div style="display: flex; gap: 10px; margin-top: 10px; border-top: 1px solid #f5f5f5; padding-top: 10px;">
-                            <input type="number" id="item-weight" placeholder="Weight (kg)">
-                            <input type="number" id="item-value" placeholder="Value (KS)">
+                        <div class="card-divider"></div>
+                        <div style="display: flex; align-items: center;">
+                            <input type="number" id="item-weight" placeholder="Weight (kg)" style="flex:1">
+                            <div style="width:1px; height:25px; background:#eee"></div>
+                            <input type="number" id="item-value" placeholder="Value (KS)" style="flex:1">
                         </div>
                     </div>
 
-                    <div class="form-group-title"><i class="fas fa-phone"></i> CONTACT & PAYMENT</div>
+                    <div class="form-group-title"><i class="fas fa-wallet" style="color:var(--primary-light)"></i> CONTACT & PAYMENT</div>
                     <div class="input-card">
                         <input type="tel" id="receiver-phone" placeholder="လက်ခံသူ ဖုန်းနံပါတ်" required>
-                        <select id="payment-method" style="margin-top: 10px; border-top: 1px solid #f5f5f5;">
-                            <option value="COD">Cash on Delivery</option>
+                        <div class="card-divider"></div>
+                        <select id="payment-method">
+                            <option value="COD">Cash on Delivery (COD)</option>
                             <option value="PickupCash">Cash at Pickup</option>
                         </select>
                     </div>
 
-                    <button id="placeOrderBtn" type="button" class="btn-confirm">CONFIRM ORDER</button>
+                    <button id="placeOrderBtn" type="button" class="btn-confirm">PLACE ORDER NOW</button>
+                    <div style="height:20px;"></div>
                 </form>
             </div>
         </div>
     </div>
 
     <div id="list-section" class="page-section">
-        <div style="background:var(--primary); color:white; padding:15px; text-align:center; font-weight:bold;">MY SHIPMENTS</div>
+        <div style="background:var(--primary); color:white; padding:15px; text-align:center; font-weight:bold; letter-spacing:1px;">MY SHIPMENTS</div>
         <div class="history-tabs">
             <div class="tab-item active" onclick="switchTab('active', this)">ACTIVE</div>
             <div class="tab-item" onclick="switchTab('history', this)">COMPLETED</div>
@@ -255,17 +280,17 @@
                 <button onclick="submitRating()" class="btn-confirm" style="padding:10px;">SUBMIT RATING</button>
             </div>
 
-            <button onclick="closeModal()" style="width:100%; padding:15px; margin-top:15px; border-radius:12px; background:#eee; border:none; font-weight:bold;">CLOSE</button>
+            <button onclick="closeModal()" style="width:100%; padding:15px; margin-top:15px; border-radius:12px; background:#eee; border:none; font-weight:bold; color:var(--primary)">CLOSE</button>
         </div>
     </div>
 
     <nav class="bottom-nav">
         <div class="nav-item active" onclick="showSection('order', this)">
-            <i class="fas fa-map-marked-alt"></i>
+            <i class="fas fa-motorcycle"></i>
             <span>BOOKING</span>
         </div>
         <div class="nav-item" onclick="showSection('list', this)">
-            <i class="fas fa-list-ul"></i>
+            <i class="fas fa-history"></i>
             <span>MY ORDERS</span>
         </div>
     </nav>
@@ -310,7 +335,7 @@
 
         function submitRating() {
             if(currentRating === 0) return Swal.fire('Error', 'Please select stars', 'error');
-            Swal.fire('Thank You!', 'Your 5-star rating helps us improve!', 'success');
+            Swal.fire('Thank You!', 'Your ' + currentRating + '-star rating helps us improve!', 'success');
             closeModal();
         }
 
