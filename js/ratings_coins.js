@@ -1,142 +1,177 @@
 import { db, auth } from './firebase-config.js';
 import { 
-    doc, 
-    updateDoc, 
-    onSnapshot, 
-    runTransaction, 
-    serverTimestamp,
-    query,
-    collection,
-    where
+    doc, onSnapshot, updateDoc, getDoc, serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-/**
- * ၁။ Rider Profile ကို Real-time စောင့်ကြည့်ခြင်း
- */
-export function initRiderSync() {
-    const user = auth.currentUser;
-    if (!user) return;
+const params = new URLSearchParams(window.location.search);
+const orderId = params.get('id');
 
-    const riderRef = doc(db, "riders", user.uid);
-    onSnapshot(riderRef, (snap) => {
-        if (snap.exists()) {
-            const data = snap.data();
-            const coinDisplay = document.getElementById('rider-coins');
-            if (coinDisplay) coinDisplay.innerText = data.coins || 0;
+// Global variables for Map
+const map = L.map('map', { zoomControl: false }).setView([16.8661, 96.1951], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+let routingControl = null;
 
-            const toggle = document.getElementById('online-toggle');
-            const label = document.getElementById('status-label');
-            if (toggle) {
-                toggle.checked = data.isOnline || false;
-                if (label) {
-                    label.innerText = data.isOnline ? "Online" : "Offline";
-                    data.isOnline ? label.classList.add('online') : label.classList.remove('online');
-                }
-            }
-        }
-    });
-
-    // အော်ဒါ Complete ဖြစ်မဖြစ် စောင့်ကြည့်သည့် Function ကို စတင်ပတ်ထားမည်
-    listenForCoinDeduction(user.uid);
+// --- ၁။ Screen Back Button Logic ---
+const backBtn = document.getElementById('back-to-list-btn');
+if (backBtn) {
+    backBtn.onclick = () => {
+        window.location.replace("delivery.html");
+    };
 }
 
-/**
- * ၂။ Online/Offline Toggle Function
- */
-window.toggleOnlineStatus = async (checkbox) => {
-    const user = auth.currentUser;
-    if (!user) return;
+// --- ၂။ Main Listener ---
+if (orderId) {
+    onSnapshot(doc(db, "orders", orderId), (docSnap) => {
+        const loadingDiv = document.getElementById('loading');
+        if (loadingDiv) loadingDiv.style.display = 'none';
 
-    const riderRef = doc(db, "riders", user.uid);
-    try {
-        await updateDoc(riderRef, {
-            isOnline: checkbox.checked,
-            lastSeen: serverTimestamp()
-        });
-    } catch (error) {
-        console.error("Status Update Error:", error);
-        checkbox.checked = !checkbox.checked;
-    }
-};
+        if (!docSnap.exists()) {
+            console.error("Order not found");
+            return;
+        }
 
-/**
- * ၃။ အော်ဒါလက်ခံသည့် Logic (ဒီနေရာမှာ Coin မနှုတ်တော့ပါ)
- * Rider မှာ Coin အနည်းဆုံး ၅၀ ရှိမရှိကိုတော့ Safety အနေနဲ့ စစ်ထားပေးပါတယ်
- */
-window.secureAcceptOrder = async (orderId) => {
-    const user = auth.currentUser;
-    if (!user) return;
+        const data = docSnap.data();
 
-    const orderRef = doc(db, "orders", orderId);
-    const riderRef = doc(db, "riders", user.uid);
+        // --- UI Updates ---
+        document.getElementById('status-badge').innerText = (data.status || "PENDING").toUpperCase();
+        document.getElementById('det-item').innerText = data.item || "ပစ္စည်းအမည်မရှိ";
+        
+        const pickupAddr = data.pickup?.township ? `(${data.pickup.township}) ${data.pickup.address}` : (data.pickup?.address || "လိပ်စာမရှိ");
+        const dropoffAddr = data.dropoff?.township ? `(${data.dropoff.township}) ${data.dropoff.address}` : (data.dropoff?.address || "လိပ်စာမရှိ");
 
-    try {
-        await runTransaction(db, async (transaction) => {
-            const orderSnap = await transaction.get(orderRef);
-            const riderSnap = await transaction.get(riderRef);
+        document.getElementById('det-pickup').innerText = pickupAddr;
+        document.getElementById('det-dropoff').innerText = dropoffAddr;
 
-            if (!orderSnap.exists()) throw "အော်ဒါရှာမတွေ့ပါ။";
-            if (orderSnap.data().status !== "pending") throw "ဤအော်ဒါကို တခြားသူယူသွားပါပြီ။";
+        document.getElementById('det-value').innerText = (data.itemValue || 0).toLocaleString() + " KS";
+        document.getElementById('det-weight').innerText = (data.weight || 0) + " KG";
+        document.getElementById('det-fee').innerText = (data.deliveryFee || 0).toLocaleString() + " KS";
 
-            const currentCoins = riderSnap.data().coins || 0;
+        const phone = data.phone || data.customerPhone || "ဖုန်းနံပါတ်မရှိ";
+        const phoneDisplay = document.getElementById('det-phone');
+        const callLink = document.getElementById('call-link');
+        
+        if (phoneDisplay) phoneDisplay.innerText = phone;
+        if (callLink && phone !== "ဖုန်းနံပါတ်မရှိ") {
+            callLink.href = `tel:${phone}`;
+        }
 
-            // လက်ခံနိုင်ရန် အနည်းဆုံး Coin ၅၀ ရှိရမည့် စည်းကမ်း (မနှုတ်ပါ)
-            if (currentCoins < 50) {
-                throw "Coin အနည်းဆုံး ၅၀ ရှိမှ လက်ခံနိုင်ပါမည်။ ကျေးဇူးပြု၍ ငွေဖြည့်ပါ။";
-            }
+        // Map Setup
+        if (data.pickup && data.dropoff) {
+            drawRoute(data.pickup, data.dropoff);
+            
+            const pickupLink = document.getElementById('map-pickup-link');
+            const dropoffLink = document.getElementById('map-dropoff-link');
+            // Google Maps Link template literals fixation
+            if(pickupLink) pickupLink.href = `https://www.google.com/maps/dir/?api=1&destination=${data.pickup.lat},${data.pickup.lng}`;
+            if(dropoffLink) dropoffLink.href = `https://www.google.com/maps/dir/?api=1&destination=${data.dropoff.lat},${data.dropoff.lng}`;
+        }
 
-            // အော်ဒါ Status ကို Accepted ပြောင်းရုံသာ လုပ်သည်
-            transaction.update(orderRef, {
-                status: "accepted",
-                riderId: user.uid,
-                riderName: riderSnap.data().name || "Rider",
-                acceptedAt: serverTimestamp(),
-                coinDeducted: false // နှုတ်ပြီး/မပြီး မှတ်ထားရန် field အသစ်
-            });
-        });
-
-        Swal.fire("အောင်မြင်ပါသည်", "အော်ဒါလက်ခံပြီးပါပြီ", "success");
-    } catch (error) {
-        Swal.fire("မအောင်မြင်ပါ", error, "error");
-    }
-};
-
-/**
- * ၄။ အော်ဒါပြီးဆုံးမှ Coin နှုတ်မည့် Logic (စောင့်ကြည့်စနစ်)
- */
-function listenForCoinDeduction(riderUid) {
-    // Rider ရဲ့ အော်ဒါတွေထဲက Status က Completed ဖြစ်ပြီး Coin မနှုတ်ရသေးတာတွေကို စစ်မယ်
-    const q = query(
-        collection(db, "orders"), 
-        where("riderId", "==", riderUid), 
-        where("status", "==", "completed"),
-        where("coinDeducted", "==", false)
-    );
-
-    onSnapshot(q, (snap) => {
-        snap.forEach(async (orderDoc) => {
-            const orderData = orderDoc.data();
-            const orderRef = doc(db, "orders", orderDoc.id);
-            const riderRef = doc(db, "riders", riderUid);
-
-            try {
-                await runTransaction(db, async (transaction) => {
-                    const riderSnap = await transaction.get(riderRef);
-                    const currentCoins = riderSnap.data().coins || 0;
-                    const deliveryFee = orderData.deliveryFee || 0;
-
-                    // ၁၀% တွက်ချက်ခြင်း
-                    let deduction = Math.floor((deliveryFee * 0.1) / 100);
-                    if (deduction < 1) deduction = 1;
-
-                    // Coin နှုတ်ခြင်းနှင့် မှတ်တမ်းတင်ခြင်း
-                    transaction.update(riderRef, { coins: currentCoins - deduction });
-                    transaction.update(orderRef, { coinDeducted: true });
-                });
-                console.log("Coin deducted for completed order:", orderDoc.id);
-            } catch (e) {
-                console.error("Coin deduction error:", e);
-            }
-        });
+        updateActionButtons(data.status);
     });
+} else {
+    window.location.replace("delivery.html");
+}
+
+// --- ၃။ Draw Route Function ---
+function drawRoute(p, d) {
+    if (routingControl) map.removeControl(routingControl);
+    routingControl = L.Routing.control({
+        waypoints: [L.latLng(p.lat, p.lng), L.latLng(d.lat, d.lng)],
+        show: false,
+        addWaypoints: false,      
+        draggableWaypoints: false,
+        lineOptions: { 
+            styles: [{ color: '#ff4757', weight: 6, opacity: 0.8 }] 
+        },
+        createMarker: function(i, wp) {
+            const color = i === 0 ? 'green' : 'red';
+            return L.marker(wp.latLng, {
+                icon: L.icon({
+                    iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-${color}.png`,
+                    iconSize: [25, 41], iconAnchor: [12, 41]
+                })
+            });
+        }
+    }).addTo(map);
+}
+
+// --- ၄။ Action Buttons Logic ---
+function updateActionButtons(status) {
+    const mainBtn = document.getElementById('main-action-btn');
+    if (!mainBtn) return;
+
+    let btnText = "";
+    let nextStatus = "";
+
+    switch(status) {
+        case "pending":
+            btnText = "အော်ဒါလက်ခံမည်";
+            nextStatus = "accepted";
+            break;
+        case "accepted":
+            btnText = "ပစ္စည်းသွားယူမည်";
+            nextStatus = "on_the_way";
+            break;
+        case "on_the_way":
+            btnText = "ပစ္စည်းရရှိပြီ (Picked Up)";
+            nextStatus = "arrived";
+            break;
+        case "arrived":
+            btnText = "ပို့ဆောင်ပြီး (Completed)";
+            nextStatus = "completed";
+            break;
+        default:
+            mainBtn.parentElement.style.display = "none";
+            return;
+    }
+
+    const btnSpan = mainBtn.querySelector('span');
+    if (btnSpan) btnSpan.innerText = btnText;
+    
+    mainBtn.onclick = () => changeStatus(nextStatus);
+}
+
+// --- ၅။ Change Status Function ---
+async function changeStatus(newStatus) {
+    try {
+        const orderRef = doc(db, "orders", orderId);
+        let updateData = { 
+            status: newStatus,
+            lastUpdated: serverTimestamp() 
+        };
+
+        if (newStatus === "accepted") {
+            const riderId = auth.currentUser?.uid;
+            if (riderId) {
+                const riderSnap = await getDoc(doc(db, "riders", riderId));
+                updateData.riderId = riderId;
+                updateData.riderName = riderSnap.exists() ? riderSnap.data().name : "Rider";
+                updateData.coinDeducted = false; // Accept လုပ်ချိန်တွင် coinDeducted field ကို စတင်ထည့်သွင်းသည်
+            }
+        }
+
+        // --- အဓိကပြင်ဆင်ချက်- အော်ဒါပြီးဆုံးချိန်တွင် coinDeducted ကို false ဖြစ်ကြောင်း confirm လုပ်သည် ---
+        if (newStatus === "completed") {
+            updateData.completedAt = serverTimestamp();
+            updateData.coinDeducted = false; // ဒီ field က listenForCoinDeduction ကို trigger ပေးမှာဖြစ်ပါတယ်
+        }
+
+        await updateDoc(orderRef, updateData);
+        
+        Swal.fire({
+            icon: 'success', 
+            title: 'Update အောင်မြင်ပါသည်',
+            timer: 1000, 
+            showConfirmButton: false,
+            background: '#1e1e1e', color: '#fff'
+        });
+
+        if (newStatus === "completed") {
+            // Coin နှုတ်သည့် Listener အလုပ်လုပ်ချိန်ရစေရန် ခဏစောင့်ပြီးမှ ပြန်ထွက်မည်
+            setTimeout(() => window.location.replace("delivery.html"), 1500);
+        }
+    } catch (err) {
+        console.error(err);
+        Swal.fire({ icon: 'error', title: 'အမှားအယွင်းရှိနေပါသည်', background: '#1e1e1e', color: '#fff' });
+    }
 }
