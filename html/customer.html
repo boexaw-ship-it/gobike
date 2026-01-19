@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GoBike - Customer Panel</title>
+    <title>GoBike - Premium Delivery</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -11,25 +11,25 @@
 
     <style>
         :root {
-            --primary: #4e342e;
-            --accent: #d7ccc8;
+            --primary: #3e2723; /* Rich Dark Brown */
+            --primary-light: #5d4037;
+            --accent: #d4a373; /* Gold/Tan Accent */
             --dark: #1a1a1a;
-            --bg: #f5f5f5;
+            --bg: #fdfaf9;
             --card: #ffffff;
-            --danger: #d32f2f;
-            --success: #388e3c;
+            --danger: #b71c1c;
+            --success: #2e7d32;
             --text-main: #2d2d2d;
-            --text-muted: #757575;
+            --text-muted: #8d6e63;
         }
 
-        /* Keyboard Suggestion လုံးဝမတက်အောင် ဤအပိုင်းက အဓိကပါ */
         * {
             -webkit-tap-highlight-color: transparent;
-            -webkit-user-select: none; /* iOS */
-            user-select: none;         /* Android/Standard */
+            -webkit-user-select: none;
+            user-select: none;
+            box-sizing: border-box;
         }
 
-        /* input တွေထဲမှာတော့ စာရိုက်လို့ရအောင် ပြန်ဖွင့်ပေးရပါမည် */
         input, textarea, select {
             -webkit-user-select: text !important;
             user-select: text !important;
@@ -38,272 +38,249 @@
         body { 
             background: var(--bg); 
             margin: 0; 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
             color: var(--text-main);
             overflow: hidden;
         }
 
         /* Profile Bar */
         .profile-bar {
-            background: white; padding: 10px 15px;
+            background: var(--primary);
+            padding: 12px 20px;
             display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 1px solid #e0e0e0; position: sticky; top: 0; z-index: 1100;
+            z-index: 1100; color: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
         }
-        .user-meta b { font-size: 0.95rem; color: var(--primary); display: block; }
-        .user-meta span { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .user-meta b { font-size: 1rem; color: var(--accent); display: block; }
+        .user-meta span { font-size: 0.65rem; color: #d7ccc8; text-transform: uppercase; }
         
         .logout-btn {
-            background: transparent; color: var(--danger); border: 1px solid var(--danger);
-            padding: 5px 12px; border-radius: 6px; font-size: 0.7rem; font-weight: bold; cursor: pointer;
-        }
-
-        .header { 
-            background: var(--primary); padding: 14px; text-align: center; 
-            font-weight: 700; font-size: 0.9rem; color: white;
-            display: flex; align-items: center; justify-content: center;
-            position: relative;
+            background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.3);
+            padding: 6px 15px; border-radius: 20px; font-size: 0.75rem; cursor: pointer;
         }
 
         .page-section { display: none; height: 100vh; }
         .page-section.active { display: block; }
 
-        /* Map Section */
+        /* Map UI */
         #map-container { position: relative; height: calc(100vh - 120px); width: 100%; }
         #map { height: 100%; width: 100%; z-index: 1; }
         
         #pin-address-display {
-            position: absolute; top: 10px; left: 10px; right: 10px;
-            background: rgba(255, 255, 255, 0.95); padding: 10px; font-size: 0.75rem; 
-            border-radius: 10px; color: var(--primary); 
+            position: absolute; top: 15px; left: 15px; right: 15px;
+            background: white; padding: 12px; font-size: 0.8rem; 
+            border-radius: 12px; color: var(--primary); 
             text-align: center; font-weight: 600; z-index: 1000;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            border-left: 4px solid var(--primary);
-            pointer-events: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            border: 1px solid var(--accent);
         }
 
         .locate-btn {
-            position: absolute; bottom: 170px; right: 15px; z-index: 1000;
-            background: white; width: 48px; height: 48px; border-radius: 50%;
+            position: absolute; bottom: 180px; right: 20px; z-index: 1000;
+            background: white; width: 50px; height: 50px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2); border: 2px solid var(--primary);
-            cursor: pointer; font-size: 1.3rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); color: var(--primary);
+            cursor: pointer; font-size: 1.4rem;
         }
 
-        /* Bottom Sheet */
+        /* Bottom Sheet - Improved Order Form */
         .bottom-sheet {
             position: fixed; bottom: 65px; left: 0; width: 100%;
-            background: white; border-top-left-radius: 25px; border-top-right-radius: 25px;
-            box-shadow: 0 -10px 30px rgba(0,0,0,0.15); z-index: 1050;
+            background: white; border-top-left-radius: 30px; border-top-right-radius: 30px;
+            box-shadow: 0 -10px 40px rgba(0,0,0,0.2); z-index: 1050;
             transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.1);
-            transform: translateY(calc(100% - 100px));
+            transform: translateY(calc(100% - 110px));
         }
         .bottom-sheet.expanded { transform: translateY(0); }
 
         .sheet-handle {
-            width: 100%; padding: 15px 0 5px; cursor: pointer;
+            width: 100%; padding: 12px 0; cursor: pointer;
             display: flex; flex-direction: column; align-items: center;
         }
-        .handle-bar { width: 40px; height: 4px; background: #e0e0e0; border-radius: 2px; }
-        .handle-text { font-size: 0.75rem; color: var(--text-muted); margin-top: 5px; font-weight: 600; }
+        .handle-bar { width: 50px; height: 5px; background: #e0e0e0; border-radius: 10px; }
+        .handle-text { font-size: 0.8rem; color: var(--primary); margin-top: 8px; font-weight: 700; }
 
-        .order-scroll-area { max-height: 70vh; overflow-y: auto; padding: 0 20px 30px; }
+        .order-scroll-area { max-height: 75vh; overflow-y: auto; padding: 10px 20px 40px; }
 
-        .loc-box { background: #fdfdfd; padding: 15px; border-radius: 15px; border: 1px solid #eee; margin-bottom: 15px; }
-        .loc-box b { display: block; font-size: 0.7rem; color: var(--primary); margin-bottom: 8px; opacity: 0.8; }
-        
-        select, input {
-            width: 100%; padding: 14px; border: 1px solid #eee;
-            border-radius: 12px; font-size: 0.95rem; outline: none;
-            box-sizing: border-box; background: #f9f9f9; color: var(--text-main);
+        /* Form Styling */
+        .form-group-title { 
+            font-size: 0.75rem; font-weight: 800; color: var(--primary); 
+            margin: 15px 0 8px 5px; display: flex; align-items: center; gap: 5px;
         }
-        input:focus { border-color: var(--primary); background: #fff; }
+
+        .input-card {
+            background: #fff; border: 1.5px solid #eee; border-radius: 16px;
+            padding: 12px; margin-bottom: 15px; transition: 0.3s;
+        }
+        .input-card:focus-within { border-color: var(--accent); background: #fffaf5; }
+
+        select, input {
+            width: 100%; padding: 12px; border: none; background: transparent;
+            font-size: 1rem; outline: none; color: var(--text-main);
+        }
 
         .btn-confirm {
-            background: var(--primary); color: white; width: 100%;
-            padding: 18px; border: none; border-radius: 15px;
-            font-weight: 700; font-size: 1rem; cursor: pointer;
-            box-shadow: 0 4px 12px rgba(78, 52, 46, 0.3); margin-top: 10px;
+            background: var(--primary); color: var(--accent); width: 100%;
+            padding: 18px; border: none; border-radius: 18px;
+            font-weight: 800; font-size: 1.1rem; cursor: pointer;
+            box-shadow: 0 6px 20px rgba(62, 39, 35, 0.3);
+            margin-top: 15px; text-transform: uppercase; letter-spacing: 1px;
         }
 
-        /* History Tabs */
-        .history-tabs { display: flex; background: white; border-bottom: 1px solid #eee; }
-        .tab-item { flex: 1; text-align: center; padding: 15px; font-size: 0.85rem; color: #888; font-weight: 600; cursor: pointer; }
-        .tab-item.active { color: var(--primary); border-bottom: 3px solid var(--primary); }
+        /* History & Tabs */
+        .history-tabs { display: flex; background: white; padding: 5px; margin: 15px; border-radius: 12px; background: #efebe9; }
+        .tab-item { flex: 1; text-align: center; padding: 10px; font-size: 0.8rem; font-weight: 700; border-radius: 10px; color: #8d6e63; transition: 0.3s; }
+        .tab-item.active { background: var(--primary); color: var(--accent); }
 
         .order-card {
-            background: white; padding: 16px; border-radius: 16px; 
-            margin-bottom: 12px; border: 1px solid #efefef;
-            display: flex; justify-content: space-between; align-items: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+            background: white; padding: 18px; border-radius: 20px; 
+            margin: 0 15px 15px; border: 1px solid #efebe9;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
         }
+
+        /* Rating Stars */
+        .star-rating {
+            display: flex; gap: 8px; justify-content: center; margin: 15px 0;
+        }
+        .star-rating i {
+            font-size: 1.8rem; color: #e0e0e0; cursor: pointer; transition: 0.2s;
+        }
+        .star-rating i.active { color: #ffc107; transform: scale(1.1); }
+
+        .bottom-nav {
+            position: fixed; bottom: 0; left: 0; width: 100%;
+            background: white; display: flex; height: 70px;
+            border-top: 1px solid #eee; z-index: 2000; padding-bottom: 5px;
+        }
+        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #bcaaa4; font-size: 0.7rem; font-weight: 600; }
+        .nav-item i { font-size: 1.3rem; margin-bottom: 4px; }
+        .nav-item.active { color: var(--primary); }
 
         /* Modal */
         .detail-modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85); z-index: 3000; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.8); z-index: 3000; align-items: center; justify-content: center;
         }
-        .modal-card { background: #1e1e1e; width: 88%; border-radius: 25px; padding: 25px; color: white; }
-
-        .bottom-nav {
-            position: fixed; bottom: 0; left: 0; width: 100%;
-            background: white; display: flex; height: 65px;
-            border-top: 1px solid #eee; z-index: 2000;
-        }
-        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #bdbdbd; font-size: 0.7rem; cursor: pointer; }
-        .nav-item.active { color: var(--primary); font-weight: bold; }
+        .modal-card { background: white; width: 90%; border-radius: 25px; padding: 25px; max-height: 80vh; overflow-y: auto; }
     </style>
 </head>
 <body>
 
     <div class="profile-bar">
         <div class="user-meta">
-            <span>Customer Panel</span>
+            <span>Customer Dashboard</span>
             <b id="display-name">Loading...</b>
         </div>
-        <button class="logout-btn" id="logoutBtn">Logout</button>
+        <button class="logout-btn" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</button>
     </div>
 
     <div id="order-section" class="page-section active">
         <div id="map-container">
             <div id="map"></div>
-            <div id="pin-address-display">📍 မြို့နယ်ရွေးပြီး မြေပုံပေါ်တွင် တည်နေရာညှိပါ</div>
-            <div class="locate-btn" onclick="goToMyLocation()">🎯</div>
+            <div id="pin-address-display">📍 တည်နေရာရွေးချယ်ပါ</div>
+            <div class="locate-btn" onclick="goToMyLocation()"><i class="fas fa-crosshairs"></i></div>
         </div>
 
         <div class="bottom-sheet" id="bottomSheet">
             <div class="sheet-handle" onclick="toggleSheet()">
                 <div class="handle-bar"></div>
-                <div class="handle-text">ဆွဲတင်၍ အချက်အလက်ဖြည့်ပါ</div>
+                <div class="handle-text">CREATE NEW ORDER</div>
             </div>
             
             <div class="order-scroll-area">
-                <form id="orderForm" onsubmit="return false;">
-                    <div class="loc-box" style="border-left: 4px solid var(--primary);">
-                        <b>PICK-UP (ပစ္စည်းယူရန်)</b>
+                <form id="orderForm">
+                    <div class="form-group-title"><i class="fas fa-map-marker-alt"></i> PICK-UP LOCATION</div>
+                    <div class="input-card">
                         <select id="pickup-township" required>
                             <option value="">မြို့နယ်ရွေးပါ</option>
-                            <optgroup label="Western (Downtown)">
-                                <option value="Ahlone" data-lat="16.7875" data-lng="96.1261">အလုံ</option>
-                                <option value="Bahan" data-lat="16.8115" data-lng="96.1518">ဗဟန်း</option>
-                                <option value="Dagon" data-lat="16.7971" data-lng="96.1475">ဒဂုံ</option>
-                                <option value="Kyauktada" data-lat="16.7725" data-lng="96.1611">ကျောက်တံတား</option>
-                                <option value="Kyimyindaing" data-lat="16.7936" data-lng="96.1150">ကြည့်မြင်တိုင်</option>
-                                <option value="Lanmadaw" data-lat="16.7794" data-lng="96.1439">လမ်းမတော်</option>
-                                <option value="Latha" data-lat="16.7778" data-lng="96.1511">လသာ</option>
-                                <option value="Pabedan" data-lat="16.7772" data-lng="96.1567">ပန်းဘဲတန်း</option>
-                                <option value="Sanchaung" data-lat="16.8028" data-lng="96.1311">စမ်းချောင်း</option>
-                            </optgroup>
-                            <optgroup label="Northern Region">
-                                <option value="Insein" data-lat="16.8906" data-lng="96.1017">အင်းစိန်</option>
-                                <option value="Hlaing" data-lat="16.8409" data-lng="96.1264">လှိုင်</option>
-                                <option value="Kamayut" data-lat="16.8286" data-lng="96.1284">ကမာရွတ်</option>
-                                <option value="Mayangone" data-lat="16.8697" data-lng="96.1436">မရမ်းကုန်း</option>
-                                <option value="Mingaladon" data-lat="16.9038" data-lng="96.1557">မင်္ဂလာဒုံ</option>
-                                <option value="North_Okkalapa" data-lat="16.9142" data-lng="96.1717">မြောက်ဥက္ကလာပ</option>
-                                <option value="Shwepyithar" data-lat="16.9747" data-lng="96.0964">ရွှေပြည်သာ</option>
-                                <option value="Hlaingthaya" data-lat="16.8775" data-lng="96.0617">လှိုင်သာယာ</option>
-                            </optgroup>
-                            <optgroup label="Eastern Region">
-                                <option value="Botahtaung" data-lat="16.7818" data-lng="96.1706">ဗိုလ်တထောင်</option>
-                                <option value="Dagon_North" data-lat="16.9042" data-lng="96.1917">ဒဂုံ(မြောက်ပိုင်း)</option>
-                                <option value="Dagon_South" data-lat="16.8572" data-lng="96.2161">ဒဂုံ(တောင်ပိုင်း)</option>
-                                <option value="Dagon_East" data-lat="16.8942" data-lng="96.2361">ဒဂုံ(အရှေ့ပိုင်း)</option>
-                                <option value="Dagon_Seikkan" data-lat="16.8442" data-lng="96.2661">ဒဂုံဆိပ်ကမ်း</option>
-                                <option value="South_Okkalapa" data-lat="16.8525" data-lng="96.1831">တောင်ဥက္ကလာပ</option>
-                                <option value="Tamwe" data-lat="16.8111" data-lng="96.1750">တာမွေ</option>
-                                <option value="Thaketa" data-lat="16.7931" data-lng="96.2100">သာကေတ</option>
-                                <option value="Thingangyun" data-lat="16.8322" data-lng="96.1950">သင်္ဃန်းကျွန်း</option>
-                                <option value="Yankin" data-lat="16.8353" data-lng="96.1583">ရန်ကင်း</option>
-                                <option value="Dawbon" data-lat="16.7844" data-lng="96.1897">ဒေါပုံ</option>
-                                <option value="Mingala_Taungnyunt" data-lat="16.7928" data-lng="96.1714">မင်္ဂလာတောင်ညွန့်</option>
-                                <option value="Pazundaung" data-lat="16.7892" data-lng="96.1772">ပုဇွန်တောင်</option>
-                            </optgroup>
-                            <optgroup label="Southern Region">
-                                <option value="Dala" data-lat="16.7589" data-lng="96.1586">ဒလ</option>
-                                <option value="Seikkyi_Kanaungto" data-lat="16.7506" data-lng="96.1261">ဆိပ်ကြီးခနောင်တို</option>
-                                <option value="Thanlyin" data-lat="16.7628" data-lng="96.2514">သန်လျင်</option>
-                                <option value="Twante" data-lat="16.7117" data-lng="95.9317">တွံတေး</option>
-                            </optgroup>
-                        </select>
-                        <input type="text" id="pickup-address" placeholder="လမ်းအမည်/အိမ်အမှတ် (Manual)" style="margin-top:10px;" autocomplete="off" spellcheck="false" required>
+                            </select>
+                        <input type="text" id="pickup-address" placeholder="အိမ်အမှတ် / လမ်းအမည်" autocomplete="off" required>
                     </div>
 
-                    <div class="loc-box" style="border-left: 4px solid var(--danger);">
-                        <b>DROP-OFF (ပို့ဆောင်ရန်)</b>
+                    <div class="form-group-title"><i class="fas fa-paper-plane"></i> DROP-OFF LOCATION</div>
+                    <div class="input-card">
                         <select id="dropoff-township" required>
                             <option value="">မြို့နယ်ရွေးပါ</option>
                         </select>
-                        <input type="text" id="dropoff-address" placeholder="လမ်းအမည်/အိမ်အမှတ် (Manual)" style="margin-top:10px;" autocomplete="off" spellcheck="false" required>
+                        <input type="text" id="dropoff-address" placeholder="အိမ်အမှတ် / လမ်းအမည်" autocomplete="off" required>
                     </div>
 
-                    <input type="text" id="item-detail" placeholder="ဘာပစ္စည်းပို့မှာလဲ? (ဥပမာ- ထမင်းဘူး)" autocomplete="off" spellcheck="false" style="margin-bottom:15px;" required>
-
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 15px;">
-                        <input type="number" id="item-weight" placeholder="အလေးချိန် (kg)" autocomplete="off">
-                        <input type="number" id="item-value" placeholder="တန်ဖိုး (KS)" autocomplete="off">
+                    <div class="form-group-title"><i class="fas fa-box"></i> ITEM DETAILS</div>
+                    <div class="input-card">
+                        <input type="text" id="item-detail" placeholder="ဘာပစ္စည်းပို့မှာလဲ? (ဥပမာ- ထမင်းဘူး)" required>
+                        <div style="display: flex; gap: 10px; margin-top: 10px; border-top: 1px solid #f5f5f5; padding-top: 10px;">
+                            <input type="number" id="item-weight" placeholder="Weight (kg)">
+                            <input type="number" id="item-value" placeholder="Value (KS)">
+                        </div>
                     </div>
 
-                    <input type="tel" id="receiver-phone" placeholder="လက်ခံသူဖုန်းနံပါတ်" autocomplete="off" style="margin-bottom:15px;" required>
+                    <div class="form-group-title"><i class="fas fa-phone"></i> CONTACT & PAYMENT</div>
+                    <div class="input-card">
+                        <input type="tel" id="receiver-phone" placeholder="လက်ခံသူ ဖုန်းနံပါတ်" required>
+                        <select id="payment-method" style="margin-top: 10px; border-top: 1px solid #f5f5f5;">
+                            <option value="COD">Cash on Delivery</option>
+                            <option value="PickupCash">Cash at Pickup</option>
+                        </select>
+                    </div>
 
-                    <select id="payment-method" style="margin-bottom:15px;">
-                        <option value="COD">Cash on Delivery (ပစ္စည်းရောက်မှရှင်းမည်)</option>
-                        <option value="PickupCash">Cash at Pickup (ပစ္စည်းယူစဉ်ရှင်းမည်)</option>
-                    </select>
-
-                    <button id="placeOrderBtn" type="button" class="btn-confirm">ORDER NOW</button>
+                    <button id="placeOrderBtn" type="button" class="btn-confirm">CONFIRM ORDER</button>
                 </form>
             </div>
         </div>
     </div>
 
     <div id="list-section" class="page-section">
-        <div class="header">MY ORDERS</div>
+        <div style="background:var(--primary); color:white; padding:15px; text-align:center; font-weight:bold;">MY SHIPMENTS</div>
         <div class="history-tabs">
-            <div class="tab-item active" onclick="switchTab('active')">ACTIVE</div>
-            <div class="tab-item" onclick="switchTab('history')">HISTORY</div>
+            <div class="tab-item active" onclick="switchTab('active', this)">ACTIVE</div>
+            <div class="tab-item" onclick="switchTab('history', this)">COMPLETED</div>
         </div>
-        <div id="active-orders" style="padding:15px;" class="tab-content active"></div>
-        <div id="history-orders" style="padding:15px;" class="tab-content"></div>
+        <div id="active-orders" class="tab-content active"></div>
+        <div id="history-orders" class="tab-content" style="display:none;"></div>
     </div>
 
     <div id="detailModal" class="detail-modal">
         <div class="modal-card">
-            <h2 style="text-align:center; color:var(--accent);">Order Details</h2>
             <div id="modal-content"></div>
-            <button onclick="closeModal()" class="btn-modal-close" style="width:100%; padding:15px; margin-top:20px; border-radius:10px; background:var(--primary); color:white; border:none;">ပိတ်မည်</button>
+            
+            <div id="rating-section" style="display:none; border-top: 1px dashed #ccc; margin-top: 20px; padding-top: 20px;">
+                <h4 style="text-align:center; color:var(--primary);">Rate your Delivery</h4>
+                <div class="star-rating" id="star-rating">
+                    <i class="fas fa-star" data-rating="1"></i>
+                    <i class="fas fa-star" data-rating="2"></i>
+                    <i class="fas fa-star" data-rating="3"></i>
+                    <i class="fas fa-star" data-rating="4"></i>
+                    <i class="fas fa-star" data-rating="5"></i>
+                </div>
+                <button onclick="submitRating()" class="btn-confirm" style="padding:10px;">SUBMIT RATING</button>
+            </div>
+
+            <button onclick="closeModal()" style="width:100%; padding:15px; margin-top:15px; border-radius:12px; background:#eee; border:none; font-weight:bold;">CLOSE</button>
         </div>
     </div>
 
     <nav class="bottom-nav">
-        <div class="nav-item active" onclick="showSection('order', this)">📍<br>New Order</div>
-        <div class="nav-item" onclick="showSection('list', this)">📦<br>My Orders</div>
+        <div class="nav-item active" onclick="showSection('order', this)">
+            <i class="fas fa-map-marked-alt"></i>
+            <span>BOOKING</span>
+        </div>
+        <div class="nav-item" onclick="showSection('list', this)">
+            <i class="fas fa-list-ul"></i>
+            <span>MY ORDERS</span>
+        </div>
     </nav>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script type="module" src="../js/customer.js"></script>
 
     <script>
+        // Toggle Bottom Sheet
         function toggleSheet() {
-            document.getElementById('bottomSheet').classList.toggle('expanded');
+            const sheet = document.getElementById('bottomSheet');
+            sheet.classList.toggle('expanded');
         }
 
-        function switchTab(type) {
-            document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
-            event.target.classList.add('active');
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            document.getElementById(type + '-orders').classList.add('active');
-        }
-
-        function closeModal() {
-            document.getElementById('detailModal').style.display = 'none';
-        }
-
-        window.addEventListener('load', () => {
-            const pSelect = document.getElementById('pickup-township');
-            const dSelect = document.getElementById('dropoff-township');
-            if(pSelect && dSelect) dSelect.innerHTML = pSelect.innerHTML;
-        });
-
+        // Section Switcher
         function showSection(sectionId, el) {
             document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
             document.getElementById(sectionId + '-section').classList.add('active');
@@ -312,7 +289,36 @@
             if(sectionId === 'list') document.getElementById('bottomSheet').classList.remove('expanded');
         }
 
-        // Keyboard တက်လာလျှင် UI မပျက်စေရန် Handle လုပ်ခြင်း
+        // Tab Switcher
+        function switchTab(type, el) {
+            document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+            el.classList.add('active');
+            document.getElementById('active-orders').style.display = type === 'active' ? 'block' : 'none';
+            document.getElementById('history-orders').style.display = type === 'history' ? 'block' : 'none';
+        }
+
+        // Rating Logic
+        let currentRating = 0;
+        document.querySelectorAll('.star-rating i').forEach(star => {
+            star.addEventListener('click', function() {
+                currentRating = this.getAttribute('data-rating');
+                document.querySelectorAll('.star-rating i').forEach(s => {
+                    s.classList.toggle('active', s.getAttribute('data-rating') <= currentRating);
+                });
+            });
+        });
+
+        function submitRating() {
+            if(currentRating === 0) return Swal.fire('Error', 'Please select stars', 'error');
+            Swal.fire('Thank You!', 'Your 5-star rating helps us improve!', 'success');
+            closeModal();
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').style.display = 'none';
+        }
+
+        // Keyboard Adjustment
         window.addEventListener('resize', () => {
             if (document.activeElement.tagName === 'INPUT') {
                 document.activeElement.scrollIntoView({ behavior: 'smooth' });
@@ -321,4 +327,3 @@
     </script>
 </body>
 </html>
-
